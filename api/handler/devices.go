@@ -30,7 +30,9 @@ func (h *Devices) Register(g *gin.RouterGroup) {
 }
 
 func (h *Devices) List(c *gin.Context) {
-	devs, err := h.Store.List(c.Request.Context())
+	// Pakai ListAll supaya operator bisa lihat device inactive juga.
+	// Bootstrap service (devmgr.Start dst) tetap pakai List() yang filter active=true.
+	devs, err := h.Store.ListAll(c.Request.Context())
 	if err != nil {
 		WriteErr(c, err)
 		return
@@ -100,9 +102,19 @@ func (h *Devices) Update(c *gin.Context) {
 		WriteErr(c, err)
 		return
 	}
-	// Re-connect dengan config baru
-	h.DevMgr.Remove(existing.Slug)
-	_ = h.DevMgr.Add(context.Background(), existing)
+	// Re-connect dengan config baru. RemoveAndWait memastikan supervisor
+	// goroutine roslib lama benar-benar berhenti sebelum dial baru —
+	// kalau pakai Remove biasa, ada race di mana hook OnStatusChange
+	// lama masih emit "closed" setelah koneksi baru sudah connected.
+	h.DevMgr.RemoveAndWait(existing.Slug)
+	if err := h.DevMgr.Add(context.Background(), existing); err != nil {
+		// Reconnect gagal — record tetap tersimpan, kasih warning ke caller.
+		c.JSON(http.StatusOK, dto.OK(gin.H{
+			"device":  dto.FromModelDevice(existing),
+			"warning": "device updated but reconnect failed: " + err.Error(),
+		}))
+		return
+	}
 	WriteOK(c, dto.FromModelDevice(existing))
 }
 

@@ -16,18 +16,22 @@ type HTTPConfig struct {
 	ReadTimeout   time.Duration // default 10s
 	IdleTimeout   time.Duration // default 60s
 	ShutdownGrace time.Duration // grace period saat SIGINT/SIGTERM, default 10s
-	CORSOrigins   []string      // default ["*"]; production override via CORS_ALLOWED_ORIGINS
+	CORSOrigins   []string      // default nil = same-origin only; override eksplisit via CORS_ALLOWED_ORIGINS
 }
 
 // LoadHTTPFromEnv membaca env HTTP_* + CORS_ALLOWED_ORIGINS. Default-nya
 // aman untuk local-only deployment.
+//
+// CORSOrigins default = nil (same-origin only). Operator harus secara
+// eksplisit set CORS_ALLOWED_ORIGINS untuk allow cross-origin request
+// dari browser frontend. Ini intentional — security default.
 func LoadHTTPFromEnv() (*HTTPConfig, error) {
 	return &HTTPConfig{
 		Bind:          getenv("HTTP_BIND", "127.0.0.1:8080"),
 		ReadTimeout:   getenvDur("HTTP_READ_TIMEOUT", 10*time.Second),
 		IdleTimeout:   getenvDur("HTTP_IDLE_TIMEOUT", 60*time.Second),
 		ShutdownGrace: getenvDur("HTTP_SHUTDOWN_GRACE", 10*time.Second),
-		CORSOrigins:   getenvList("CORS_ALLOWED_ORIGINS", []string{"*"}),
+		CORSOrigins:   getenvList("CORS_ALLOWED_ORIGINS", nil),
 	}, nil
 }
 

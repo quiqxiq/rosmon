@@ -73,6 +73,65 @@ Prefix: **`/api/v1`**. Health probe: `GET /healthz`.
 | `/hotspot/bindings/:id/type` | PATCH `{type: "regular"\|"bypassed"\|"blocked"}` |
 | `/hotspot/bindings/:id/disabled` | PATCH `{value: bool}` |
 
+### Hotspot — Voucher
+
+| Method | Path | Body | Response |
+|---|---|---|---|
+| POST | `/hotspot/vouchers/generate` | `VoucherGenerateRequest` | `{vouchers: [{id, username, password}], count: N}` |
+
+Field request:
+
+```jsonc
+{
+  "server":     "all",          // optional, default "all"
+  "user_mode":  "up",           // "up" (user+pass berbeda) | "vc" (user==pass), default "up"
+  "length":     8,              // wajib, 4–32
+  "prefix":     "vc-",          // optional, max 16 chars
+  "charset":    "mixed_number", // wajib: lower|upper|mixed|number|lower_number|upper_number|mixed_number
+  "profile":    "default",      // wajib
+  "time_limit": "1h",           // optional (RouterOS limit-uptime)
+  "data_limit": 1073741824,     // optional bytes
+  "comment":    "VIP-batch-X",
+  "validity":   "168h",         // optional Go duration; attach expiry stamp ke comment
+  "price":      5000,
+  "sell_price": 10000,
+  "lock_to_mac": false,
+  "batch_size": 50              // wajib, 1–1000
+}
+```
+
+Karakter ambigu (`i`, `l`, `o`, `0`, `1`, `I`, `O`) di-exclude dari semua charset
+supaya voucher fisik mudah dibaca operator. Username/password unique via
+`crypto/rand`. Kalau gagal di tengah batch, response 207 Multi-Status dengan
+field `partial: true` dan `error: "..."`; voucher yang sudah dibuat tetap valid.
+
+### Reports
+
+Data historis penjualan voucher (di-tulis oleh `service/expiry` saat mode
+berakhiran `c`). Endpoint **tidak butuh device terhubung** — bisa di-query
+meski router offline.
+
+| Method | Path | Query | Response |
+|---|---|---|---|
+| GET | `/reports/selling` | `?month=jan2025` | `[TransactionResponse]` (filter optional) |
+| GET | `/reports/selling/today` | — | `{date, count, transactions}` |
+| GET | `/reports/selling/summary` | `?month=`, `?include_transactions=true` | `ReportSummary` |
+| GET | `/reports/selling.csv` | `?month=` atau `?date=jan/05/2025` | CSV file download |
+
+`ReportSummary`:
+
+```json
+{
+  "count": 42,
+  "total_price": 210000,
+  "total_sell_price": 420000,
+  "profit": 210000,
+  "by_profile": { "basic": 30, "vip": 12 }
+}
+```
+
+CSV header: `sale_date,sale_time,username,profile,price,sell_price,validity,mac,ip,comment`.
+
 ### System
 
 | Path | Methods |
@@ -186,7 +245,13 @@ HTTP_BIND=127.0.0.1:8080
 HTTP_READ_TIMEOUT=10s
 HTTP_IDLE_TIMEOUT=60s
 HTTP_SHUTDOWN_GRACE=10s
-CORS_ALLOWED_ORIGINS=*
+# Kosong = same-origin only (default aman). Set comma-separated origins
+# untuk frontend browser, mis. "http://localhost:5173" untuk dev.
+CORS_ALLOWED_ORIGINS=
+
+# TLS ke router (opsional). Set DEVICE_TLS_INSECURE=true HANYA untuk
+# router dengan self-signed cert di jaringan internal.
+DEVICE_TLS_INSECURE=false
 ```
 
 ---
@@ -196,7 +261,31 @@ CORS_ALLOWED_ORIGINS=*
 1. `Recovery` — panic → 500 envelope + log stack trace.
 2. `RequestID` — set `X-Request-ID` (echoed di response header + log).
 3. `Logger` — log per request: method, path, status, latency, request_id.
-4. `CORS` — permissive default; production override via env.
+4. `CORS` — kosong (no-op same-origin) default; production override via env.
+
+## Health check
+
+`GET /healthz` mengembalikan envelope dengan dependency check:
+
+```json
+{
+  "data": {
+    "ok": true,
+    "db": "ok",
+    "devices": { "connected": 2, "total": 3 },
+    "influx": "ok",
+    "sse_subscribers": { "r1:hotspot-active": 4 },
+    "sse_dropped": { "r1:hotspot-active": 12 }
+  }
+}
+```
+
+Field `ok=false` + status `503` kalau:
+
+- DB ping gagal (timeout 2s).
+- Ada device aktif di DB tapi 0 yang terhubung (total>0 connected=0).
+
+`sse_dropped` di-omit kalau zero (operator tidak perlu lihat hot path).
 
 ---
 

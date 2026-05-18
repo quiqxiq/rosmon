@@ -2,6 +2,7 @@ package expiry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -13,6 +14,15 @@ import (
 	"github.com/quiqxiq/roslib-mikhmon/store/model"
 	"github.com/quiqxiq/roslib-mikhmon/workflows"
 	"github.com/sirupsen/logrus"
+)
+
+// Backoff parameters saat device disconnect. Mulai dari interval normal,
+// gandakan di tiap iterasi gagal, cap di backoffMax. Reset ke normal saat
+// device kembali tersambung.
+const (
+	backoffInitial = 30 * time.Second
+	backoffMax     = 10 * time.Minute
+	backoffFactor  = 2
 )
 
 // Service menjalankan satu goroutine checker per device yang memeriksa
@@ -90,26 +100,68 @@ func (s *Service) startLocked(d model.MikrotikDevice) {
 	go s.runChecker(ctx, d)
 }
 
-// runChecker adalah loop expiry checker untuk satu device.
+// runChecker adalah loop expiry checker untuk satu device dengan
+// state machine sederhana untuk handle device disconnect:
+//
+//   - stateActive: tick di interval normal (default 2m). Setiap tick
+//     panggil checkDevice; kalau gagal dengan ErrDeviceNotConnected,
+//     transisi ke stateBackoff dan log SEKALI.
+//   - stateBackoff: tick di interval backoff (start 30s, ×2 per gagal,
+//     cap 10m). Saat checkDevice sukses, log "device recovered",
+//     reset backoff, kembali ke stateActive.
+//
+// Tujuan: kurangi log spam dan load ke device manager saat router down
+// dalam waktu lama.
 func (s *Service) runChecker(ctx context.Context, d model.MikrotikDevice) {
-	interval, err := time.ParseDuration(d.ExpiryCheckInterval)
-	if err != nil || interval <= 0 {
-		interval = 2 * time.Minute
+	normalInterval, err := time.ParseDuration(d.ExpiryCheckInterval)
+	if err != nil || normalInterval <= 0 {
+		normalInterval = 2 * time.Minute
 	}
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
 
 	log := s.log.WithField("device", d.Slug)
 	log.Info("expiry: checker started")
+
+	var (
+		backoff      = time.Duration(0)
+		inBackoff    = false
+		currInterval = normalInterval
+	)
+	timer := time.NewTimer(currInterval)
+	defer timer.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			if err := s.checkDevice(ctx, d); err != nil {
+		case <-timer.C:
+			err := s.checkDevice(ctx, d)
+			switch {
+			case errors.Is(err, devmgr.ErrDeviceNotConnected):
+				if !inBackoff {
+					log.Info("expiry: device disconnected, switching to backoff")
+					inBackoff = true
+					backoff = backoffInitial
+				} else if backoff < backoffMax {
+					backoff = time.Duration(int64(backoff) * backoffFactor)
+					if backoff > backoffMax {
+						backoff = backoffMax
+					}
+				}
+				currInterval = backoff
+			case err != nil:
 				log.WithError(err).Warn("expiry: check failed")
+				currInterval = normalInterval
+				inBackoff = false
+				backoff = 0
+			default:
+				if inBackoff {
+					log.Info("expiry: device recovered, back to normal interval")
+				}
+				currInterval = normalInterval
+				inBackoff = false
+				backoff = 0
 			}
+			timer.Reset(currInterval)
 		}
 	}
 }
@@ -188,14 +240,19 @@ func (s *Service) executeExpiry(
 		return nil
 	}
 
-	// Catat transaksi jika mode berakhiran "c"
+	// Catat transaksi jika mode berakhiran "c".
+	// Format tanggal mengikuti konvensi mikhmonv3 (lowercase month name)
+	// supaya kompatibel dengan migrasi data lama. Pakai strings.ToLower
+	// terhadap output Go time.Format dengan token "Jan" — kalau langsung
+	// "jan" lowercase di layout, Go memperlakukan sebagai literal string
+	// dan output bulan selalu "jan" (bug existing).
 	if strings.HasSuffix(cfg.ExpiryMode, "c") {
 		now := time.Now()
 		tx := &model.Transaction{
 			DeviceID:  d.ID,
-			SaleDate:  now.Format("jan/02/2006"),
+			SaleDate:  strings.ToLower(now.Format("Jan/02/2006")),
 			SaleTime:  now.Format("15:04:05"),
-			SaleMonth: now.Format("jan2006"),
+			SaleMonth: strings.ToLower(now.Format("Jan2006")),
 			Username:  userName,
 			Price:     cfg.Price,
 			SellPrice: cfg.SellPrice,

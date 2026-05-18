@@ -32,6 +32,7 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 	handler.NewHotspotHost(nil).Register(dev)
 	handler.NewHotspotCookie(nil).Register(dev)
 	handler.NewHotspotBinding(nil, nil).Register(dev)
+	handler.NewHotspotVoucher(nil).Register(dev)
 
 	handler.NewNetworkInterface(nil).Register(dev)
 	handler.NewNetworkPool(nil).Register(dev)
@@ -47,5 +48,15 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 
 	if deps.InfluxReader != nil {
 		handler.NewHistory(deps.InfluxReader).Register(dev)
+	}
+
+	// Report API butuh DB stores langsung (bukan via ClientSet), jadi
+	// register di group tersendiri TANPA DeviceMiddleware — supaya
+	// laporan historis tetap bisa di-query meskipun router offline.
+	// URL pattern sama (/devices/:device_id/reports/...) untuk
+	// konsistensi dengan endpoint device lain.
+	if deps.TxStore != nil && deps.DeviceStore != nil {
+		reportScope := g.Group("/devices/:device_id")
+		handler.NewReport(deps.DeviceStore, deps.TxStore).Register(reportScope)
 	}
 }

@@ -6,6 +6,7 @@ package sse
 
 import (
 	"sync"
+	"sync/atomic"
 )
 
 // Event adalah satu payload yang dikirim ke SSE client. Type = nama event
@@ -28,6 +29,10 @@ type Broker struct {
 	mu      sync.Mutex
 	subs    map[string]chan Event
 	started bool
+
+	// dropped menghitung event yang di-drop karena subscriber channel penuh.
+	// Visibility ke operator via Hub.Stats / /healthz untuk detect slow client.
+	dropped atomic.Uint64
 }
 
 // NewBroker membuat broker baru. onStart dipanggil saat subscriber pertama
@@ -62,16 +67,22 @@ func (b *Broker) Subscribe(clientID string) (<-chan Event, error) {
 	return ch, nil
 }
 
-// Unsubscribe remove clientID, close channel. Kalau ini last subscriber,
+// Unsubscribe remove clientID dari map. Kalau ini last subscriber,
 // trigger onStop. Idempotent: clientID yang sudah tidak ada di-skip.
+//
+// Channel TIDAK di-close — caller (writer.Stream) sudah selesai baca
+// channel saat memanggil Unsubscribe via defer, jadi tidak ada reader
+// lain yang menunggu signal close. Channel akan di-GC otomatis setelah
+// snapshot di Publish in-flight selesai.
+//
+// Rationale: close-during-publish menghasilkan race detector warning
+// meskipun recover() menangkap panic — race adalah read+write tanpa
+// sync, bukan crash. Hilangkan close() untuk benar-benar race-free.
 func (b *Broker) Unsubscribe(clientID string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if ch, ok := b.subs[clientID]; ok {
-		close(ch)
-		delete(b.subs, clientID)
-	}
+	delete(b.subs, clientID)
 	if len(b.subs) == 0 && b.started {
 		b.onStop()
 		b.started = false
@@ -81,15 +92,25 @@ func (b *Broker) Unsubscribe(clientID string) {
 // Publish fan-out event ke semua subscriber. Non-blocking: kalau channel
 // subscriber penuh (32 event tertunggak), event di-drop untuk subscriber
 // itu — supaya satu slow client tidak block publisher (router stream).
+//
+// Implementasi snapshot subs di-lock lalu publish unlocked supaya
+// throughput tinggi (publisher = router stream goroutine) tidak
+// terhambat oleh select{} per-channel saat ada banyak subscriber.
+// Snapshot aman karena Unsubscribe tidak close channel — slot yang
+// sudah keluar dari map masih bisa menerima send (buffered, lalu drop).
 func (b *Broker) Publish(e Event) {
 	b.mu.Lock()
-	defer b.mu.Unlock()
-
+	snap := make([]chan Event, 0, len(b.subs))
 	for _, ch := range b.subs {
+		snap = append(snap, ch)
+	}
+	b.mu.Unlock()
+
+	for _, ch := range snap {
 		select {
 		case ch <- e:
 		default:
-			// drop
+			b.dropped.Add(1)
 		}
 	}
 }
@@ -100,4 +121,10 @@ func (b *Broker) Subscribers() int {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return len(b.subs)
+}
+
+// DroppedCount mengembalikan total event yang di-drop karena subscriber
+// channel penuh. Monotonic counter — caller bisa hitung delta sendiri.
+func (b *Broker) DroppedCount() uint64 {
+	return b.dropped.Load()
 }

@@ -9,7 +9,14 @@ import (
 )
 
 type DeviceStore interface {
+	// List mengembalikan device dengan active=true. Dipakai bootstrap
+	// service (devmgr.Start, expiry.Start, metrics.Start) yang hanya
+	// ingin auto-connect ke device aktif.
 	List(ctx context.Context) ([]model.MikrotikDevice, error)
+	// ListAll mengembalikan SEMUA device (termasuk active=false).
+	// Dipakai handler API & healthz supaya operator bisa melihat &
+	// mengelola device yang sedang dinonaktifkan tanpa di-soft-delete.
+	ListAll(ctx context.Context) ([]model.MikrotikDevice, error)
 	Get(ctx context.Context, id uint) (model.MikrotikDevice, error)
 	GetBySlug(ctx context.Context, slug string) (model.MikrotikDevice, error)
 	Create(ctx context.Context, d *model.MikrotikDevice) error
@@ -25,6 +32,12 @@ func NewDeviceStore(db *gorm.DB) DeviceStore { return &gormDeviceStore{db: db} }
 func (s *gormDeviceStore) List(ctx context.Context) ([]model.MikrotikDevice, error) {
 	var ds []model.MikrotikDevice
 	err := s.db.WithContext(ctx).Where("active = true").Find(&ds).Error
+	return ds, err
+}
+
+func (s *gormDeviceStore) ListAll(ctx context.Context) ([]model.MikrotikDevice, error) {
+	var ds []model.MikrotikDevice
+	err := s.db.WithContext(ctx).Find(&ds).Error
 	return ds, err
 }
 

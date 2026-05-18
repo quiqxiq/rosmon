@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	influxdb3 "github.com/InfluxCommunity/influxdb3-go/v2/influxdb3"
@@ -195,7 +196,19 @@ func parseHistoryParams(c *gin.Context) (historyParams, bool) {
 		return historyParams{}, false
 	}
 
-	return historyParams{device: device, from: from, to: to, interval: interval}, true
+	// interval di-interpolasi ke SQL (DATE_BIN INTERVAL '<v>'); harus
+	// strict-validate untuk cegah SQL injection. Parse via
+	// time.ParseDuration lalu re-format ke canonical string supaya yang
+	// dimasukkan ke SQL deterministic ("1m0s", "30s", "1h0m0s") tanpa
+	// karakter aneh.
+	dur, err := time.ParseDuration(interval)
+	if err != nil || dur <= 0 {
+		c.JSON(http.StatusBadRequest, dto.Err("INVALID_INTERVAL", "interval must be a positive Go duration (e.g. 1m, 30s)", interval))
+		return historyParams{}, false
+	}
+	intervalCanonical := dur.String()
+
+	return historyParams{device: device, from: from, to: to, interval: intervalCanonical}, true
 }
 
 func (h *History) execQuery(c *gin.Context, sql string, p historyParams) {
@@ -206,6 +219,11 @@ func (h *History) execQuery(c *gin.Context, sql string, p historyParams) {
 	}
 	iter, err := h.Reader.QueryWithParameters(c.Request.Context(), sql, params)
 	if err != nil {
+		// Tabel belum ada = belum ada data masuk; kembalikan array kosong.
+		if strings.Contains(err.Error(), "not found") {
+			WriteList(c, []any{}, 0)
+			return
+		}
 		WriteErr(c, err)
 		return
 	}

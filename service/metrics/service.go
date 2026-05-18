@@ -75,10 +75,28 @@ func (s *Service) StopDevice(slug string) {
 	}
 }
 
+// startedStream menyimpan ID dan cleanup function untuk satu stream
+// yang berhasil di-register. Dipakai supaya cleanup goroutine hanya
+// panggil Stop* untuk stream yang benar-benar running (cegah no-op
+// log noise dari stream yang gagal di-start).
+type startedStream struct {
+	id   string
+	stop func()
+}
+
 func (s *Service) startLocked(slug string, cs *devmgr.ClientSet) {
 	ctx, cancel := context.WithCancel(s.rootCtx)
 	s.cancels[slug] = cancel
 	log := s.log.WithField("device", slug)
+
+	var started []startedStream
+	track := func(id string, err error, stopFn func()) {
+		if err != nil {
+			log.WithError(err).WithField("stream", id).Warn("metrics: stream start failed")
+			return
+		}
+		started = append(started, startedStream{id: id, stop: stopFn})
+	}
 
 	// ── system_resource — system resource print interval=5s ──────────────
 	resW := roslibinflux.NewWriter(s.cli, "system_resource",
@@ -93,9 +111,10 @@ func (s *Service) startLocked(slug string, cs *devmgr.ClientSet) {
 		},
 	)
 	resID := "metrics:" + slug + ":resource"
-	if err := cs.Sys.MonitorResource(resID, 5*time.Second, roslibinflux.PollSink(resW, log)); err != nil {
-		log.WithError(err).Warn("metrics: MonitorResource failed")
-	}
+	track(resID,
+		cs.Sys.MonitorResource(resID, 5*time.Second, roslibinflux.PollSink(resW, log)),
+		func() { cs.Sys.StopMonitor(resID) },
+	)
 
 	// ── interface_stats — interface print stats interval=5s ──────────────
 	ifaceW := roslibinflux.NewWriter(s.cli, "interface_stats",
@@ -113,13 +132,14 @@ func (s *Service) startLocked(slug string, cs *devmgr.ClientSet) {
 	)
 	ifaceID := "metrics:" + slug + ":iface-stats"
 	ifaceSink := roslibinflux.StreamSink(ifaceW, log)
-	if err := cs.Net.InterfaceStatsStream(ifaceID, 5*time.Second, func(sen *roslib.Sentence) {
-		if sen.Word() == "!re" {
-			ifaceSink(sen)
-		}
-	}); err != nil {
-		log.WithError(err).Warn("metrics: InterfaceStatsStream failed")
-	}
+	track(ifaceID,
+		cs.Net.InterfaceStatsStream(ifaceID, 5*time.Second, func(sen *roslib.Sentence) {
+			if sen.Word() == "!re" {
+				ifaceSink(sen)
+			}
+		}),
+		func() { cs.Net.StopStream(ifaceID) },
+	)
 
 	// ── hotspot_user_bytes — ip/hotspot/user/print bytes interval=10s ────
 	ubW := roslibinflux.NewWriter(s.cli, "hotspot_user_bytes",
@@ -135,13 +155,14 @@ func (s *Service) startLocked(slug string, cs *devmgr.ClientSet) {
 	)
 	ubID := "metrics:" + slug + ":user-bytes"
 	ubSink := roslibinflux.StreamSink(ubW, log)
-	if err := cs.Hot.UserBytesStream(ubID, 10*time.Second, func(sen *roslib.Sentence) {
-		if sen.Word() == "!re" {
-			ubSink(sen)
-		}
-	}); err != nil {
-		log.WithError(err).Warn("metrics: UserBytesStream failed")
-	}
+	track(ubID,
+		cs.Hot.UserBytesStream(ubID, 10*time.Second, func(sen *roslib.Sentence) {
+			if sen.Word() == "!re" {
+				ubSink(sen)
+			}
+		}),
+		func() { cs.Hot.StopUserStream(ubID) },
+	)
 
 	// ── hotspot_user_packets — ip/hotspot/user/print packets interval=10s ─
 	upW := roslibinflux.NewWriter(s.cli, "hotspot_user_packets",
@@ -157,13 +178,14 @@ func (s *Service) startLocked(slug string, cs *devmgr.ClientSet) {
 	)
 	upID := "metrics:" + slug + ":user-packets"
 	upSink := roslibinflux.StreamSink(upW, log)
-	if err := cs.Hot.UserPacketsStream(upID, 10*time.Second, func(sen *roslib.Sentence) {
-		if sen.Word() == "!re" {
-			upSink(sen)
-		}
-	}); err != nil {
-		log.WithError(err).Warn("metrics: UserPacketsStream failed")
-	}
+	track(upID,
+		cs.Hot.UserPacketsStream(upID, 10*time.Second, func(sen *roslib.Sentence) {
+			if sen.Word() == "!re" {
+				upSink(sen)
+			}
+		}),
+		func() { cs.Hot.StopUserStream(upID) },
+	)
 
 	// ── hotspot_active — ip/hotspot/active/print follow ──────────────────
 	// Simpan setiap event connect/disconnect dengan field dead=true/false.
@@ -185,13 +207,14 @@ func (s *Service) startLocked(slug string, cs *devmgr.ClientSet) {
 	)
 	haID := "metrics:" + slug + ":hotspot-active"
 	haSink := roslibinflux.StreamSink(haW, log)
-	if err := cs.Hot.ActiveStream(haID, func(sen *roslib.Sentence) {
-		if sen.Word() == "!re" {
-			haSink(sen)
-		}
-	}); err != nil {
-		log.WithError(err).Warn("metrics: hotspot ActiveStream failed")
-	}
+	track(haID,
+		cs.Hot.ActiveStream(haID, func(sen *roslib.Sentence) {
+			if sen.Word() == "!re" {
+				haSink(sen)
+			}
+		}),
+		func() { cs.Hot.StopActiveStream(haID) },
+	)
 
 	// ── ppp_active — ppp/active/print follow ─────────────────────────────
 	pppW := roslibinflux.NewWriter(s.cli, "ppp_active",
@@ -210,13 +233,14 @@ func (s *Service) startLocked(slug string, cs *devmgr.ClientSet) {
 	)
 	pppID := "metrics:" + slug + ":ppp-active"
 	pppSink := roslibinflux.StreamSink(pppW, log)
-	if err := cs.PPP.ActiveStream(pppID, func(sen *roslib.Sentence) {
-		if sen.Word() == "!re" {
-			pppSink(sen)
-		}
-	}); err != nil {
-		log.WithError(err).Warn("metrics: ppp ActiveStream failed")
-	}
+	track(pppID,
+		cs.PPP.ActiveStream(pppID, func(sen *roslib.Sentence) {
+			if sen.Word() == "!re" {
+				pppSink(sen)
+			}
+		}),
+		func() { cs.PPP.StopActiveStream(pppID) },
+	)
 
 	// ── queue_stats — queue/simple/print stats interval=10s ──────────────
 	// Field "bytes" dari RouterOS berformat "in/out" → di-parse jadi dua field.
@@ -237,27 +261,26 @@ func (s *Service) startLocked(slug string, cs *devmgr.ClientSet) {
 	)
 	qID := "metrics:" + slug + ":queue-stats"
 	qSink := roslibinflux.StreamSink(qW, log)
-	if err := cs.Net.QueueStatsStream(qID, 10*time.Second, func(sen *roslib.Sentence) {
-		if sen.Word() == "!re" {
-			qSink(sen)
-		}
-	}); err != nil {
-		log.WithError(err).Warn("metrics: QueueStatsStream failed")
-	}
+	track(qID,
+		cs.Net.QueueStatsStream(qID, 10*time.Second, func(sen *roslib.Sentence) {
+			if sen.Word() == "!re" {
+				qSink(sen)
+			}
+		}),
+		func() { cs.Net.StopStream(qID) },
+	)
 
-	// Cleanup streams saat device dihapus atau server shutdown
+	// Cleanup streams yang BERHASIL di-start saat device dihapus atau
+	// server shutdown. Tidak panggil Stop untuk stream yang gagal start —
+	// cegah log noise / panic dari handler yang tidak ter-register.
 	go func() {
 		<-ctx.Done()
-		cs.Sys.StopMonitor(resID)
-		cs.Net.StopStream(ifaceID)
-		cs.Hot.StopUserStream(ubID)
-		cs.Hot.StopUserStream(upID)
-		cs.Hot.StopActiveStream(haID)
-		cs.PPP.StopActiveStream(pppID)
-		cs.Net.StopStream(qID)
+		for _, ss := range started {
+			ss.stop()
+		}
 	}()
 
-	log.Info("metrics: streams started")
+	log.WithField("started", len(started)).Info("metrics: streams started")
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────

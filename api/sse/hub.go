@@ -35,3 +35,26 @@ func (h *Hub) GetOrCreate(topic string, startFn func(b *Broker) error, stopFn fu
 	h.brokers[topic] = b
 	return b
 }
+
+// Stats mengembalikan dua map per-topic untuk observability:
+//   - subscribers: jumlah subscriber aktif per topic (hanya topic dengan
+//     subscriber > 0 yang di-include — kurangi noise).
+//   - dropped: jumlah event yang di-drop per topic (hanya topic dengan
+//     drop > 0 yang di-include — kalau zero, tidak perlu alert).
+//
+// Dipakai oleh /healthz untuk surface visibility ke operator.
+func (h *Hub) Stats() (subscribers map[string]int, dropped map[string]uint64) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	subscribers = make(map[string]int, len(h.brokers))
+	dropped = make(map[string]uint64, len(h.brokers))
+	for topic, b := range h.brokers {
+		if n := b.Subscribers(); n > 0 {
+			subscribers[topic] = n
+		}
+		if d := b.DroppedCount(); d > 0 {
+			dropped[topic] = d
+		}
+	}
+	return subscribers, dropped
+}
