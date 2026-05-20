@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"errors"
+	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -53,6 +56,11 @@ func (s *Stream) HotspotActive(c *gin.Context) {
 		base = sse.TopicHotspotActiveFollowOnly
 	}
 	topic := deviceTopic(c, base)
+	release, ok := reserveSSE(s.Hub, c, topic)
+	if !ok {
+		return
+	}
+	defer release()
 	broker := s.Hub.GetOrCreate(topic,
 		func(b *sse.Broker) error {
 			handler := func(sen *roslib.Sentence) {
@@ -71,6 +79,11 @@ func (s *Stream) HotspotActive(c *gin.Context) {
 // PPPActive — /stream/ppp/active.
 func (s *Stream) PPPActive(c *gin.Context) {
 	topic := deviceTopic(c, sse.TopicPPPActive)
+	release, ok := reserveSSE(s.Hub, c, topic)
+	if !ok {
+		return
+	}
+	defer release()
 	broker := s.Hub.GetOrCreate(topic,
 		func(b *sse.Broker) error {
 			return s.PPP.ActiveStream(topic, func(sen *roslib.Sentence) {
@@ -86,6 +99,11 @@ func (s *Stream) PPPActive(c *gin.Context) {
 func (s *Stream) Log(c *gin.Context) {
 	topics := c.Query("topics")
 	topic := deviceTopic(c, sse.TopicLog(topics))
+	release, ok := reserveSSE(s.Hub, c, topic)
+	if !ok {
+		return
+	}
+	defer release()
 	broker := s.Hub.GetOrCreate(topic,
 		func(b *sse.Broker) error {
 			return s.Logs.LogStream(topic, topics, func(sen *roslib.Sentence) {
@@ -101,6 +119,11 @@ func (s *Stream) Log(c *gin.Context) {
 func (s *Stream) SystemResource(c *gin.Context) {
 	interval := parseInterval(c, 2*time.Second)
 	topic := deviceTopic(c, sse.TopicResource(interval.String()))
+	release, ok := reserveSSE(s.Hub, c, topic)
+	if !ok {
+		return
+	}
+	defer release()
 	broker := s.Hub.GetOrCreate(topic,
 		func(b *sse.Broker) error {
 			return s.Sys.MonitorResource(topic, interval, func(sen *roslib.Sentence) {
@@ -119,6 +142,11 @@ func (s *Stream) SystemResource(c *gin.Context) {
 func (s *Stream) InterfaceTraffic(c *gin.Context) {
 	iface := c.Param("name")
 	topic := deviceTopic(c, sse.TopicInterfaceTraffic(iface))
+	release, ok := reserveSSE(s.Hub, c, topic)
+	if !ok {
+		return
+	}
+	defer release()
 	broker := s.Hub.GetOrCreate(topic,
 		func(b *sse.Broker) error {
 			return s.Net.InterfaceTrafficStream(topic, iface, func(sen *roslib.Sentence) {
@@ -134,6 +162,11 @@ func (s *Stream) InterfaceTraffic(c *gin.Context) {
 func (s *Stream) InterfaceStats(c *gin.Context) {
 	interval := parseInterval(c, 2*time.Second)
 	topic := deviceTopic(c, sse.TopicInterfaceStats(interval.String()))
+	release, ok := reserveSSE(s.Hub, c, topic)
+	if !ok {
+		return
+	}
+	defer release()
 	broker := s.Hub.GetOrCreate(topic,
 		func(b *sse.Broker) error {
 			return s.Net.InterfaceStatsStream(topic, interval, func(sen *roslib.Sentence) {
@@ -152,6 +185,11 @@ func (s *Stream) InterfaceStats(c *gin.Context) {
 func (s *Stream) QueueStats(c *gin.Context) {
 	interval := parseInterval(c, 1*time.Second)
 	topic := deviceTopic(c, sse.TopicQueueStats(interval.String()))
+	release, ok := reserveSSE(s.Hub, c, topic)
+	if !ok {
+		return
+	}
+	defer release()
 	broker := s.Hub.GetOrCreate(topic,
 		func(b *sse.Broker) error {
 			return s.Net.QueueStatsStream(topic, interval, func(sen *roslib.Sentence) {
@@ -164,6 +202,27 @@ func (s *Stream) QueueStats(c *gin.Context) {
 		func() { s.Net.StopStream(topic) },
 	)
 	sse.Stream(c, broker)
+}
+
+// reserveSSE wrap Hub.Reserve(topic, device_id) + tulis 429 + Retry-After
+// kalau cap exceeded. Return release callback (defer) + ok=true kalau
+// boleh subscribe, ok=false kalau handler harus return.
+func reserveSSE(hub *sse.Hub, c *gin.Context, topic string) (release func(), ok bool) {
+	deviceID := c.Param("device_id")
+	rel, err := hub.Reserve(topic, deviceID)
+	if err == nil {
+		return rel, true
+	}
+	scope := "topic"
+	if errors.Is(err, sse.ErrDeviceCapExceeded) {
+		scope = "device"
+	}
+	c.Header("Retry-After", strconv.Itoa(30))
+	c.AbortWithStatusJSON(http.StatusTooManyRequests,
+		dto.ErrDetails("RATE_LIMIT", "sse subscriber cap exceeded",
+			c.Request.URL.Path,
+			map[string]any{"retry_after_s": 30, "scope": scope}))
+	return func() {}, false
 }
 
 // ── sentence → DTO map helpers ────────────────────────────────────────

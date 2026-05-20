@@ -1,8 +1,89 @@
 # roslib-mikhmon HTTP API
 
 REST + SSE service di atas paket `mikrotik/*` dan `workflows/`. Entry point:
-`cmd/server/main.go`. Layer ini di-bind ke `127.0.0.1:8080` secara default
-(local-only — auth ditunda).
+`cmd/server/main.go`. Bind default `127.0.0.1:8080`.
+
+## Authentication (Phase 2)
+
+Service sekarang punya JWT auth built-in (HS256 access + refresh). Bootstrap
+admin awal via env `ADMIN_USERNAME` / `ADMIN_PASSWORD`.
+
+### Flow
+
+```bash
+# 1. Login
+TOKEN=$(curl -s -X POST http://127.0.0.1:8080/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"supersecretpw"}' \
+  | jq -r '.data.access_token')
+REFRESH=$(curl -s -X POST http://127.0.0.1:8080/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"supersecretpw"}' \
+  | jq -r '.data.refresh_token')
+
+# 2. Call protected endpoint
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/api/v1/devices
+
+# 3. Refresh saat access expire
+curl -X POST http://127.0.0.1:8080/api/v1/auth/refresh \
+  -H 'Content-Type: application/json' \
+  -d "{\"refresh_token\":\"$REFRESH\"}"
+
+# 4. Logout (revoke refresh)
+curl -X POST http://127.0.0.1:8080/api/v1/auth/logout \
+  -H 'Content-Type: application/json' \
+  -d "{\"refresh_token\":\"$REFRESH\"}"
+```
+
+### Roles
+
+| Role | Akses |
+|---|---|
+| `admin` | Semua, termasuk `/auth/users` CRUD, DELETE devices, reboot/shutdown |
+| `operator` | CRUD hotspot/voucher/profile, command non-destructive |
+| `viewer` | Read-only (GET + SSE) |
+
+### Public endpoints (no token)
+
+- `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`
+- `GET /healthz`
+
+### Error codes auth
+
+| Code | HTTP | Trigger |
+|---|---|---|
+| `UNAUTHORIZED` | 401 | header Authorization tidak ada / malformed |
+| `TOKEN_EXPIRED` | 401 | access token expired |
+| `TOKEN_INVALID` | 401 | signature mismatch / corrupt |
+| `TOKEN_WRONG_TYPE` | 401 | refresh dipakai sebagai access (atau sebaliknya) |
+| `REFRESH_REVOKED` | 401 | refresh token sudah di-rotate / di-logout |
+| `INVALID_CREDENTIALS` | 401 | username / password salah |
+| `USER_INACTIVE` | 403 | user di-set `active=false` |
+| `FORBIDDEN` | 403 | role tidak diizinkan |
+
+## Rate Limit & SSE Subscriber Cap (Phase 4)
+
+| Scope | Default | Env override |
+|---|---|---|
+| Per-user REST | 60 req/menit | `RATE_LIMIT_USER_RPM` |
+| Per-IP anon (login, healthz) | 20 req/menit | `RATE_LIMIT_IP_RPM` |
+| Per-endpoint heavy (voucher generate, bulk-delete, reboot, shutdown) | 10 req/menit | `RATE_LIMIT_HEAVY_RPM` |
+| SSE subscriber per-topic | 20 | `SSE_MAX_PER_TOPIC` |
+| SSE subscriber per-device | 50 | `SSE_MAX_PER_DEVICE` |
+
+Saat limit terlewat, server return `429 Too Many Requests` + header
+`Retry-After` (detik). Body envelope:
+
+```json
+{
+  "error": {
+    "code": "RATE_LIMIT",
+    "message": "too many requests, slow down",
+    "path": "/api/v1/devices",
+    "details": { "retry_after_s": 30, "scope": "user" }
+  }
+}
+```
 
 ## Interactive API Documentation
 

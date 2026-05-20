@@ -1,0 +1,109 @@
+# ProfileConfig API (Phase 3). CRUD config per-device + per-profile.
+
+/devices/{device_id}/hotspot/profile-configs:
+  parameters:
+    - $ref: '../components/parameters.yaml#/DeviceIdPath'
+  get:
+    tags: [Profile Configs]
+    summary: List semua profile config untuk device
+    responses:
+      '200':
+        description: List configs
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items: { $ref: '../schemas/profile-config.yaml#/ProfileConfigResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '429': { $ref: '../components/responses.yaml#/ErrorRateLimit' }
+
+/devices/{device_id}/hotspot/profile-configs/{profile_name}:
+  parameters:
+    - $ref: '../components/parameters.yaml#/DeviceIdPath'
+    - name: profile_name
+      in: path
+      required: true
+      schema: { type: string }
+      example: default
+  get:
+    tags: [Profile Configs]
+    summary: Detail config satu profile
+    responses:
+      '200':
+        description: Profile config
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/profile-config.yaml#/ProfileConfigResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '404': { $ref: '../components/responses.yaml#/ErrorNotFound' }
+  put:
+    tags: [Profile Configs]
+    summary: Buat / update config (upsert)
+    description: |
+      Idempotent upsert by (device_id, profile_name). Return 201 kalau record
+      baru di-create, 200 kalau update. Validity di-normalize ke RouterOS
+      canonical sebelum simpan (mis. `168h` → `1w`).
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/profile-config.yaml#/ProfileConfigUpsertRequest' }
+          examples:
+            paket_mingguan:
+              summary: Paket 1 minggu
+              value:
+                expiry_mode: rem
+                validity: "7d"
+                price: 10000
+                sell_price: 12000
+                lock_mac: false
+            paket_bulanan_premium:
+              summary: Paket bulanan premium (lock MAC)
+              value:
+                expiry_mode: remc
+                validity: "30d"
+                price: 35000
+                sell_price: 50000
+                lock_mac: true
+    responses:
+      '200':
+        description: Config ter-update
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/profile-config.yaml#/ProfileConfigResponse' }
+      '201':
+        description: Config baru dibuat
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/profile-config.yaml#/ProfileConfigResponse' }
+      '400': { $ref: '../components/responses.yaml#/ErrorValidation' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+  delete:
+    tags: [Profile Configs]
+    summary: Hapus config profile
+    responses:
+      '204': { $ref: '../components/responses.yaml#/NoContentResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+      '404': { $ref: '../components/responses.yaml#/ErrorNotFound' }

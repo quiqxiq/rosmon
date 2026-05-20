@@ -74,7 +74,13 @@ func TestParseDuration(t *testing.T) {
 		{"1d", 24 * time.Hour},
 		{"1w", 7 * 24 * time.Hour},
 		{"1w2d3h", 7*24*time.Hour + 2*24*time.Hour + 3*time.Hour},
-		{"30", 30 * time.Second}, // tanpa unit
+		{"30", 30 * time.Second},                                            // tanpa unit
+		{"1mo", 30 * 24 * time.Hour},                                        // bulan = 30 hari
+		{"1y", 365 * 24 * time.Hour},                                        // tahun = 365 hari
+		{"1mo15d", 45 * 24 * time.Hour},                                     // mixed mo + d
+		{"1h30m", 90 * time.Minute},                                         // mixed h + m
+		{"1w2d3h4m5s", 7*24*time.Hour + 2*24*time.Hour + 3*time.Hour + 4*time.Minute + 5*time.Second},
+		{"100ms", 100 * time.Millisecond},
 	}
 	for _, tt := range tests {
 		got, err := ParseDuration(tt.in)
@@ -84,7 +90,7 @@ func TestParseDuration(t *testing.T) {
 }
 
 func TestParseDuration_Errors(t *testing.T) {
-	for _, in := range []string{"", "abc", "1x", "1h2x"} {
+	for _, in := range []string{"", "abc", "1x", "1h2x", "1week"} {
 		_, err := ParseDuration(in)
 		assert.Error(t, err, in)
 	}
@@ -92,7 +98,77 @@ func TestParseDuration_Errors(t *testing.T) {
 
 func TestIsValidDuration(t *testing.T) {
 	assert.True(t, IsValidDuration("1d"))
+	assert.True(t, IsValidDuration("1mo"))
+	assert.True(t, IsValidDuration("1y"))
 	assert.False(t, IsValidDuration("xyz"))
+}
+
+func TestFormatDuration(t *testing.T) {
+	tests := []struct {
+		in   time.Duration
+		want string
+	}{
+		{0, "0s"},
+		{30 * time.Second, "30s"},
+		{time.Minute, "1m"},
+		{time.Hour, "1h"},
+		{24 * time.Hour, "1d"},
+		{7 * 24 * time.Hour, "1w"},
+		{8 * 24 * time.Hour, "1w1d"},
+		{90 * time.Minute, "1h30m"},
+		{25 * time.Hour, "1d1h"},
+		{30 * 24 * time.Hour, "4w2d"},   // 30d bukan "1mo" karena output drop mo/y
+		{365 * 24 * time.Hour, "52w1d"}, // 1y → 52w1d
+		{7*24*time.Hour + 2*24*time.Hour + 3*time.Hour + 4*time.Minute + 5*time.Second, "1w2d3h4m5s"},
+		{500 * time.Millisecond, "500ms"},
+		{-30 * time.Second, "-30s"},
+	}
+	for _, tt := range tests {
+		got := FormatDuration(tt.in)
+		assert.Equal(t, tt.want, got, tt.in.String())
+	}
+}
+
+func TestFormatDuration_RoundTrip(t *testing.T) {
+	durations := []time.Duration{
+		time.Minute,
+		time.Hour,
+		25 * time.Hour,
+		7 * 24 * time.Hour,
+		30 * 24 * time.Hour,
+		365 * 24 * time.Hour,
+		7*24*time.Hour + 2*24*time.Hour + 3*time.Hour + 4*time.Minute + 5*time.Second,
+	}
+	for _, d := range durations {
+		s := FormatDuration(d)
+		parsed, err := ParseDuration(s)
+		require.NoError(t, err, s)
+		assert.Equal(t, d, parsed, "roundtrip mismatch for %s → %q", d, s)
+	}
+}
+
+func TestNormalizeDuration(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"168h", "1w"},
+		{"7d", "1w"},
+		{"1y", "52w1d"},
+		{"1mo", "4w2d"},
+		{"30", "30s"},
+		{"1h30m", "1h30m"},
+	}
+	for _, tt := range tests {
+		got, err := NormalizeDuration(tt.in)
+		require.NoError(t, err, tt.in)
+		assert.Equal(t, tt.want, got, tt.in)
+	}
+}
+
+func TestNormalizeDuration_invalid(t *testing.T) {
+	_, err := NormalizeDuration("1week")
+	assert.Error(t, err)
 }
 
 func TestEscapeScriptString(t *testing.T) {

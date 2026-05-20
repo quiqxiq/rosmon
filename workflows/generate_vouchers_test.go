@@ -145,11 +145,27 @@ func TestBuildVoucherAddArgs_withValidity(t *testing.T) {
 func TestBuildVoucherAddArgs_invalidValidity(t *testing.T) {
 	spec := domain.VoucherSpec{
 		Profile:  "vip",
-		Validity: "1week", // invalid Go duration
+		Validity: "1week", // tidak dikenal — unit "week" bukan "w"
 	}
 	_, err := buildVoucherAddArgs(spec, "u", "p")
 	if !errors.Is(err, mikrotik.ErrInvalidArgument) {
 		t.Errorf("err = %v, want wrap ErrInvalidArgument", err)
+	}
+}
+
+func TestBuildVoucherAddArgs_routerOSFormat(t *testing.T) {
+	// Validity "7d" (RouterOS format) harus diterima setelah migrate
+	// dari time.ParseDuration ke rosfmt.ParseDuration.
+	spec := domain.VoucherSpec{
+		Profile:  "vip",
+		Validity: "7d",
+	}
+	args, err := buildVoucherAddArgs(spec, "u", "p")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if args.Comment == "" {
+		t.Fatalf("comment should contain expiry stamp")
 	}
 }
 

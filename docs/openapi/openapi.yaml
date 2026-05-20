@@ -36,9 +36,26 @@ info:
 
     ## Authentication
 
-    Service ini **tidak punya auth built-in**. Bind default
-    `127.0.0.1:8080` (local-only). Untuk eksposur publik, delegasi ke
-    reverse proxy (nginx/caddy) yang handle TLS + API key/JWT.
+    Service ini sekarang mendukung **JWT access + refresh token**
+    (HS256). Bootstrap admin awal via env `ADMIN_USERNAME` / `ADMIN_PASSWORD`.
+
+    1. `POST /auth/login` → terima access (15 menit) + refresh (7 hari) token.
+    2. Pakai access token di header: `Authorization: Bearer <access_token>`.
+    3. Saat access expire → `POST /auth/refresh` (rotation).
+    4. `POST /auth/logout` revoke refresh token.
+
+    Role RBAC sederhana: `admin` (full), `operator` (CRUD device-scoped tanpa
+    `/auth/users`/reboot/shutdown), `viewer` (read-only).
+
+    ## Rate Limit & SSE Subscriber Cap
+
+    Semua endpoint authenticated: 60 req/menit per user (configurable via
+    `RATE_LIMIT_USER_RPM`). Endpoint mahal (voucher generate, bulk delete,
+    reboot, shutdown) dibatasi 10 req/menit. Endpoint anon (`/auth/login`,
+    `/healthz`) dibatasi 20 req/menit per IP.
+
+    SSE subscriber cap: 20 per topic, 50 per device (configurable). 429 +
+    `Retry-After` header dikembalikan saat terlewat.
 
     ## Cara pakai SSE
 
@@ -103,10 +120,38 @@ tags:
       bisa di-query meskipun router offline.
   - name: Health
     description: Health probe (DB + device manager + InfluxDB + SSE).
+  - name: Auth
+    description: |
+      Login, refresh, logout, dan profil user yang sedang aktif. Tiga endpoint
+      pertama public (override `security: []`), sisanya butuh Bearer token.
+  - name: Users
+    description: |
+      CRUD user (admin role required). Mengubah password / role / active=false
+      otomatis revoke semua refresh token milik user tersebut.
+  - name: Profile Configs
+    description: |
+      Konfigurasi mikhmon-local per hotspot profile (validity, harga,
+      expiry mode, lock MAC). Terpisah dari profile router-side.
+
+security:
+  - bearerAuth: []
 
 paths:
   /healthz:
     $ref: './paths/health.yaml#/~1healthz'
+
+  /auth/login:
+    $ref: './paths/auth.yaml#/~1auth~1login'
+  /auth/refresh:
+    $ref: './paths/auth.yaml#/~1auth~1refresh'
+  /auth/logout:
+    $ref: './paths/auth.yaml#/~1auth~1logout'
+  /auth/me:
+    $ref: './paths/auth.yaml#/~1auth~1me'
+  /auth/users:
+    $ref: './paths/auth.yaml#/~1auth~1users'
+  /auth/users/{id}:
+    $ref: './paths/auth.yaml#/~1auth~1users~1{id}'
 
   /devices:
     $ref: './paths/devices.yaml#/~1devices'
@@ -164,6 +209,11 @@ paths:
     $ref: './paths/hotspot-users.yaml#/~1devices~1{device_id}~1hotspot~1users~1{id}~1reset-counters'
   /devices/{device_id}/hotspot/users/{id}/reset-usage:
     $ref: './paths/hotspot-users.yaml#/~1devices~1{device_id}~1hotspot~1users~1{id}~1reset-usage'
+
+  /devices/{device_id}/hotspot/profile-configs:
+    $ref: './paths/profile-configs.yaml#/~1devices~1{device_id}~1hotspot~1profile-configs'
+  /devices/{device_id}/hotspot/profile-configs/{profile_name}:
+    $ref: './paths/profile-configs.yaml#/~1devices~1{device_id}~1hotspot~1profile-configs~1{profile_name}'
 
   /devices/{device_id}/hotspot/profiles:
     $ref: './paths/hotspot-profiles.yaml#/~1devices~1{device_id}~1hotspot~1profiles'
@@ -279,6 +329,16 @@ paths:
     $ref: './paths/reports.yaml#/~1devices~1{device_id}~1reports~1selling.csv'
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT access token (HS256). Diperoleh via `POST /auth/login`.
+        Wajib di-include sebagai header `Authorization: Bearer <token>`
+        kecuali untuk endpoint public (login, refresh, logout, /healthz).
+
   schemas:
     # Envelope & common
     Envelope:            { $ref: './schemas/envelope.yaml#/Envelope' }
@@ -370,6 +430,20 @@ components:
     ReportSummary:             { $ref: './schemas/report.yaml#/ReportSummary' }
     ReportTodayResponse:       { $ref: './schemas/report.yaml#/ReportTodayResponse' }
 
+    # Auth (Phase 2)
+    LoginRequest:              { $ref: './schemas/auth.yaml#/LoginRequest' }
+    RefreshRequest:            { $ref: './schemas/auth.yaml#/RefreshRequest' }
+    LogoutRequest:             { $ref: './schemas/auth.yaml#/LogoutRequest' }
+    TokenResponse:             { $ref: './schemas/auth.yaml#/TokenResponse' }
+    UserResponse:              { $ref: './schemas/auth.yaml#/UserResponse' }
+    UserCreateRequest:         { $ref: './schemas/auth.yaml#/UserCreateRequest' }
+    UserUpdateRequest:         { $ref: './schemas/auth.yaml#/UserUpdateRequest' }
+    MeResponse:                { $ref: './schemas/auth.yaml#/MeResponse' }
+
+    # Profile Config (Phase 3)
+    ProfileConfigResponse:        { $ref: './schemas/profile-config.yaml#/ProfileConfigResponse' }
+    ProfileConfigUpsertRequest:   { $ref: './schemas/profile-config.yaml#/ProfileConfigUpsertRequest' }
+
   parameters:
     DeviceIdPath:      { $ref: './components/parameters.yaml#/DeviceIdPath' }
     IdPath:            { $ref: './components/parameters.yaml#/IdPath' }
@@ -404,4 +478,7 @@ components:
     ErrorTimeout:              { $ref: './components/responses.yaml#/ErrorTimeout' }
     ErrorInternal:             { $ref: './components/responses.yaml#/ErrorInternal' }
     ErrorServiceUnavailable:   { $ref: './components/responses.yaml#/ErrorServiceUnavailable' }
+    ErrorUnauthorized:         { $ref: './components/responses.yaml#/ErrorUnauthorized' }
+    ErrorForbidden:            { $ref: './components/responses.yaml#/ErrorForbidden' }
+    ErrorRateLimit:            { $ref: './components/responses.yaml#/ErrorRateLimit' }
     NoContentResponse:         { $ref: './components/responses.yaml#/NoContentResponse' }

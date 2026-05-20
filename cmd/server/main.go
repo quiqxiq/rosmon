@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 	roslibcfg "github.com/quiqxiq/roslib/config"
@@ -25,6 +26,8 @@ import (
 	"github.com/quiqxiq/roslib-mikhmon/api"
 	"github.com/quiqxiq/roslib-mikhmon/api/sse"
 	"github.com/quiqxiq/roslib-mikhmon/internal/config"
+	"github.com/quiqxiq/roslib-mikhmon/internal/ratelimit"
+	"github.com/quiqxiq/roslib-mikhmon/service/auth"
 	"github.com/quiqxiq/roslib-mikhmon/service/devmgr"
 	"github.com/quiqxiq/roslib-mikhmon/service/expiry"
 	"github.com/quiqxiq/roslib-mikhmon/service/metrics"
@@ -52,6 +55,11 @@ func main() {
 		log.WithError(err).Fatal("load http config")
 	}
 	dbCfg := config.LoadDBFromEnv()
+	authCfg, err := config.LoadAuthFromEnv()
+	if err != nil {
+		log.WithError(err).Fatal("load auth config")
+	}
+	rateCfg := config.LoadRateLimitFromEnv()
 
 	rootCtx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -70,6 +78,18 @@ func main() {
 	deviceStore := store.NewDeviceStore(db)
 	txStore := store.NewTransactionStore(db)
 	profileStore := store.NewProfileConfigStore(db)
+	userStore := store.NewUserStore(db)
+	refreshStore := store.NewRefreshTokenStore(db)
+
+	// ── Auth Service ──────────────────────────────────────────────────────
+	authSigner := auth.NewSigner(authCfg.JWTSecret, authCfg.AccessTTL, authCfg.RefreshTTL)
+	authHasher := auth.NewHasher(authCfg.BcryptCost)
+	authSvc := auth.New(userStore, refreshStore, authHasher, authSigner)
+	if err := authSvc.BootstrapAdmin(rootCtx, authCfg.AdminUsername, authCfg.AdminPassword); err != nil {
+		log.WithError(err).Warn("bootstrap admin failed (may already exist)")
+	} else if authCfg.AdminUsername != "" {
+		log.WithField("username", authCfg.AdminUsername).Info("admin bootstrap checked")
+	}
 
 	// ── Device Manager ────────────────────────────────────────────────────
 	devMgr := devmgr.New(deviceStore, log)
@@ -118,6 +138,17 @@ func main() {
 		}
 	}
 
+	// ── Rate limiters & SSE hub caps ──────────────────────────────────────
+	// RPM → rps via /60. Burst = RPM (allow short spike sebesar 1 menit quota).
+	userLim := ratelimit.New(float64(rateCfg.UserRPM)/60, rateCfg.UserRPM, 10*time.Minute)
+	ipLim := ratelimit.New(float64(rateCfg.IPRPM)/60, rateCfg.IPRPM, 10*time.Minute)
+	heavyLim := ratelimit.New(float64(rateCfg.HeavyRPM)/60, rateCfg.HeavyRPM, 10*time.Minute)
+	defer userLim.Close()
+	defer ipLim.Close()
+	defer heavyLim.Close()
+
+	hub := sse.NewHubWithCaps(rateCfg.SSEMaxPerTopic, rateCfg.SSEMaxPerDevice)
+
 	// ── HTTP Server ───────────────────────────────────────────────────────
 	deps := &api.Deps{
 		Logger:       log,
@@ -126,8 +157,13 @@ func main() {
 		DeviceStore:  deviceStore,
 		TxStore:      txStore,
 		ProfileStore: profileStore,
+		AuthService:  authSvc,
+		AuthSigner:   authSigner,
+		UserLimiter:  userLim,
+		IPLimiter:    ipLim,
+		HeavyLimiter: heavyLim,
 		DevMgr:       devMgr,
-		Hub:          sse.NewHub(),
+		Hub:          hub,
 		InfluxReader: influxReader,
 	}
 

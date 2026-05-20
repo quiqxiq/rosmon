@@ -1,0 +1,238 @@
+# Endpoint autentikasi (Phase 2). 3 public + 1 protected + 5 admin users CRUD.
+
+/auth/login:
+  post:
+    tags: [Auth]
+    summary: Login dengan username + password
+    security: [] # public: override global bearerAuth
+    description: |
+      Verifikasi credentials, return access + refresh JWT. Access TTL
+      default 15m, refresh TTL default 168h (7d). Refresh token punya
+      `jti` unik tersimpan di tabel `refresh_tokens` untuk rotation /
+      revocation.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/auth.yaml#/LoginRequest' }
+          examples:
+            admin:
+              summary: Admin login
+              value: { username: admin, password: supersecretpw }
+    responses:
+      '200':
+        description: Token pair berhasil di-issue
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/auth.yaml#/TokenResponse' }
+      '400': { $ref: '../components/responses.yaml#/ErrorValidation' }
+      '401':
+        description: Invalid credentials atau user inactive
+        content:
+          application/json:
+            schema: { $ref: '../schemas/envelope.yaml#/ErrorEnvelope' }
+            examples:
+              invalid:
+                value:
+                  error:
+                    code: INVALID_CREDENTIALS
+                    message: invalid username or password
+                    path: /api/v1/auth/login
+      '429': { $ref: '../components/responses.yaml#/ErrorRateLimit' }
+
+/auth/refresh:
+  post:
+    tags: [Auth]
+    summary: Tukar refresh token dengan pasangan token baru
+    security: []
+    description: |
+      Rotation: refresh token lama di-revoke (jti) dan pasangan baru di-issue.
+      Pemakaian token lama setelah ini akan ditolak (401 REFRESH_REVOKED).
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/auth.yaml#/RefreshRequest' }
+    responses:
+      '200':
+        description: Pasangan token baru
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/auth.yaml#/TokenResponse' }
+      '401':
+        description: Refresh token invalid / expired / sudah revoked
+        content:
+          application/json:
+            schema: { $ref: '../schemas/envelope.yaml#/ErrorEnvelope' }
+
+/auth/logout:
+  post:
+    tags: [Auth]
+    summary: Revoke refresh token (idempotent)
+    security: []
+    description: |
+      Revoke refresh token. Access token tidak di-blacklist (stateless verify)
+      — akan expire sendiri dalam <= access TTL. Pemanggilan dengan token
+      garbage tetap return 204 (idempotent — tidak leak info).
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/auth.yaml#/LogoutRequest' }
+    responses:
+      '204': { $ref: '../components/responses.yaml#/NoContentResponse' }
+
+/auth/me:
+  get:
+    tags: [Auth]
+    summary: Profil user yang sedang login
+    description: Return claims user dari access token.
+    responses:
+      '200':
+        description: Current user
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/auth.yaml#/MeResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+
+/auth/users:
+  get:
+    tags: [Users]
+    summary: List semua user (admin only)
+    description: Admin role required.
+    responses:
+      '200':
+        description: List users
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items: { $ref: '../schemas/auth.yaml#/UserResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+  post:
+    tags: [Users]
+    summary: Buat user baru (admin only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/auth.yaml#/UserCreateRequest' }
+          examples:
+            operator:
+              summary: Buat operator
+              value:
+                username: opuser
+                password: strongpassword
+                role: operator
+            viewer:
+              summary: Buat viewer (read-only)
+              value:
+                username: report-viewer
+                password: anothersafepw
+                role: viewer
+    responses:
+      '201':
+        description: User dibuat
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/auth.yaml#/UserResponse' }
+      '400': { $ref: '../components/responses.yaml#/ErrorValidation' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+      '409':
+        description: Username sudah dipakai
+        content:
+          application/json:
+            schema: { $ref: '../schemas/envelope.yaml#/ErrorEnvelope' }
+
+/auth/users/{id}:
+  parameters:
+    - name: id
+      in: path
+      required: true
+      schema: { type: integer }
+  get:
+    tags: [Users]
+    summary: Ambil detail user (admin only)
+    responses:
+      '200':
+        description: User detail
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/auth.yaml#/UserResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+      '404': { $ref: '../components/responses.yaml#/ErrorNotFound' }
+  put:
+    tags: [Users]
+    summary: Update user (admin only)
+    description: |
+      Field yang null/absent tetap unchanged. Mengubah password / role /
+      active=false akan me-revoke semua refresh token user.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/auth.yaml#/UserUpdateRequest' }
+          examples:
+            disable:
+              summary: Nonaktifkan user
+              value: { active: false }
+            change_role:
+              summary: Ubah role ke admin
+              value: { role: admin }
+    responses:
+      '200':
+        description: User ter-update
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/auth.yaml#/UserResponse' }
+      '400': { $ref: '../components/responses.yaml#/ErrorValidation' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+      '404': { $ref: '../components/responses.yaml#/ErrorNotFound' }
+  delete:
+    tags: [Users]
+    summary: Hapus user (admin only)
+    description: Soft delete (gorm DeletedAt). Refresh token user di-revoke semuanya.
+    responses:
+      '204': { $ref: '../components/responses.yaml#/NoContentResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+      '404': { $ref: '../components/responses.yaml#/ErrorNotFound' }

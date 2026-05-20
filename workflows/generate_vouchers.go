@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/quiqxiq/roslib-mikhmon/domain"
+	"github.com/quiqxiq/roslib-mikhmon/internal/rosfmt"
 	"github.com/quiqxiq/roslib-mikhmon/mikrotik"
 	"github.com/quiqxiq/roslib-mikhmon/mikrotik/hotspot"
 )
@@ -55,9 +56,8 @@ func (e *GenerateVouchersErr) Unwrap() error { return e.Failed }
 //     dengan voucher yang sudah berhasil.
 //  3. Return slice GeneratedVoucher.
 //
-// Validity dihitung dari time.Now()+ParseDuration(Validity). Format
-// duration mengikuti Go (mis. "168h" untuk 7 hari) — RouterOS-style
-// "7d" tidak didukung di sini (caller convert dulu).
+// Validity dihitung dari time.Now()+rosfmt.ParseDuration(Validity). Format
+// menerima baik RouterOS-style ("7d", "1w2d3h") maupun Go-style ("168h").
 func GenerateVouchers(ctx context.Context, c *Clients, spec domain.VoucherSpec) ([]GeneratedVoucher, error) {
 	if err := validateVoucherSpec(spec); err != nil {
 		return nil, err
@@ -137,7 +137,7 @@ func buildVoucherAddArgs(spec domain.VoucherSpec, username, password string) (ho
 		Comment:         spec.Comment,
 	}
 	if spec.Validity != "" {
-		dur, err := time.ParseDuration(spec.Validity)
+		dur, err := rosfmt.ParseDuration(spec.Validity)
 		if err != nil {
 			return args, fmt.Errorf("%w: invalid validity %q: %v", mikrotik.ErrInvalidArgument, spec.Validity, err)
 		}

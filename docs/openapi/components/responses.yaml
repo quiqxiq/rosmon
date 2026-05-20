@@ -124,3 +124,86 @@ ErrorServiceUnavailable:
 
 NoContentResponse:
   description: Operasi sukses tanpa body response (204 No Content).
+
+ErrorUnauthorized:
+  description: |
+    Token JWT tidak ada / invalid / expired / wrong-type. Response menyertakan
+    header `WWW-Authenticate: Bearer realm="api"`.
+  headers:
+    WWW-Authenticate:
+      description: Bearer challenge
+      schema:
+        type: string
+        example: 'Bearer realm="api"'
+  content:
+    application/json:
+      schema:
+        $ref: '../schemas/envelope.yaml#/ErrorEnvelope'
+      examples:
+        missing:
+          summary: Header Authorization tidak ada
+          value:
+            error:
+              code: UNAUTHORIZED
+              message: "missing or malformed Authorization header"
+              path: "/api/v1/devices"
+        expired:
+          summary: Access token expired
+          value:
+            error:
+              code: TOKEN_EXPIRED
+              message: "token expired"
+              path: "/api/v1/devices"
+
+ErrorForbidden:
+  description: |
+    Token valid tapi role tidak diizinkan mengakses endpoint ini
+    (mis. operator coba akses /auth/users yang admin-only).
+  content:
+    application/json:
+      schema:
+        $ref: '../schemas/envelope.yaml#/ErrorEnvelope'
+      examples:
+        role_forbidden:
+          summary: Role tidak cukup
+          value:
+            error:
+              code: FORBIDDEN
+              message: "role not authorized for this action"
+              path: "/api/v1/auth/users"
+
+ErrorRateLimit:
+  description: |
+    Terlalu banyak request. Response menyertakan header `Retry-After`
+    (detik). Berlaku untuk per-user (REST), per-IP (anon endpoint),
+    per-endpoint-heavy (voucher generate, bulk-delete, reboot, shutdown),
+    dan SSE subscriber cap (per-topic / per-device).
+  headers:
+    Retry-After:
+      description: Detik sebelum boleh retry
+      schema: { type: integer, example: 30 }
+  content:
+    application/json:
+      schema:
+        $ref: '../schemas/envelope.yaml#/ErrorEnvelope'
+      examples:
+        per_user:
+          summary: Per-user limit terlewat
+          value:
+            error:
+              code: RATE_LIMIT
+              message: "too many requests, slow down"
+              path: "/api/v1/devices"
+              details:
+                retry_after_s: 30
+                scope: user
+        sse_topic_cap:
+          summary: SSE per-topic subscriber cap terlewat
+          value:
+            error:
+              code: RATE_LIMIT
+              message: "sse subscriber cap exceeded"
+              path: "/api/v1/devices/1/stream/hotspot/active"
+              details:
+                retry_after_s: 30
+                scope: topic

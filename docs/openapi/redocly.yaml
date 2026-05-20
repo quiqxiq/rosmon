@@ -5,9 +5,9 @@ extends:
   - recommended
 
 rules:
-  # Service tidak punya auth built-in — delegasi ke reverse proxy
-  # (nginx/caddy + JWT/API key). Aturan ini tidak applicable.
-  security-defined: off
+  # Phase 2: service sekarang punya JWT auth (bearerAuth scheme di root).
+  # Re-enable lint ini supaya tiap operasi explicit ada security: atau override.
+  security-defined: error
 
   # Tag yang dipakai operasi sudah konsisten dengan tags di root.
   # `recommended` set sudah memvalidasi ini.

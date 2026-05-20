@@ -1,0 +1,59 @@
+# Schema HotspotProfileConfig (Phase 3). Konfigurasi mikhmon-local per
+# profile hotspot — terpisah dari profile router-side. Validity selalu
+# disimpan dalam format RouterOS canonical ("1w", "1d2h", dst.) hasil
+# rosfmt.NormalizeDuration.
+
+ProfileConfigResponse:
+  type: object
+  properties:
+    id: { type: integer, example: 1 }
+    device_id: { type: integer, example: 1 }
+    profile_name: { type: string, example: default }
+    expiry_mode:
+      type: string
+      enum: ["0", rem, ntf, remc, ntfc]
+      description: |
+        Mode aksi saat user expired:
+        - `0`   = none / disable
+        - `rem` = hapus user
+        - `ntf` = set limit-uptime ke 0 + kick
+        - `remc`= hapus + catat transaksi
+        - `ntfc`= notice + catat transaksi
+      example: rem
+    validity:
+      type: string
+      description: |
+        Format RouterOS canonical (hasil `rosfmt.FormatDuration`). Saat
+        request, accept format apapun yang dikenali rosfmt (`168h`, `7d`,
+        `1w`, `1mo`, `1y`); server normalize sebelum simpan.
+      example: "1w"
+    price: { type: integer, example: 10000 }
+    sell_price: { type: integer, example: 12000 }
+    lock_mac: { type: boolean, example: false }
+    created_at: { type: string, format: date-time }
+    updated_at: { type: string, format: date-time }
+
+ProfileConfigUpsertRequest:
+  type: object
+  required: [expiry_mode, validity]
+  properties:
+    expiry_mode:
+      type: string
+      enum: ["0", rem, ntf, remc, ntfc]
+    validity:
+      type: string
+      description: |
+        Durasi paket. Accept RouterOS (`7d`, `1w`, `1mo`, `1y`) atau Go
+        (`168h`). Server normalize ke canonical RouterOS format saat simpan.
+      example: "7d"
+    price:
+      type: integer
+      minimum: 0
+      example: 10000
+    sell_price:
+      type: integer
+      minimum: 0
+      example: 12000
+    lock_mac:
+      type: boolean
+      default: false
