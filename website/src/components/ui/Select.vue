@@ -33,7 +33,11 @@ function onChange(e: Event) {
     :disabled="disabled"
     @change="onChange"
   >
-    <option v-for="opt in options" :key="String(normalize(opt).value)" :value="normalize(opt).value">
+    <option
+      v-for="opt in options"
+      :key="String(normalize(opt).value)"
+      :value="normalize(opt).value"
+    >
       {{ normalize(opt).label }}
     </option>
   </select>

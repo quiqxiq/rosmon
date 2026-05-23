@@ -34,3 +34,11 @@ export function useQueuesQuery(deviceId: MaybeRefOrGetter<string | null>) {
     enabled: () => Boolean(toValue(deviceId)),
   })
 }
+
+export function useARPQuery(deviceId: MaybeRefOrGetter<string | null>) {
+  return useQuery({
+    queryKey: queryKeys.network.arp(String(toValue(deviceId))),
+    queryFn: () => networkService.listARP(String(toValue(deviceId))),
+    enabled: () => Boolean(toValue(deviceId)),
+  })
+}

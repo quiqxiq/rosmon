@@ -1,5 +1,6 @@
 export interface SystemIdentity {
   name: string
+  identity?: string
 }
 
 export interface SystemResource {
@@ -11,6 +12,10 @@ export interface SystemResource {
   version: string
   boardName: string
   architectureName?: string
+  freeHDDSpace?: number
+  totalHDDSpace?: number
+  cpu?: string
+  cpuCount?: number
 }
 
 export interface Routerboard {
@@ -45,4 +50,5 @@ export interface SystemScheduler {
   interval: string
   onEvent: string
   disabled?: boolean
+  runCount?: number
 }

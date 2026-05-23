@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { useMediaQuery, watchDebounced } from '@vueuse/core'
 import Sidebar from '@/components/common/Sidebar.vue'
 import Topbar from '@/components/common/Topbar.vue'
 import { useTweaks } from '@/composables/useTweaks'
 import { useActiveDevice } from '@/composables/useActiveDevice'
-import { DEVICES } from '@/fixtures/devices'
+import { useDevicesQuery } from '@/queries/devices.queries'
 
 const { cycleSidebar } = useTweaks()
 const { activeDeviceId, setActiveDevice } = useActiveDevice()
@@ -14,10 +14,17 @@ const isLg = useMediaQuery('(min-width: 1024px)')
 const mobileOpen = ref(false)
 const route = useRoute()
 
-// Auto-init active device from fixtures
-if (!activeDeviceId.value) {
-  setActiveDevice(DEVICES[0]?.id ?? null)
-}
+// Auto-init active device from real API devices list
+const { data: devicesList } = useDevicesQuery()
+watch(
+  devicesList,
+  (list) => {
+    if (list && list.length && !activeDeviceId.value) {
+      setActiveDevice(String(list[0].id))
+    }
+  },
+  { immediate: true },
+)
 
 watchDebounced(
   () => route.fullPath,

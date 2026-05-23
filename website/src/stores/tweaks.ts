@@ -5,6 +5,7 @@ export type Density = 'compact' | 'regular' | 'comfy'
 export type CardStyle = 'flat' | 'elevated' | 'bordered'
 export type SidebarMode = 'expanded' | 'icon' | 'hidden'
 export type ChartKind = 'area' | 'line' | 'bar'
+export type VoucherTemplate = 'default' | 'small' | 'thermal'
 export type Palette = [string, string, string] // [cyan, violet, lime]
 
 export const PALETTE_PRESETS: Palette[] = [
@@ -22,6 +23,7 @@ interface TweaksState {
   sidebarMode: SidebarMode
   chartKind: ChartKind
   palette: Palette
+  defaultVoucherTemplate: VoucherTemplate
 }
 
 export const useTweaksStore = defineStore('tweaks', {
@@ -32,6 +34,7 @@ export const useTweaksStore = defineStore('tweaks', {
     sidebarMode: 'expanded',
     chartKind: 'area',
     palette: PALETTE_PRESETS[0],
+    defaultVoucherTemplate: 'default',
   }),
   actions: {
     setTheme(v: Theme) {
@@ -52,6 +55,9 @@ export const useTweaksStore = defineStore('tweaks', {
     setPalette(v: Palette) {
       this.palette = v
     },
+    setDefaultVoucherTemplate(v: VoucherTemplate) {
+      this.defaultVoucherTemplate = v
+    },
     toggleTheme() {
       this.theme = this.theme === 'dark' ? 'light' : 'dark'
     },
@@ -66,6 +72,6 @@ export const useTweaksStore = defineStore('tweaks', {
   },
   persist: {
     key: 'roslib-tweaks-v1',
-    pick: ['theme', 'density', 'cardStyle', 'sidebarMode', 'chartKind', 'palette'],
+    pick: ['theme', 'density', 'cardStyle', 'sidebarMode', 'chartKind', 'palette', 'defaultVoucherTemplate'],
   },
 })

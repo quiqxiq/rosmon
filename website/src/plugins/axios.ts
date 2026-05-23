@@ -23,12 +23,17 @@ async function refreshAccessToken(): Promise<string | null> {
   if (!auth.refreshToken) return null
   try {
     const res = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-      refreshToken: auth.refreshToken,
+      refresh_token: auth.refreshToken,
     })
-    const tokens = res.data?.data
-    if (tokens?.accessToken) {
-      auth.setTokens(tokens)
-      return tokens.accessToken
+    const raw = res.data?.data
+    if (raw?.access_token) {
+      const mappedTokens = {
+        accessToken: raw.access_token,
+        refreshToken: raw.refresh_token,
+        expiresIn: raw.expires_in,
+      }
+      auth.setTokens(mappedTokens)
+      return mappedTokens.accessToken
     }
   } catch {
     auth.reset()

@@ -59,11 +59,20 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 	}
 
 	// ── Device CRUD ───────────────────────────────────────────────────────
+	// GET /devices dan GET /devices/:id — semua authenticated user.
+	// POST, PUT, DELETE /devices — hanya admin (operasi credential sensitif).
 	devicesGroup := g.Group("")
 	for _, mw := range authChain {
 		devicesGroup.Use(mw)
 	}
-	handler.NewDevices(deps.DeviceStore, deps.DevMgr).Register(devicesGroup)
+	devicesAdminGroup := g.Group("")
+	for _, mw := range authChain {
+		devicesAdminGroup.Use(mw)
+	}
+	if deps.AuthSigner != nil {
+		devicesAdminGroup.Use(middleware.RequireRole(roleAdmin))
+	}
+	handler.NewDevices(deps.DeviceStore, deps.DevMgr).RegisterSplit(devicesGroup, devicesAdminGroup)
 
 	// ── Semua endpoint RouterOS di bawah device scope ─────────────────────
 	dev := g.Group("/devices/:device_id")
@@ -73,11 +82,17 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 	dev.Use(middleware.DeviceMiddleware(deps.DevMgr))
 
 	handler.NewSystemInfo(nil).Register(dev)
-	handler.NewSystemControl(nil).Register(dev)
 	handler.NewSystemLogging(nil).Register(dev)
 	handler.NewSystemScript(nil).Register(dev)
 	handler.NewSystemScheduler(nil).Register(dev)
 	handler.NewLog(nil).Register(dev)
+
+	// System control (reboot/shutdown) — hanya admin
+	sysControlGroup := dev.Group("")
+	if deps.AuthSigner != nil {
+		sysControlGroup.Use(middleware.RequireRole(roleAdmin))
+	}
+	handler.NewSystemControl(nil).Register(sysControlGroup)
 
 	handler.NewHotspotUser(nil, nil).Register(dev)
 	handler.NewHotspotProfile(nil, nil).Register(dev)

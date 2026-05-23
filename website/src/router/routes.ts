@@ -22,19 +22,13 @@ export const routes: RouteRecordRaw[] = [
       { path: 'overview', name: 'overview', component: () => import('@/pages/OverviewPage.vue') },
       { path: 'devices', name: 'devices', component: () => import('@/pages/DevicesPage.vue') },
       {
-        path: 'hotspot/users',
-        name: 'hotspot-users',
-        component: () => import('@/pages/HotspotUsersPage.vue'),
+        path: 'hotspot',
+        redirect: { name: 'hotspot', params: { tab: 'users' } },
       },
       {
-        path: 'hotspot/profiles',
-        name: 'hotspot-profiles',
-        component: () => import('@/pages/HotspotProfilesPage.vue'),
-      },
-      {
-        path: 'hotspot/sessions',
-        name: 'hotspot-sessions',
-        component: () => import('@/pages/HotspotSessionsPage.vue'),
+        path: 'hotspot/:tab?',
+        name: 'hotspot',
+        component: () => import('@/pages/HotspotPage.vue'),
       },
       {
         path: 'hotspot/voucher',
@@ -45,6 +39,7 @@ export const routes: RouteRecordRaw[] = [
       { path: 'network', name: 'network', component: () => import('@/pages/NetworkPage.vue') },
       { path: 'system', name: 'system', component: () => import('@/pages/SystemPage.vue') },
       { path: 'reports', name: 'reports', component: () => import('@/pages/ReportsPage.vue') },
+      { path: 'settings', name: 'settings', component: () => import('@/pages/SettingsPage.vue') },
     ],
   },
   {

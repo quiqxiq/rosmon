@@ -6,22 +6,27 @@ import Input from '@/components/ui/Input.vue'
 import Select from '@/components/ui/Select.vue'
 import Tabs from '@/components/ui/Tabs.vue'
 import Toggle from '@/components/ui/Toggle.vue'
-import { HS_PROFILES, type FixtureHotspotUser } from '@/fixtures/hotspot'
+import { useActiveDevice } from '@/composables/useActiveDevice'
+import { useHotspotProfilesQuery } from '@/queries/hotspot.queries'
+import type { HotspotUser } from '@/types/hotspot'
 
 const props = defineProps<{
   open: boolean
-  user: Partial<FixtureHotspotUser> | null
+  user: Partial<HotspotUser> | null
 }>()
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'save', user: Partial<FixtureHotspotUser>): void
+  (e: 'save', user: Partial<HotspotUser>): void
   (e: 'delete', id: string): void
 }>()
 
+const { activeDeviceId } = useActiveDevice()
+const { data: apiProfiles } = useHotspotProfilesQuery(activeDeviceId)
+
 type TabId = 'general' | 'limits' | 'stats'
 const tab = ref<TabId>('general')
-const form = ref<Partial<FixtureHotspotUser>>({})
+const form = ref<Partial<HotspotUser>>({})
 
 watch(
   () => props.user,
@@ -36,7 +41,11 @@ const isEdit = () => Boolean(props.user?.id)
 </script>
 
 <template>
-  <Drawer :open="open" :title="isEdit() ? 'Edit Hotspot User' : 'Tambah Hotspot User'" @close="emit('close')">
+  <Drawer
+    :open="open"
+    :title="isEdit() ? 'Edit Hotspot User' : 'Tambah Hotspot User'"
+    @close="emit('close')"
+  >
     <Tabs
       v-model="tab"
       :tabs="[
@@ -56,15 +65,16 @@ const isEdit = () => Boolean(props.user?.id)
       </Field>
       <Field label="Profile">
         <Select
-          :model-value="form.profile ?? HS_PROFILES[0].name"
-          :options="HS_PROFILES.map((p) => ({ value: p.name, label: p.name }))"
+          :model-value="form.profile ?? (apiProfiles?.[0]?.name || 'default')"
+          :options="(apiProfiles ?? []).map((p) => ({ value: p.name, label: p.name }))"
           @update:model-value="(v) => (form.profile = v)"
         />
       </Field>
       <Field label="Server">
         <Select
-          :model-value="form.server ?? 'hotspot1'"
+          :model-value="form.server ?? 'all'"
           :options="[
+            { value: 'all', label: 'all' },
             { value: 'hotspot1', label: 'hotspot1' },
             { value: 'hotspot2', label: 'hotspot2' },
           ]"
@@ -72,7 +82,7 @@ const isEdit = () => Boolean(props.user?.id)
         />
       </Field>
       <Field label="MAC Address (opsional)">
-        <Input v-model="form.mac as string" placeholder="AA:BB:CC:DD:EE:FF" />
+        <Input v-model="form.macAddress as string" placeholder="AA:BB:CC:DD:EE:FF" />
       </Field>
       <Field label="Comment">
         <Input v-model="form.comment as string" placeholder="" />
@@ -87,17 +97,15 @@ const isEdit = () => Boolean(props.user?.id)
     </div>
 
     <div v-else-if="tab === 'limits'" class="space-y-3">
-      <Field label="Validity">
-        <Select
-          :model-value="'1d'"
-          :options="HS_PROFILES.map((p) => ({ value: p.validity, label: p.validity }))"
-        />
-      </Field>
       <Field label="Uptime limit">
-        <Input :model-value="''" placeholder="contoh: 4h, 1d" />
+        <Input v-model="form.limitUptime as string" placeholder="contoh: 4h, 1d" />
       </Field>
       <Field label="Bytes total limit">
-        <Input :model-value="''" placeholder="contoh: 5G" />
+        <Input
+          :model-value="form.limitBytesTotal ? String(form.limitBytesTotal) : ''"
+          placeholder="contoh: 5368709120 (5GB dalam bytes)"
+          @update:model-value="(v) => (form.limitBytesTotal = Number(v))"
+        />
       </Field>
       <div
         class="rounded-lg p-3 text-xs"
@@ -112,11 +120,11 @@ const isEdit = () => Boolean(props.user?.id)
         <div class="grid grid-cols-2 gap-3">
           <div class="rounded-lg p-3" style="background: var(--bg-2)">
             <div class="text-xs" style="color: var(--muted)">Uptime</div>
-            <div class="mono font-semibold">{{ form.uptime ?? 0 }}s</div>
+            <div class="mono font-semibold">{{ form.uptime ?? '0s' }}</div>
           </div>
           <div class="rounded-lg p-3" style="background: var(--bg-2)">
-            <div class="text-xs" style="color: var(--muted)">Last session</div>
-            <div class="mono font-semibold">—</div>
+            <div class="text-xs" style="color: var(--muted)">MAC Address</div>
+            <div class="mono font-semibold">{{ form.macAddress ?? '—' }}</div>
           </div>
           <div class="rounded-lg p-3" style="background: var(--bg-2)">
             <div class="text-xs" style="color: var(--muted)">Bytes In</div>
@@ -132,7 +140,12 @@ const isEdit = () => Boolean(props.user?.id)
     </div>
 
     <template #footer>
-      <button v-if="isEdit()" class="btn btn-danger btn-sm" type="button" @click="emit('delete', form.id as string)">
+      <button
+        v-if="isEdit()"
+        class="btn btn-danger btn-sm"
+        type="button"
+        @click="emit('delete', form.id as string)"
+      >
         Hapus
       </button>
       <div class="flex-1" />

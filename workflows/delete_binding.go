@@ -39,27 +39,17 @@ func DeleteBinding(ctx context.Context, c *Clients, bindingID string) error {
 }
 
 // DeleteBindingByMAC adalah varian yang sudah tahu MAC-nya (mis. caller
-// punya UI yang pass MAC ke handler). Lookup binding-by-MAC dulu,
-// hapus, lalu cascade cleanup.
+// punya UI yang pass MAC ke handler). Gunakan BindingByMAC untuk O(1) lookup
+// langsung ke RouterOS (menggantikan BindingList + linear scan O(n)).
 func DeleteBindingByMAC(ctx context.Context, c *Clients, mac string) error {
 	if mac == "" {
 		return mikrotik.ErrInvalidArgument
 	}
-	bindings, err := c.Hotspot.BindingList(ctx)
+	b, err := c.Hotspot.BindingByMAC(ctx, mac)
 	if err != nil {
-		return fmt.Errorf("workflows.DeleteBindingByMAC: list: %w", err)
+		return fmt.Errorf("workflows.DeleteBindingByMAC: lookup: %w", err)
 	}
-	var bindingID string
-	for _, b := range bindings {
-		if b.MACAddress == mac {
-			bindingID = b.ID
-			break
-		}
-	}
-	if bindingID == "" {
-		return mikrotik.ErrNotFound
-	}
-	if rerr := c.Hotspot.BindingRemove(ctx, bindingID); rerr != nil {
+	if rerr := c.Hotspot.BindingRemove(ctx, b.ID); rerr != nil {
 		return fmt.Errorf("workflows.DeleteBindingByMAC: remove binding: %w", rerr)
 	}
 	return cascadeCleanupByMAC(ctx, c, mac)

@@ -29,7 +29,10 @@ const bg = computed(
 </script>
 
 <template>
-  <button type="button" class="card flex w-full cursor-pointer items-center gap-3 text-left transition-transform hover:-translate-y-0.5">
+  <button
+    type="button"
+    class="card flex w-full cursor-pointer items-center gap-3 text-left transition-transform hover:-translate-y-0.5"
+  >
     <div
       class="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-lg"
       :style="{ background: bg, color: c }"

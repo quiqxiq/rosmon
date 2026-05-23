@@ -29,36 +29,87 @@ type gormDeviceStore struct{ db *gorm.DB }
 
 func NewDeviceStore(db *gorm.DB) DeviceStore { return &gormDeviceStore{db: db} }
 
+// decryptPasswords mendekripsi field Password pada setiap device di slice.
+func decryptPasswords(ds []model.MikrotikDevice) ([]model.MikrotikDevice, error) {
+	for i := range ds {
+		p, err := decryptDevicePassword(ds[i].Password)
+		if err != nil {
+			return nil, err
+		}
+		ds[i].Password = p
+	}
+	return ds, nil
+}
+
 func (s *gormDeviceStore) List(ctx context.Context) ([]model.MikrotikDevice, error) {
 	var ds []model.MikrotikDevice
-	err := s.db.WithContext(ctx).Where("active = true").Find(&ds).Error
-	return ds, err
+	if err := s.db.WithContext(ctx).Where("active = true").Find(&ds).Error; err != nil {
+		return nil, err
+	}
+	return decryptPasswords(ds)
 }
 
 func (s *gormDeviceStore) ListAll(ctx context.Context) ([]model.MikrotikDevice, error) {
 	var ds []model.MikrotikDevice
-	err := s.db.WithContext(ctx).Find(&ds).Error
-	return ds, err
+	if err := s.db.WithContext(ctx).Find(&ds).Error; err != nil {
+		return nil, err
+	}
+	return decryptPasswords(ds)
 }
 
 func (s *gormDeviceStore) Get(ctx context.Context, id uint) (model.MikrotikDevice, error) {
 	var d model.MikrotikDevice
-	err := s.db.WithContext(ctx).First(&d, id).Error
-	return d, err
+	if err := s.db.WithContext(ctx).First(&d, id).Error; err != nil {
+		return d, err
+	}
+	p, err := decryptDevicePassword(d.Password)
+	if err != nil {
+		return d, err
+	}
+	d.Password = p
+	return d, nil
 }
 
 func (s *gormDeviceStore) GetBySlug(ctx context.Context, slug string) (model.MikrotikDevice, error) {
 	var d model.MikrotikDevice
-	err := s.db.WithContext(ctx).Where("slug = ?", slug).First(&d).Error
-	return d, err
+	if err := s.db.WithContext(ctx).Where("slug = ?", slug).First(&d).Error; err != nil {
+		return d, err
+	}
+	p, err := decryptDevicePassword(d.Password)
+	if err != nil {
+		return d, err
+	}
+	d.Password = p
+	return d, nil
 }
 
 func (s *gormDeviceStore) Create(ctx context.Context, d *model.MikrotikDevice) error {
-	return s.db.WithContext(ctx).Create(d).Error
+	enc, err := encryptDevicePassword(d.Password)
+	if err != nil {
+		return err
+	}
+	// Simpan ke DB dengan password terenkripsi; restore plaintext di struct
+	// supaya caller (devmgr.Add) masih dapat password asli.
+	orig := d.Password
+	d.Password = enc
+	if err := s.db.WithContext(ctx).Create(d).Error; err != nil {
+		d.Password = orig
+		return err
+	}
+	d.Password = orig
+	return nil
 }
 
 func (s *gormDeviceStore) Update(ctx context.Context, d *model.MikrotikDevice) error {
-	return s.db.WithContext(ctx).Save(d).Error
+	enc, err := encryptDevicePassword(d.Password)
+	if err != nil {
+		return err
+	}
+	orig := d.Password
+	d.Password = enc
+	err = s.db.WithContext(ctx).Model(d).Updates(d).Error
+	d.Password = orig
+	return err
 }
 
 func (s *gormDeviceStore) Delete(ctx context.Context, id uint) error {

@@ -6,19 +6,19 @@ const base = (deviceId: string) => `/devices/${deviceId}/reports`
 
 export const reportsService = {
   async listSales(deviceId: string, from?: string, to?: string): Promise<VoucherSale[]> {
-    const { data } = await http.get<ApiEnvelope<VoucherSale[]>>(`${base(deviceId)}/sales`, {
+    const { data } = await http.get<ApiEnvelope<VoucherSale[]>>(`${base(deviceId)}/selling`, {
       params: { from, to },
     })
     return data.data
   },
   async summary(deviceId: string, date?: string): Promise<SalesSummary> {
-    const { data } = await http.get<ApiEnvelope<SalesSummary>>(`${base(deviceId)}/summary`, {
+    const { data } = await http.get<ApiEnvelope<SalesSummary>>(`${base(deviceId)}/selling/summary`, {
       params: { date },
     })
     return data.data
   },
   async exportCsv(deviceId: string, from?: string, to?: string): Promise<Blob> {
-    const { data } = await http.get(`${base(deviceId)}/export.csv`, {
+    const { data } = await http.get(`${base(deviceId)}/selling.csv`, {
       params: { from, to },
       responseType: 'blob',
     })

@@ -25,7 +25,10 @@ withDefaults(
     <div class="mb-3 flex items-start justify-between gap-3">
       <div class="flex flex-col gap-1">
         <div class="flex items-center gap-2">
-          <span class="text-[11px] font-medium uppercase tracking-wider" style="color: var(--muted)">
+          <span
+            class="text-[11px] font-medium uppercase tracking-wider"
+            style="color: var(--muted)"
+          >
             {{ label }}
           </span>
           <LiveTag v-if="live" />
@@ -36,7 +39,10 @@ withDefaults(
       <div
         v-if="icon"
         class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-        :style="{ background: accent ? `${accent}22` : 'var(--bg-2)', color: accent ?? 'var(--muted)' }"
+        :style="{
+          background: accent ? `${accent}22` : 'var(--bg-2)',
+          color: accent ?? 'var(--muted)',
+        }"
       >
         <Icon :name="icon" :size="18" />
       </div>
@@ -47,11 +53,7 @@ withDefaults(
         class="flex items-center gap-1 text-xs tabular"
         :style="{
           color:
-            trend === 'up'
-              ? 'var(--success)'
-              : trend === 'down'
-                ? 'var(--danger)'
-                : 'var(--muted)',
+            trend === 'up' ? 'var(--success)' : trend === 'down' ? 'var(--danger)' : 'var(--muted)',
         }"
       >
         <Icon v-if="trend === 'up'" name="Up" :size="12" />

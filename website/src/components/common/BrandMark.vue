@@ -32,10 +32,7 @@ withDefaults(defineProps<{ small?: boolean }>(), { small: false })
       <span class="text-[15px] font-bold" style="letter-spacing: -0.02em">
         roslib<span style="color: var(--accent-cyan)">/</span>admin
       </span>
-      <span
-        class="mt-1 text-[10px]"
-        style="color: var(--muted); letter-spacing: 0.02em"
-      >
+      <span class="mt-1 text-[10px]" style="color: var(--muted); letter-spacing: 0.02em">
         RouterOS · Mikhmon
       </span>
     </div>

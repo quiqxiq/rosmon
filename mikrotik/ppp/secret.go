@@ -2,7 +2,6 @@ package ppp
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/quiqxiq/roslib"
 	"github.com/quiqxiq/roslib-mikhmon/domain"
@@ -75,10 +74,10 @@ func (c *Client) SecretAdd(ctx context.Context, a SecretAddArgs) (string, error)
 		pairs = append(pairs, roslib.NewPair("caller-id", a.CallerID))
 	}
 	if a.LimitBytesIn != 0 {
-		pairs = append(pairs, roslib.NewPair("limit-bytes-in", strconv.FormatInt(a.LimitBytesIn, 10)))
+		pairs = append(pairs, roslib.NewPair("limit-bytes-in", mikrotik.Itoa(a.LimitBytesIn)))
 	}
 	if a.LimitBytesOut != 0 {
-		pairs = append(pairs, roslib.NewPair("limit-bytes-out", strconv.FormatInt(a.LimitBytesOut, 10)))
+		pairs = append(pairs, roslib.NewPair("limit-bytes-out", mikrotik.Itoa(a.LimitBytesOut)))
 	}
 	if a.Disabled != nil {
 		pairs = append(pairs, roslib.NewPair("disabled", mikrotik.BoolWord(*a.Disabled)))
@@ -140,10 +139,10 @@ func (c *Client) SecretSet(ctx context.Context, a SecretSetArgs) error {
 		pairs = append(pairs, roslib.NewPair("caller-id", *a.CallerID))
 	}
 	if a.LimitBytesIn != nil {
-		pairs = append(pairs, roslib.NewPair("limit-bytes-in", strconv.FormatInt(*a.LimitBytesIn, 10)))
+		pairs = append(pairs, roslib.NewPair("limit-bytes-in", mikrotik.Itoa(*a.LimitBytesIn)))
 	}
 	if a.LimitBytesOut != nil {
-		pairs = append(pairs, roslib.NewPair("limit-bytes-out", strconv.FormatInt(*a.LimitBytesOut, 10)))
+		pairs = append(pairs, roslib.NewPair("limit-bytes-out", mikrotik.Itoa(*a.LimitBytesOut)))
 	}
 	if a.Disabled != nil {
 		pairs = append(pairs, roslib.NewPair("disabled", mikrotik.BoolWord(*a.Disabled)))

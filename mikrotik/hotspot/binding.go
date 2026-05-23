@@ -52,6 +52,22 @@ func (c *Client) BindingCount(ctx context.Context) (int, error) {
 	return mikrotik.AtoiOr(reply.Raw.Done.Map["ret"], 0), nil
 }
 
+// BindingByMAC → /ip/hotspot/ip-binding/print ?mac-address=<mac> (analisis §1.9).
+// Menggantikan linear scan di workflow DeleteBindingByMAC — O(1) query ke RouterOS.
+func (c *Client) BindingByMAC(ctx context.Context, mac string) (domain.HotspotBinding, error) {
+	if mac == "" {
+		return domain.HotspotBinding{}, mikrotik.ErrInvalidArgument
+	}
+	reply, err := c.dev.Path(bindingPath).Print().Where("mac-address", mac).Exec(ctx)
+	if err != nil {
+		return domain.HotspotBinding{}, err
+	}
+	if len(reply.Rows) == 0 {
+		return domain.HotspotBinding{}, mikrotik.ErrNotFound
+	}
+	return sentenceToBinding(reply.Rows[0]), nil
+}
+
 // BindingSetType → /ip/hotspot/ip-binding/set =type=... (analisis §1.9).
 func (c *Client) BindingSetType(ctx context.Context, id string, t BindingType) error {
 	if id == "" || t == "" {

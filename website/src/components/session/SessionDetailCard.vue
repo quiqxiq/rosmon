@@ -1,22 +1,18 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import Icon from '@/components/ui/Icon.vue'
 import Avatar from '@/components/ui/Avatar.vue'
 import Badge from '@/components/ui/Badge.vue'
-import Spark from '@/components/ui/Spark.vue'
-import { fmtBytes, fmtRate, fmtDuration } from '@/utils/fmt'
-import type { FixtureHotspotActive } from '@/fixtures/hotspot'
+import { fmtBytes } from '@/utils/fmt'
+import type { HotspotSession } from '@/types/hotspot'
 
-const props = defineProps<{
-  session: FixtureHotspotActive
+defineProps<{
+  session: HotspotSession
 }>()
 
 defineEmits<{
   (e: 'close'): void
   (e: 'kick'): void
 }>()
-
-const uptimeSec = computed(() => Math.floor((Date.now() - props.session.uptimeStart) / 1000))
 </script>
 
 <template>
@@ -33,8 +29,8 @@ const uptimeSec = computed(() => Math.floor((Date.now() - props.session.uptimeSt
         <div>
           <div class="text-sm font-semibold">{{ session.user }}</div>
           <div class="mt-1 flex flex-wrap gap-1.5">
-            <Badge tone="cyan">{{ session.profile }}</Badge>
-            <Badge tone="violet">{{ session.server }}</Badge>
+            <Badge v-if="session.comment" tone="cyan">{{ session.comment }}</Badge>
+            <Badge v-if="session.server" tone="violet">{{ session.server }}</Badge>
           </div>
         </div>
       </div>
@@ -46,19 +42,19 @@ const uptimeSec = computed(() => Math.floor((Date.now() - props.session.uptimeSt
     <div class="grid grid-cols-2 gap-2.5 text-xs">
       <div class="rounded-lg p-2.5" style="background: var(--bg-2)">
         <div style="color: var(--muted)">IP</div>
-        <div class="mono mt-0.5 font-medium">{{ session.address }}</div>
+        <div class="mono mt-0.5 font-medium">{{ session.address || '—' }}</div>
       </div>
       <div class="rounded-lg p-2.5" style="background: var(--bg-2)">
         <div style="color: var(--muted)">MAC</div>
-        <div class="mono mt-0.5 font-medium">{{ session.mac }}</div>
+        <div class="mono mt-0.5 font-medium">{{ session.macAddress || '—' }}</div>
       </div>
       <div class="rounded-lg p-2.5" style="background: var(--bg-2)">
         <div style="color: var(--muted)">Uptime</div>
-        <div class="mono mt-0.5 font-medium">{{ fmtDuration(uptimeSec) }}</div>
+        <div class="mono mt-0.5 font-medium">{{ session.uptime || '—' }}</div>
       </div>
       <div class="rounded-lg p-2.5" style="background: var(--bg-2)">
         <div style="color: var(--muted)">Login by</div>
-        <div class="mono mt-0.5 font-medium">{{ session.loginBy }}</div>
+        <div class="mono mt-0.5 font-medium">{{ session.loginBy || '—' }}</div>
       </div>
       <div class="rounded-lg p-2.5" style="background: var(--bg-2)">
         <div style="color: var(--muted)">Bytes In</div>
@@ -70,18 +66,7 @@ const uptimeSec = computed(() => Math.floor((Date.now() - props.session.uptimeSt
       </div>
     </div>
 
-    <div class="space-y-2">
-      <div class="flex items-center justify-between">
-        <span class="text-xs" style="color: var(--muted)">Bandwidth (60s)</span>
-        <span class="mono text-xs font-semibold">
-          ↓ {{ fmtRate(session.rxRate) }} · ↑ {{ fmtRate(session.txRate) }}
-        </span>
-      </div>
-      <Spark :data="session.sparkIn" kind="area" color="var(--accent-cyan)" :width="280" :height="40" />
-    </div>
-
-    <div class="flex flex-wrap gap-2">
-      <button class="btn btn-sm flex-1" type="button">Detail User</button>
+    <div class="flex flex-wrap gap-2 mt-2">
       <button class="btn btn-danger btn-sm flex-1" type="button" @click="$emit('kick')">
         <Icon name="Kick" :size="13" />
         Kick Session

@@ -413,17 +413,6 @@ func sentenceToInterfaceMap(s *roslib.Sentence) any {
 	}
 }
 
-func sentenceToQueueMap(s *roslib.Sentence) any {
-	return dto.QueueStatsEvent{
-		ID:       s.Get(".id"),
-		Name:     s.Get("name"),
-		Target:   s.Get("target"),
-		Bytes:    s.Get("bytes"),
-		Packets:  s.Get("packets"),
-		Rate:     s.Get("rate"),
-		MaxLimit: s.Get("max-limit"),
-	}
-}
 
 func parseInterval(c *gin.Context, def time.Duration) time.Duration {
 	v := c.Query("interval")

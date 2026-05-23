@@ -1,16 +1,16 @@
-import { type MaybeRefOrGetter, toValue } from 'vue'
+import { type MaybeRefOrGetter, toValue, computed } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { reportsService } from '@/services/reports'
 import { queryKeys } from '@/queries/query-keys'
 
 export function useSalesQuery(
   deviceId: MaybeRefOrGetter<string | null>,
-  from?: string,
-  to?: string,
+  from?: MaybeRefOrGetter<string | undefined>,
+  to?: MaybeRefOrGetter<string | undefined>,
 ) {
   return useQuery({
-    queryKey: queryKeys.reports.sales(String(toValue(deviceId)), from, to),
-    queryFn: () => reportsService.listSales(String(toValue(deviceId)), from, to),
+    queryKey: computed(() => queryKeys.reports.sales(String(toValue(deviceId)), toValue(from), toValue(to))),
+    queryFn: () => reportsService.listSales(String(toValue(deviceId)), toValue(from), toValue(to)),
     enabled: () => Boolean(toValue(deviceId)),
   })
 }

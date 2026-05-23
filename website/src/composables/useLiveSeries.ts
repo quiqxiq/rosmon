@@ -7,8 +7,9 @@ export interface LiveSeriesAPI {
 }
 
 export function useLiveSeries(windowSize = 60, initial: number[] = []): LiveSeriesAPI {
-  const seed = initial.length
-    ? initial.slice(-windowSize)
+  const safeInitial = initial ?? []
+  const seed = safeInitial.length
+    ? safeInitial.slice(-windowSize)
     : Array.from({ length: windowSize }, () => 0)
   const data = ref<number[]>(seed)
 

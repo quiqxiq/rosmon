@@ -420,14 +420,12 @@ select {
 .main-bg {
   background:
     radial-gradient(800px 400px at 90% -10%, rgba(139, 92, 246, 0.1), transparent 60%),
-    radial-gradient(700px 380px at -10% -20%, rgba(34, 211, 238, 0.08), transparent 60%),
-    var(--bg);
+    radial-gradient(700px 380px at -10% -20%, rgba(34, 211, 238, 0.08), transparent 60%), var(--bg);
 }
 [data-theme='light'] .main-bg {
   background:
     radial-gradient(900px 500px at 100% -10%, rgba(139, 92, 246, 0.06), transparent 60%),
-    radial-gradient(800px 400px at -10% -20%, rgba(34, 211, 238, 0.05), transparent 60%),
-    var(--bg);
+    radial-gradient(800px 400px at -10% -20%, rgba(34, 211, 238, 0.05), transparent 60%), var(--bg);
 }
 
 .gradient-text {
@@ -729,3 +727,42 @@ select {
 .spark {
   display: block;
 }
+
+/* print */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    overflow: visible !important;
+  }
+  html,
+  body,
+  #app {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .sb,
+  .sb-mobile,
+  .tb,
+  .btn,
+  .overlay,
+  .drawer {
+    display: none !important;
+  }
+  .voucher {
+    page-break-inside: avoid;
+    border-color: #aaa !important;
+    color: black !important;
+  }
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+    background: white !important;
+  }
+  .badge {
+    border-color: #ccc !important;
+    background: transparent !important;
+    color: black !important;
+  }
+}
+

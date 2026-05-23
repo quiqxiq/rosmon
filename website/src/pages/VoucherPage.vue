@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import Icon from '@/components/ui/Icon.vue'
 import Field from '@/components/ui/Field.vue'
@@ -8,25 +8,69 @@ import Select from '@/components/ui/Select.vue'
 import Segmented from '@/components/ui/Segmented.vue'
 import Badge from '@/components/ui/Badge.vue'
 import VoucherCard from '@/components/hotspot/VoucherCard.vue'
-import { HS_PROFILES } from '@/fixtures/hotspot'
-import { vid } from '@/fixtures/_helpers'
 import { fmtRp, fmtRpShort } from '@/utils/fmt'
+import { downloadCsv, todayStamp } from '@/utils/export'
+import { useToast } from '@/composables/useToast'
+import { useActiveDevice } from '@/composables/useActiveDevice'
+import { useHotspotProfilesQuery } from '@/queries/hotspot.queries'
+import { useProfileConfigsQuery } from '@/queries/profile-config.queries'
+import { hotspotMiscService } from '@/services/hotspot-misc'
+import VoucherPrintModal from '@/components/hotspot/VoucherPrintModal.vue'
+
+const toast = useToast()
+const { activeDeviceId } = useActiveDevice()
+
+// Queries
+const { data: apiProfiles, isLoading: loadingProfiles } = useHotspotProfilesQuery(activeDeviceId)
+const { data: localConfigs } = useProfileConfigsQuery(activeDeviceId)
 
 const count = ref(25)
-const server = ref('hotspot1')
-const profileName = ref(HS_PROFILES[0].name)
-const price = ref(HS_PROFILES[0].price)
-const validity = ref(HS_PROFILES[0].validity)
+const server = ref('all')
+const profileName = ref('')
+const price = ref(0)
+const validity = ref('')
+const speed = ref('')
 const mode = ref<'random' | 'prefix' | 'sequential'>('random')
 const prefix = ref('VC')
 const charLen = ref(6)
 const charset = ref('ALPHA_UPPER')
-const pwdMode = ref<'same' | 'random' | 'fixed'>('same')
 const comment = ref('')
 const generating = ref(false)
 const view = ref<'mini' | 'standar' | 'list'>('standar')
+const printModalOpen = ref(false)
+const pwdMode = ref('same')
 
-const profile = computed(() => HS_PROFILES.find((p) => p.name === profileName.value)!)
+// Merge standard RouterOS profiles dengan Mikhmon configs (harga/validity)
+const mergedProfiles = computed(() => {
+  const ros = apiProfiles.value ?? []
+  const configs = localConfigs.value ?? []
+  const configMap = new Map(configs.map((c) => [c.profile, c]))
+  return ros.map((p) => {
+    const config = configMap.get(p.name)
+    return {
+      name: p.name,
+      speed: p.rateLimit || 'unlimited',
+      validity: config?.validity || '1d',
+      price: config?.price || 0,
+    }
+  })
+})
+
+const currentProfile = computed(() => {
+  return mergedProfiles.value.find((p) => p.name === profileName.value) || {
+    name: 'default',
+    speed: 'unlimited',
+    validity: '1d',
+    price: 0,
+  }
+})
+
+watch(mergedProfiles, (list) => {
+  if (list.length && !profileName.value) {
+    chooseProfile(list[0].name)
+  }
+})
+
 const estimatedRevenue = computed(() => price.value * count.value)
 
 interface Voucher {
@@ -42,52 +86,109 @@ const result = ref<Voucher[] | null>(null)
 
 function chooseProfile(name: string) {
   profileName.value = name
-  const p = HS_PROFILES.find((x) => x.name === name)
+  const p = mergedProfiles.value.find((x) => x.name === name)
   if (p) {
     price.value = p.price
     validity.value = p.validity
+    speed.value = p.speed
   }
 }
 
-function generate() {
+async function generate() {
+  if (!activeDeviceId.value || !profileName.value) {
+    toast.error('Silakan pilih profile hotspot terlebih dahulu')
+    return
+  }
   generating.value = true
-  setTimeout(() => {
-    const arr: Voucher[] = []
-    for (let i = 0; i < count.value; i++) {
-      const code = mode.value === 'prefix' ? `${prefix.value}${vid().slice(0, charLen.value)}` : vid().slice(0, charLen.value)
-      arr.push({
-        code,
-        password: pwdMode.value === 'fixed' ? '1234' : vid().slice(0, 4),
-        profile: profile.value.name,
-        price: price.value,
-        speed: profile.value.speed,
-        validity: profile.value.validity,
-      })
+  try {
+    const req = {
+      count: count.value,
+      profile: profileName.value,
+      prefix: mode.value === 'prefix' ? prefix.value : undefined,
+      length: charLen.value,
+      charset: charset.value,
+      comment: comment.value || undefined,
     }
-    result.value = arr
+    const vouchers = await hotspotMiscService.generateVouchers(activeDeviceId.value, req)
+    
+    result.value = vouchers.map((v) => ({
+      code: v.name,
+      password: v.comment || '', // Mikhmon password disimpan di comment
+      profile: v.profile,
+      price: price.value,
+      speed: speed.value,
+      validity: validity.value,
+    }))
+    
+    toast.success(`${vouchers.length} voucher berhasil di-generate!`)
+  } catch (err: any) {
+    toast.error(`Gagal men-generate voucher: ${err.message || err}`)
+  } finally {
     generating.value = false
-  }, 700)
+  }
 }
 
 function reset() {
   result.value = null
 }
+
+async function copyAll() {
+  if (!result.value?.length) return
+  const text = result.value.map((v) => `${v.code} / ${v.password}`).join('\n')
+  try {
+    await navigator.clipboard.writeText(text)
+    toast.success(`${result.value.length} voucher disalin ke clipboard`)
+  } catch {
+    toast.error('Gagal menyalin ke clipboard')
+  }
+}
+
+function downloadCsvVouchers() {
+  if (!result.value?.length) {
+    toast.warning('Tidak ada voucher untuk di-export')
+    return
+  }
+  downloadCsv(
+    result.value.map((v, i) => ({
+      no: i + 1,
+      code: v.code,
+      password: v.password,
+      profile: v.profile,
+      validity: v.validity,
+      price: v.price,
+    })),
+    `vouchers-${todayStamp()}.csv`,
+  )
+  toast.success(`${result.value.length} voucher di-export ke CSV`)
+}
+
+async function copyOne(code: string, password: string) {
+  try {
+    await navigator.clipboard.writeText(`${code} / ${password}`)
+    toast.success('Voucher disalin ke clipboard')
+  } catch {
+    toast.error('Gagal menyalin')
+  }
+}
 </script>
 
 <template>
   <div class="fade-in">
-    <PageHeader title="Voucher Generator" subtitle="Buat batch voucher hotspot dengan format custom">
-      <template v-if="result" #right>
+    <PageHeader
+      title="Voucher Generator"
+      subtitle="Buat batch voucher hotspot dengan format custom"
+    >
+      <template v-slot:right v-if="result">
         <Badge tone="success" dot>{{ result.length }} voucher berhasil dibuat</Badge>
-        <button class="btn btn-sm" type="button">
+        <button class="btn btn-sm" type="button" @click="copyAll">
           <Icon name="Copy" :size="13" />
           Salin semua
         </button>
-        <button class="btn btn-sm" type="button">
+        <button class="btn btn-sm" type="button" @click="downloadCsvVouchers">
           <Icon name="Download" :size="13" />
           CSV
         </button>
-        <button class="btn btn-sm" type="button">
+        <button class="btn btn-sm" type="button" @click="printModalOpen = true">
           <Icon name="Print" :size="13" />
           Cetak
         </button>
@@ -95,8 +196,12 @@ function reset() {
       </template>
     </PageHeader>
 
+    <div v-if="loadingProfiles" class="mb-4 flex items-center justify-center p-8">
+      <div class="text-sm" style="color: var(--muted)">Loading hotspot profiles...</div>
+    </div>
+
     <!-- Pre-generate state -->
-    <div v-if="!result" class="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+    <div v-else-if="!result" class="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
       <div class="card space-y-5">
         <section>
           <h3
@@ -126,6 +231,7 @@ function reset() {
               <Select
                 v-model="server"
                 :options="[
+                  { value: 'all', label: 'all' },
                   { value: 'hotspot1', label: 'hotspot1' },
                   { value: 'hotspot2', label: 'hotspot2' },
                 ]"
@@ -136,7 +242,7 @@ function reset() {
             <Field label="Profile">
               <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
                 <button
-                  v-for="p in HS_PROFILES"
+                  v-for="p in mergedProfiles"
                   :key="p.name"
                   type="button"
                   class="rounded-lg border p-2 text-left"
@@ -147,7 +253,9 @@ function reset() {
                   @click="chooseProfile(p.name)"
                 >
                   <div class="text-[12px] font-semibold">{{ p.name }}</div>
-                  <div class="mono mt-0.5 text-[10.5px]" style="color: var(--muted)">{{ p.speed }} · {{ p.validity }}</div>
+                  <div class="mono mt-0.5 text-[10.5px]" style="color: var(--muted)">
+                    {{ p.speed }} · {{ p.validity }}
+                  </div>
                   <div class="mt-1 text-[11px] font-semibold" style="color: var(--accent-cyan)">
                     {{ fmtRpShort(p.price) }}
                   </div>
@@ -179,7 +287,6 @@ function reset() {
                 :options="[
                   { value: 'random', label: 'Random' },
                   { value: 'prefix', label: 'Prefix+Random' },
-                  { value: 'sequential', label: 'Sequential' },
                 ]"
               />
             </Field>
@@ -231,10 +338,15 @@ function reset() {
           </Field>
         </section>
 
-        <div class="flex items-center justify-between rounded-lg p-4" style="background: var(--bg-2)">
+        <div
+          class="flex items-center justify-between rounded-lg p-4"
+          style="background: var(--bg-2)"
+        >
           <div class="text-xs" style="color: var(--muted)">
             Estimasi pemasukan:
-            <span class="ml-1 font-semibold text-base" style="color: var(--text)">{{ fmtRp(estimatedRevenue) }}</span>
+            <span class="ml-1 font-semibold text-base" style="color: var(--text)">{{
+              fmtRp(estimatedRevenue)
+            }}</span>
           </div>
           <button class="btn btn-violet" type="button" :disabled="generating" @click="generate">
             <Icon name="Sparkles" :size="14" />
@@ -245,51 +357,29 @@ function reset() {
 
       <div class="space-y-4">
         <div class="card">
-          <div class="mb-3 text-[10px] font-semibold uppercase" style="color: var(--muted); letter-spacing: 0.08em">
+          <div
+            class="mb-3 text-[10px] font-semibold uppercase"
+            style="color: var(--muted); letter-spacing: 0.08em"
+          >
             Preview Voucher
           </div>
           <VoucherCard
             code="XYZ4-5T"
             password="9k2m"
-            :profile="profile.name"
-            :speed="profile.speed"
+            :profile="currentProfile.name"
+            :speed="currentProfile.speed"
             :price="price"
           />
-        </div>
-        <div class="card" style="background: var(--accent-cyan-soft); border-color: rgba(34,211,238,0.3)">
-          <div class="mb-2 flex items-center gap-2 text-sm font-semibold" style="color: var(--accent-cyan)">
-            <Icon name="Sparkles" :size="14" />
-            Tips
-          </div>
-          <ul class="space-y-1 text-xs" style="color: var(--text-2)">
-            <li>· Prefix memudahkan tracking batch (mis. <b>VC21</b>)</li>
-            <li>· Charset alfanumerik kurangi typo saat user mengetik</li>
-            <li>· Panjang 6 karakter cukup secure untuk hotspot publik</li>
-            <li>· Cetak voucher mini untuk efisiensi kertas thermal</li>
-          </ul>
-        </div>
-        <div class="card">
-          <div class="mb-2 text-[10px] font-semibold uppercase" style="color: var(--muted); letter-spacing: 0.08em">
-            Batch Terakhir
-          </div>
-          <div class="space-y-2 text-xs">
-            <div v-for="i in 3" :key="i" class="flex items-center justify-between border-b pb-2 last:border-0" style="border-color: var(--border)">
-              <div>
-                <div class="font-medium">21 Mei 2026 · 14:0{{ i }}</div>
-                <div style="color: var(--muted)">{{ 50 - i * 10 }}× {{ HS_PROFILES[i].name }} · oleh rendra</div>
-              </div>
-              <span class="mono font-semibold" style="color: var(--accent-lime)">
-                {{ fmtRpShort((50 - i * 10) * HS_PROFILES[i].price) }}
-              </span>
-            </div>
-          </div>
         </div>
       </div>
     </div>
 
     <!-- Post-generate state -->
     <div v-else class="space-y-4">
-      <div class="card flex flex-wrap items-center justify-between gap-3" style="background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.3)">
+      <div
+        class="card flex flex-wrap items-center justify-between gap-3"
+        style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3)"
+      >
         <div class="flex items-center gap-3">
           <div
             class="flex h-10 w-10 items-center justify-center rounded-full"
@@ -298,8 +388,12 @@ function reset() {
             <Icon name="Check" :size="20" />
           </div>
           <div>
-            <div class="text-sm font-semibold" style="color: var(--success)">{{ result.length }} voucher berhasil dibuat</div>
-            <div class="text-xs" style="color: var(--muted)">Estimasi pendapatan {{ fmtRp(result.length * price) }}</div>
+            <div class="text-sm font-semibold" style="color: var(--success)">
+              {{ result.length }} voucher berhasil dibuat
+            </div>
+            <div class="text-xs" style="color: var(--muted)">
+              Estimasi pendapatan {{ fmtRp(result.length * price) }}
+            </div>
           </div>
         </div>
         <Segmented
@@ -336,7 +430,11 @@ function reset() {
               <td class="mono">{{ v.validity }}</td>
               <td class="mono">{{ fmtRpShort(v.price) }}</td>
               <td>
-                <button class="btn btn-ghost btn-icon btn-xs" type="button">
+                <button
+                  class="btn btn-ghost btn-icon btn-xs"
+                  type="button"
+                  @click="copyOne(v.code, v.password)"
+                >
                   <Icon name="Copy" :size="12" />
                 </button>
               </td>
@@ -365,5 +463,6 @@ function reset() {
         />
       </div>
     </div>
+    <VoucherPrintModal :open="printModalOpen" @close="printModalOpen = false" />
   </div>
 </template>

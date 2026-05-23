@@ -14,6 +14,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -21,8 +22,6 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	roslibcfg "github.com/quiqxiq/roslib/config"
-	roslibinflux "github.com/quiqxiq/roslib/metrics/influx"
 	"github.com/quiqxiq/roslib-mikhmon/api"
 	"github.com/quiqxiq/roslib-mikhmon/api/sse"
 	"github.com/quiqxiq/roslib-mikhmon/internal/config"
@@ -33,6 +32,8 @@ import (
 	"github.com/quiqxiq/roslib-mikhmon/service/metrics"
 	"github.com/quiqxiq/roslib-mikhmon/store"
 	"github.com/quiqxiq/roslib-mikhmon/store/model"
+	roslibcfg "github.com/quiqxiq/roslib/config"
+	roslibinflux "github.com/quiqxiq/roslib/metrics/influx"
 	"github.com/sirupsen/logrus"
 )
 
@@ -48,6 +49,30 @@ func main() {
 	}
 	if err := godotenv.Load(dotenvPath); err == nil {
 		log.WithField("file", dotenvPath).Info("loaded .env")
+	}
+
+	// LOG_LEVEL via env: debug, info, warn, error, fatal. Default info.
+	// Harus di-set setelah godotenv.Load supaya bisa dikontrol dari .env.
+	if lvl, err := logrus.ParseLevel(os.Getenv("LOG_LEVEL")); err == nil {
+		log.SetLevel(lvl)
+		log.WithField("level", lvl.String()).Debug("log level set")
+	}
+
+	// DEVICE_PASSWORD_KEY: AES-256-GCM key untuk enkripsi password router.
+	// Opsional tapi sangat direkomendasikan di production.
+	// Lihat .env.example untuk cara generate.
+	if keyHex := os.Getenv("DEVICE_PASSWORD_KEY"); keyHex != "" {
+		key := make([]byte, 0, 32)
+		if _, err := fmt.Sscanf(keyHex, "%x", &key); err == nil && len(key) == 32 {
+			if err := store.SetDeviceCryptoKey(key); err != nil {
+				log.WithError(err).Fatal("invalid DEVICE_PASSWORD_KEY")
+			}
+			log.Info("device password encryption enabled")
+		} else {
+			log.Warn("DEVICE_PASSWORD_KEY tidak valid — abaikan (password tidak terenkripsi). Gunakan 'openssl rand -hex 32' untuk generate.")
+		}
+	} else {
+		log.Warn("DEVICE_PASSWORD_KEY tidak di-set — password device disimpan plaintext")
 	}
 
 	httpCfg, err := config.LoadHTTPFromEnv()

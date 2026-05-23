@@ -4,6 +4,7 @@ import type { EChartsCoreOption } from 'echarts/core'
 import EChart from '../EChart.vue'
 import { useEChartTheme } from '@/composables/useEChartTheme'
 import { useTweaks } from '@/composables/useTweaks'
+import { toRgba } from '@/utils/color'
 
 interface Series {
   name: string
@@ -13,13 +14,13 @@ interface Series {
 
 const props = withDefaults(
   defineProps<{
-    series: Series[]
-    xLabels: string[]
+    series?: Series[]
+    xLabels?: string[]
     kind?: 'area' | 'line' | 'bar'
     height?: number
     formatY?: (v: number) => string
   }>(),
-  { height: 220 },
+  { series: () => [], xLabels: () => [], height: 220 },
 )
 
 const theme = useEChartTheme()
@@ -30,6 +31,7 @@ const effectiveKind = computed(() => props.kind ?? chartKind.value)
 const option = computed<EChartsCoreOption>(() => {
   const t = theme.value
   return {
+    animation: false,
     color: t.color,
     grid: { left: 40, right: 12, top: 16, bottom: 28 },
     tooltip: {
@@ -40,7 +42,7 @@ const option = computed<EChartsCoreOption>(() => {
       axisPointer: { type: 'shadow' },
     },
     legend: {
-      show: props.series.length > 1,
+      show: (props.series ?? []).length > 1,
       textStyle: { color: t._tokens.muted, fontSize: 11 },
       top: 0,
       right: 0,
@@ -63,13 +65,14 @@ const option = computed<EChartsCoreOption>(() => {
       },
       splitLine: { lineStyle: { color: t._tokens.border, type: 'dashed' } },
     },
-    series: props.series.map((s, i) => {
-      const color = s.color ?? t.color[i % t.color.length]
+    series: (props.series ?? []).map((s, i) => {
+      const rawColor = s.color ?? t.color[i % t.color.length]
+      const color = toRgba(rawColor, 1)
       if (effectiveKind.value === 'bar') {
         return {
           name: s.name,
           type: 'bar' as const,
-          data: s.data,
+          data: s.data ?? [],
           itemStyle: { color, borderRadius: [3, 3, 0, 0] },
           barMaxWidth: 24,
         }
@@ -77,7 +80,7 @@ const option = computed<EChartsCoreOption>(() => {
       return {
         name: s.name,
         type: 'line' as const,
-        data: s.data,
+        data: s.data ?? [],
         smooth: false,
         symbol: 'circle',
         symbolSize: 4,
@@ -94,8 +97,8 @@ const option = computed<EChartsCoreOption>(() => {
                   x2: 0,
                   y2: 1,
                   colorStops: [
-                    { offset: 0, color: `${color}80` },
-                    { offset: 1, color: `${color}00` },
+                    { offset: 0, color: toRgba(rawColor, 0.5) },
+                    { offset: 1, color: toRgba(rawColor, 0) },
                   ],
                 },
               }

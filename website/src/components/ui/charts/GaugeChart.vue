@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import type { EChartsCoreOption } from 'echarts/core'
 import EChart from '../EChart.vue'
 import { useEChartTheme } from '@/composables/useEChartTheme'
+import { toRgba } from '@/utils/color'
 
 const props = withDefaults(
   defineProps<{
@@ -19,7 +20,7 @@ const theme = useEChartTheme()
 
 const option = computed<EChartsCoreOption>(() => {
   const t = theme.value
-  const color = props.color ?? t.color[0]
+  const color = toRgba(props.color ?? t.color[0], 1)
   return {
     series: [
       {

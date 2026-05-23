@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+
 	"github.com/gin-gonic/gin"
 	"github.com/quiqxiq/roslib-mikhmon/api/dto"
 	"github.com/quiqxiq/roslib-mikhmon/domain"
@@ -184,22 +186,38 @@ func (h *HotspotUser) BulkDelete(c *gin.Context) {
 		WriteValidationErr(c, err)
 		return
 	}
+	ctx := c.Request.Context()
+	err := workflows.BulkDeleteUsers(ctx, h.WF, req.IDs)
+
+	// BulkDeleteUsers tidak fail-fast — selalu lanjut semua ID.
+	// Kalau ada failure parsial, kita tetap return 200 dengan detail per-ID.
 	result := dto.BulkResult{
 		Succeeded: make([]string, 0, len(req.IDs)),
 		Failed:    make(map[string]string),
 	}
-	ctx := c.Request.Context()
-	for _, id := range req.IDs {
-		if err := workflows.DeleteUser(ctx, h.WF, id); err != nil {
-			result.Failed[id] = err.Error()
+	if err != nil {
+		var bulkErr *workflows.BulkDeleteUsersErr
+		if errors.As(err, &bulkErr) {
+			for id, e := range bulkErr.Failed {
+				result.Failed[id] = e.Error()
+			}
 		} else {
+			WriteErr(c, err)
+			return
+		}
+	}
+	// Kumpulkan succeeded: semua ID yang tidak ada di Failed map
+	for _, id := range req.IDs {
+		if _, failed := result.Failed[id]; !failed {
 			result.Succeeded = append(result.Succeeded, id)
 		}
 	}
-	meta := map[string]any{
-		"total":         len(req.IDs),
-		"failed_count":  len(result.Failed),
-		"success_count": len(result.Succeeded),
-	}
-	c.JSON(200, dto.Envelope{Data: result, Meta: meta})
+	WriteOK(c, dto.Envelope{
+		Data: result,
+		Meta: map[string]any{
+			"total":         len(req.IDs),
+			"success_count": len(result.Succeeded),
+			"failed_count":  len(result.Failed),
+		},
+	})
 }

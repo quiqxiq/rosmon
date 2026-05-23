@@ -1,4 +1,4 @@
-//go:build dbtest
+//go:build integration && dbtest
 
 package integration
 

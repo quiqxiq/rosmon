@@ -7,6 +7,10 @@ import (
 	"gorm.io/gorm"
 )
 
+// defaultTransactionLimit adalah batas maksimal row transaksi yang dikembalikan
+// per request tanpa pagination. Cegah OOM pada router dengan history besar.
+const defaultTransactionLimit = 500
+
 type TransactionStore interface {
 	Create(ctx context.Context, tx *model.Transaction) error
 	ListByDevice(ctx context.Context, deviceID uint, month string) ([]model.Transaction, error)
@@ -27,7 +31,7 @@ func (s *gormTransactionStore) ListByDevice(ctx context.Context, deviceID uint, 
 	if month != "" {
 		q = q.Where("sale_month = ?", month)
 	}
-	err := q.Order("created_at desc").Find(&txs).Error
+	err := q.Order("created_at desc").Limit(defaultTransactionLimit).Find(&txs).Error
 	return txs, err
 }
 
@@ -35,6 +39,6 @@ func (s *gormTransactionStore) ListByDeviceDate(ctx context.Context, deviceID ui
 	var txs []model.Transaction
 	err := s.db.WithContext(ctx).
 		Where("device_id = ? AND sale_date = ?", deviceID, date).
-		Order("created_at desc").Find(&txs).Error
+		Order("created_at desc").Limit(defaultTransactionLimit).Find(&txs).Error
 	return txs, err
 }

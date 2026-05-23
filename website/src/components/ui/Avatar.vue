@@ -19,9 +19,8 @@ const initials = computed(() =>
     .toUpperCase(),
 )
 
-const hue = computed(() =>
-  props.hue ??
-  Array.from(props.name || '').reduce((a, c) => a + c.charCodeAt(0), 0) % 360,
+const hue = computed(
+  () => props.hue ?? Array.from(props.name || '').reduce((a, c) => a + c.charCodeAt(0), 0) % 360,
 )
 
 const style = computed(() => ({

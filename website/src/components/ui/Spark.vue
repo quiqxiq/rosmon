@@ -5,13 +5,19 @@ type Kind = 'line' | 'area' | 'bar'
 
 const props = withDefaults(
   defineProps<{
-    data: number[]
+    data?: number[]
     width?: number
     height?: number
     color?: string
     kind?: Kind
   }>(),
-  { width: 90, height: 26, color: 'var(--accent-cyan)', kind: 'line' },
+  {
+    data: () => [],
+    width: 90,
+    height: 26,
+    color: 'var(--accent-cyan)',
+    kind: 'line',
+  },
 )
 
 const stats = computed(() => {
@@ -33,10 +39,14 @@ const points = computed(() => {
 })
 
 const linePath = computed(() =>
-  points.value.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' '),
+  points.value
+    .map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`)
+    .join(' '),
 )
 
-const areaPath = computed(() => `${linePath.value} L${props.width},${props.height} L0,${props.height} Z`)
+const areaPath = computed(
+  () => `${linePath.value} L${props.width},${props.height} L0,${props.height} Z`,
+)
 
 const barWidth = computed(() => props.width / Math.max(1, props.data.length))
 </script>

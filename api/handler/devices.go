@@ -29,6 +29,21 @@ func (h *Devices) Register(g *gin.RouterGroup) {
 	d.DELETE("/:device_id", h.Delete)
 }
 
+// RegisterSplit memisahkan read endpoints (readGroup) dan write endpoints
+// (writeGroup) untuk memungkinkan role-based access control yang granular.
+// readGroup  → GET /devices, GET /devices/:id  (semua authenticated user)
+// writeGroup → POST, PUT, DELETE /devices      (admin only)
+func (h *Devices) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
+	r := readGroup.Group("/devices")
+	r.GET("", h.List)
+	r.GET("/:device_id", h.Get)
+
+	w := writeGroup.Group("/devices")
+	w.POST("", h.Create)
+	w.PUT("/:device_id", h.Update)
+	w.DELETE("/:device_id", h.Delete)
+}
+
 func (h *Devices) List(c *gin.Context) {
 	// Pakai ListAll supaya operator bisa lihat device inactive juga.
 	// Bootstrap service (devmgr.Start dst) tetap pakai List() yang filter active=true.
@@ -129,11 +144,14 @@ func (h *Devices) Delete(c *gin.Context) {
 		WriteErr(c, err)
 		return
 	}
-	h.DevMgr.Remove(d.Slug)
+	// Hapus dari DB dulu, baru disconnect. Urutan ini penting: kalau DB
+	// delete gagal, device tidak dicabut dari devmgr (tidak ada state
+	// inconsistency antara DB dan in-memory map).
 	if err := h.Store.Delete(c.Request.Context(), id); err != nil {
 		WriteErr(c, err)
 		return
 	}
+	h.DevMgr.Remove(d.Slug)
 	WriteNoContent(c)
 }
 

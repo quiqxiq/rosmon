@@ -1,6 +1,6 @@
 import { http } from '@/plugins/axios'
 import type { ApiEnvelope } from '@/types/api'
-import type { HotspotBinding, HotspotHost, HotspotSession } from '@/types/hotspot'
+import type { HotspotIpBinding, HotspotHost, HotspotSession, HotspotCookie } from '@/types/hotspot'
 
 const base = (deviceId: string) => `/devices/${deviceId}/hotspot`
 
@@ -13,11 +13,18 @@ export const hotspotSessionsService = {
     const { data } = await http.get<ApiEnvelope<HotspotHost[]>>(`${base(deviceId)}/hosts`)
     return data.data
   },
-  async listBindings(deviceId: string): Promise<HotspotBinding[]> {
-    const { data } = await http.get<ApiEnvelope<HotspotBinding[]>>(`${base(deviceId)}/bindings`)
+  async listBindings(deviceId: string): Promise<HotspotIpBinding[]> {
+    const { data } = await http.get<ApiEnvelope<HotspotIpBinding[]>>(`${base(deviceId)}/bindings`)
+    return data.data
+  },
+  async listCookies(deviceId: string): Promise<HotspotCookie[]> {
+    const { data } = await http.get<ApiEnvelope<HotspotCookie[]>>(`${base(deviceId)}/cookies`)
     return data.data
   },
   async disconnectActive(deviceId: string, id: string): Promise<void> {
     await http.delete(`${base(deviceId)}/active/${id}`)
+  },
+  async removeCookie(deviceId: string, id: string): Promise<void> {
+    await http.delete(`${base(deviceId)}/cookies/${id}`)
   },
 }

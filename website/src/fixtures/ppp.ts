@@ -49,11 +49,56 @@ export interface FixturePPPProfile {
 }
 
 export const PPP_PROFILES: FixturePPPProfile[] = [
-  { id: '*P1', name: '5M-Limit', rateLimit: '5M/2M', localAddress: '10.20.1.1', remoteAddress: 'pool-pppoe-5m', parentQueue: 'all-ppp', sessions: 24, dnsServer: '8.8.8.8,1.1.1.1' },
-  { id: '*P2', name: '10M-PPPoE', rateLimit: '10M/3M', localAddress: '10.20.1.1', remoteAddress: 'pool-pppoe-10m', parentQueue: 'all-ppp', sessions: 32, dnsServer: '8.8.8.8,1.1.1.1' },
-  { id: '*P3', name: '20M-PPPoE', rateLimit: '20M/5M', localAddress: '10.20.1.1', remoteAddress: 'pool-pppoe-20m', parentQueue: 'all-ppp', sessions: 18, dnsServer: '8.8.8.8,1.1.1.1' },
-  { id: '*P4', name: '50M-PPPoE', rateLimit: '50M/10M', localAddress: '10.20.1.1', remoteAddress: 'pool-pppoe-50m', parentQueue: 'all-ppp', sessions: 9, dnsServer: '8.8.8.8,1.1.1.1' },
-  { id: '*P5', name: '100M-PPPoE', rateLimit: '100M/20M', localAddress: '10.20.1.1', remoteAddress: 'pool-pppoe-100m', parentQueue: 'all-ppp', sessions: 3, dnsServer: '8.8.8.8,1.1.1.1' },
+  {
+    id: '*P1',
+    name: '5M-Limit',
+    rateLimit: '5M/2M',
+    localAddress: '10.20.1.1',
+    remoteAddress: 'pool-pppoe-5m',
+    parentQueue: 'all-ppp',
+    sessions: 24,
+    dnsServer: '8.8.8.8,1.1.1.1',
+  },
+  {
+    id: '*P2',
+    name: '10M-PPPoE',
+    rateLimit: '10M/3M',
+    localAddress: '10.20.1.1',
+    remoteAddress: 'pool-pppoe-10m',
+    parentQueue: 'all-ppp',
+    sessions: 32,
+    dnsServer: '8.8.8.8,1.1.1.1',
+  },
+  {
+    id: '*P3',
+    name: '20M-PPPoE',
+    rateLimit: '20M/5M',
+    localAddress: '10.20.1.1',
+    remoteAddress: 'pool-pppoe-20m',
+    parentQueue: 'all-ppp',
+    sessions: 18,
+    dnsServer: '8.8.8.8,1.1.1.1',
+  },
+  {
+    id: '*P4',
+    name: '50M-PPPoE',
+    rateLimit: '50M/10M',
+    localAddress: '10.20.1.1',
+    remoteAddress: 'pool-pppoe-50m',
+    parentQueue: 'all-ppp',
+    sessions: 9,
+    dnsServer: '8.8.8.8,1.1.1.1',
+  },
+  {
+    id: '*P5',
+    name: '100M-PPPoE',
+    rateLimit: '100M/20M',
+    localAddress: '10.20.1.1',
+    remoteAddress: 'pool-pppoe-100m',
+    parentQueue: 'all-ppp',
+    sessions: 3,
+    dnsServer: '8.8.8.8,1.1.1.1',
+  },
 ]
 
 export interface FixturePPPActive extends FixturePPPSecret {

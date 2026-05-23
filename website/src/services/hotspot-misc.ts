@@ -5,7 +5,7 @@ import type { HotspotUser, VoucherGenerateRequest } from '@/types/hotspot'
 export const hotspotMiscService = {
   async generateVouchers(deviceId: string, req: VoucherGenerateRequest): Promise<HotspotUser[]> {
     const { data } = await http.post<ApiEnvelope<HotspotUser[]>>(
-      `/devices/${deviceId}/hotspot/voucher/generate`,
+      `/devices/${deviceId}/hotspot/vouchers/generate`,
       req,
     )
     return data.data

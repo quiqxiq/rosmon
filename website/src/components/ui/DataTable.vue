@@ -1,5 +1,5 @@
-<script setup lang="ts" generic="T extends Record<string, unknown>">
-import { computed, ref, watch } from 'vue'
+<script setup lang="ts" generic="T extends object">
+import { computed, h, ref, watch } from 'vue'
 import {
   FlexRender,
   type ColumnDef,
@@ -17,8 +17,8 @@ import Pagination from './Pagination.vue'
 
 const props = withDefaults(
   defineProps<{
-    columns: ColumnDef<T>[]
-    data: T[]
+    columns?: ColumnDef<T>[]
+    data?: T[]
     getRowId: (row: T) => string
     globalFilter?: string
     pageSize?: number
@@ -27,6 +27,8 @@ const props = withDefaults(
     clickable?: boolean
   }>(),
   {
+    columns: () => [],
+    data: () => [],
     globalFilter: '',
     pageSize: 10,
     enableRowSelection: false,
@@ -118,18 +120,21 @@ const table = useVueTable({
 watch(
   rowSelection,
   (sel) => {
-    emit('selectionChange', Object.keys(sel).filter((k) => sel[k]))
+    emit(
+      'selectionChange',
+      Object.keys(sel).filter((k) => sel[k]),
+    )
   },
   { deep: true },
 )
-
-import { h } from 'vue'
 
 const total = computed(() => table.getFilteredRowModel().rows.length)
 const totalPages = computed(() => table.getPageCount() || 1)
 const page = computed(() => table.getState().pagination.pageIndex + 1)
 const perPage = computed(() => table.getState().pagination.pageSize)
-const selectedCount = computed(() => Object.keys(rowSelection.value).filter((k) => rowSelection.value[k]).length)
+const selectedCount = computed(
+  () => Object.keys(rowSelection.value).filter((k) => rowSelection.value[k]).length,
+)
 
 function goPage(p: number) {
   table.setPageIndex(p - 1)
@@ -149,7 +154,12 @@ defineExpose({ table, clearSelection })
       class="flex flex-wrap items-center gap-3 p-3"
       style="border-bottom: 1px solid var(--border)"
     >
-      <slot name="toolbar" :table="table" :filter="filter" :setFilter="(v: string) => (filter = v)" />
+      <slot
+        name="toolbar"
+        :table="table"
+        :filter="filter"
+        :setFilter="(v: string) => (filter = v)"
+      />
     </div>
     <div
       v-if="selectedCount > 0 && $slots.bulkBar"
@@ -201,7 +211,11 @@ defineExpose({ table, clearSelection })
         </thead>
         <tbody>
           <tr v-if="!table.getRowModel().rows.length">
-            <td :colspan="table.getAllColumns().length" class="text-center" style="color: var(--muted)">
+            <td
+              :colspan="table.getAllColumns().length"
+              class="text-center"
+              style="color: var(--muted)"
+            >
               <slot name="empty">{{ emptyMessage }}</slot>
             </td>
           </tr>

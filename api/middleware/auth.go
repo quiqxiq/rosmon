@@ -15,10 +15,19 @@ const CtxKeyClaims = "auth_claims"
 
 // RequireAuth verify Bearer token. Set claims ke context kalau valid.
 // 401 + WWW-Authenticate header kalau token absent / invalid / expired.
+//
+// Fallback: kalau Authorization header tidak ada, cek query param ?access_token=.
+// Ini dibutuhkan untuk SSE (EventSource) yang tidak bisa kirim custom header.
 func RequireAuth(signer *auth.Signer) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
 		token, ok := extractBearer(header)
+		if !ok {
+			// Fallback: SSE clients pass token via ?access_token=<jwt>
+			if qt := strings.TrimSpace(c.Query("access_token")); qt != "" {
+				token, ok = qt, true
+			}
+		}
 		if !ok {
 			abortUnauthorized(c, "missing or malformed Authorization header")
 			return

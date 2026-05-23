@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import type { EChartsCoreOption } from 'echarts/core'
 import EChart from '../EChart.vue'
 import { useEChartTheme } from '@/composables/useEChartTheme'
+import { toRgba } from '@/utils/color'
 
 interface LiveSeries {
   name: string
@@ -12,12 +13,12 @@ interface LiveSeries {
 
 const props = withDefaults(
   defineProps<{
-    series: LiveSeries[]
+    series?: LiveSeries[]
     windowSize?: number
     height?: number
     formatY?: (v: number) => string
   }>(),
-  { windowSize: 60, height: 200 },
+  { series: () => [], windowSize: 60, height: 200 },
 )
 
 const theme = useEChartTheme()
@@ -61,12 +62,13 @@ const option = computed<EChartsCoreOption>(() => {
       axisLabel: { color: t._tokens.muted, fontSize: 10, formatter: props.formatY },
       splitLine: { lineStyle: { color: t._tokens.border, type: 'dashed' } },
     },
-    series: props.series.map((s, i) => {
-      const color = s.color ?? t.color[i % t.color.length]
+    series: (props.series ?? []).map((s, i) => {
+      const rawColor = s.color ?? t.color[i % t.color.length]
+      const color = toRgba(rawColor, 1)
       return {
         name: s.name,
         type: 'line' as const,
-        data: s.data,
+        data: s.data ?? [],
         smooth: true,
         showSymbol: false,
         lineStyle: { color, width: 2 },
@@ -78,8 +80,8 @@ const option = computed<EChartsCoreOption>(() => {
             x2: 0,
             y2: 1,
             colorStops: [
-              { offset: 0, color: `${color}66` },
-              { offset: 1, color: `${color}00` },
+              { offset: 0, color: toRgba(rawColor, 0.4) },
+              { offset: 1, color: toRgba(rawColor, 0) },
             ],
           },
         },

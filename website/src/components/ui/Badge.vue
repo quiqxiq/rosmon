@@ -19,7 +19,11 @@ const classes = computed(() => {
 
 <template>
   <span :class="classes">
-    <span v-if="dot" class="inline-block h-1.5 w-1.5 rounded-full" style="background: currentColor" />
+    <span
+      v-if="dot"
+      class="inline-block h-1.5 w-1.5 rounded-full"
+      style="background: currentColor"
+    />
     <slot />
   </span>
 </template>

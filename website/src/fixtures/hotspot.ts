@@ -1,4 +1,4 @@
-import { FIRST_NAMES, macRand, vid, ipFromSeed, rand } from './_helpers'
+import { FIRST_NAMES, macRand, vid, ipFromSeed, rand, randInt } from './_helpers'
 
 export interface FixtureHotspotProfile {
   name: string
@@ -93,6 +93,83 @@ export const HS_ACTIVE: FixtureHotspotActive[] = (() => {
       rxRate: 200_000 + Math.floor(rand(0, 5_000_000)),
       txRate: 50_000 + Math.floor(rand(0, 1_500_000)),
       sparkIn: Array.from({ length: 18 }, () => rand(0, 1)),
+    })
+  }
+  return arr
+})()
+
+export interface FixtureHotspotIpBinding {
+  id: string
+  status: 'regular' | 'bypassed' | 'blocked'
+  macAddress: string
+  toAddress: string
+  type: 'regular' | 'bypassed' | 'blocked'
+  address: string
+  server: string
+}
+
+export const HS_IP_BINDINGS: FixtureHotspotIpBinding[] = (() => {
+  const types: Array<'regular' | 'bypassed' | 'blocked'> = ['regular', 'bypassed', 'blocked']
+  const arr: FixtureHotspotIpBinding[] = []
+  for (let i = 0; i < 14; i++) {
+    const t = types[i % types.length]
+    arr.push({
+      id: `*B${i.toString(16).toUpperCase()}`,
+      status: t,
+      macAddress: macRand(),
+      toAddress: ipFromSeed(i + 100),
+      type: t,
+      address: ipFromSeed(i + 200),
+      server: i % 3 === 0 ? 'hotspot1' : 'hotspot2',
+    })
+  }
+  return arr
+})()
+
+export interface FixtureHotspotCookie {
+  id: string
+  user: string
+  domain: string
+  expireIn: string
+  macAddress: string
+}
+
+export const HS_COOKIES: FixtureHotspotCookie[] = (() => {
+  const arr: FixtureHotspotCookie[] = []
+  for (let i = 0; i < 18; i++) {
+    const u = HS_USERS[i % HS_USERS.length]
+    arr.push({
+      id: `*C${i.toString(16).toUpperCase()}`,
+      user: u.name,
+      domain: '10.5.50.1',
+      expireIn: `${randInt(1, 72)}h ${randInt(0, 59)}m`,
+      macAddress: u.mac || macRand(),
+    })
+  }
+  return arr
+})()
+
+export interface FixtureHotspotHost {
+  id: string
+  macAddress: string
+  address: string
+  server: string
+  toAddress: string
+  idleTime: string
+  rxRate: string
+}
+
+export const HS_HOSTS: FixtureHotspotHost[] = (() => {
+  const arr: FixtureHotspotHost[] = []
+  for (let i = 0; i < 16; i++) {
+    arr.push({
+      id: `*H${i.toString(16).toUpperCase()}`,
+      macAddress: macRand(),
+      address: ipFromSeed(i + 50),
+      server: i % 3 === 0 ? 'hotspot1' : 'hotspot2',
+      toAddress: ipFromSeed(i + 300),
+      idleTime: `${randInt(0, 59)}m ${randInt(0, 59)}s`,
+      rxRate: `${randInt(10, 500)} kbps`,
     })
   }
   return arr

@@ -51,7 +51,9 @@ const offset = computed(() => c.value - (Math.min(props.value, props.max) / prop
       >
         {{ label }}
       </div>
-      <div v-if="subLabel" class="mt-px text-[10px]" style="color: var(--muted)">{{ subLabel }}</div>
+      <div v-if="subLabel" class="mt-px text-[10px]" style="color: var(--muted)">
+        {{ subLabel }}
+      </div>
     </div>
   </div>
 </template>

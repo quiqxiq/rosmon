@@ -27,15 +27,13 @@ defineProps<{
     <span
       v-if="active && !compact"
       class="absolute rounded-full"
-      style="
-        left: -12px;
-        top: 22%;
-        bottom: 22%;
-        width: 3px;
-        background: var(--accent-cyan);
-      "
+      style="left: -12px; top: 22%; bottom: 22%; width: 3px; background: var(--accent-cyan)"
     />
-    <Icon :name="item.icon" :size="17" :style="{ color: active ? 'var(--accent-cyan)' : undefined }" />
+    <Icon
+      :name="item.icon"
+      :size="17"
+      :style="{ color: active ? 'var(--accent-cyan)' : undefined }"
+    />
     <template v-if="!compact">
       <span class="flex-1">{{ item.label }}</span>
       <span v-if="item.live" class="dot dot-live" />

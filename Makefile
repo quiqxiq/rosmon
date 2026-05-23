@@ -1,4 +1,4 @@
-.PHONY: all build test test-race test-cover test-integration lint tidy update-golden clean \
+.PHONY: all build test test-race test-cover test-integration test-integration-full lint tidy update-golden clean \
 	openapi-bundle openapi-lint openapi-bundle-check
 
 all: build test
@@ -20,6 +20,12 @@ test-cover:
 test-integration:
 	go test -tags=integration -count=1 ./test/integration/...
 
+# test-integration-full: jalankan semua integration test + DB test.
+# Butuh POSTGRES_URL diset dan MikroTik router terhubung.
+# Disable Ryuk untuk env CI yang tidak support Docker socket.
+test-integration-full:
+	TESTCONTAINERS_RYUK_DISABLED=true go test -tags='integration dbtest' -v -count=1 ./test/integration/... ./mikrotik/...
+
 lint:
 	golangci-lint run ./...
 
@@ -36,6 +42,7 @@ clean:
 # Scalar UI tidak handal resolve relative $ref lintas file di browser, jadi
 # bundle wajib di-regen tiap kali edit docs/openapi/{paths,schemas,components}.
 # Output di-embed ke binary via docs/embed.go (//go:embed).
+
 openapi-bundle:
 	npx -y @redocly/cli@latest bundle docs/openapi/openapi.yaml \
 		--output docs/openapi/openapi.bundle.yaml --ext yaml

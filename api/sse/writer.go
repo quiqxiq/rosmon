@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/quiqxiq/roslib-mikhmon/api/dto"
 )
 
 // KeepaliveInterval untuk SSE comment heartbeat. Cegah nginx/reverse-proxy
@@ -36,9 +37,11 @@ func Stream(c *gin.Context, broker *Broker) {
 
 	ch, err := broker.Subscribe(clientID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": gin.H{"code": "STREAM_START", "message": err.Error()},
-		})
+		c.JSON(http.StatusInternalServerError, dto.Err(
+			"STREAM_START",
+			"failed to start stream: "+err.Error(),
+			c.Request.URL.Path,
+		))
 		return
 	}
 	defer broker.Unsubscribe(clientID)

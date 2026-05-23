@@ -10,10 +10,7 @@ defineProps<{
 </script>
 
 <template>
-  <div
-    class="flex flex-col items-center gap-2 rounded-lg p-2"
-    style="background: var(--bg-2)"
-  >
+  <div class="flex flex-col items-center gap-2 rounded-lg p-2" style="background: var(--bg-2)">
     <Ring :value="value" :size="78" :stroke="7" :color="color" :label="`${value}%`" />
     <div class="text-center">
       <div class="text-xs font-semibold">{{ label }}</div>

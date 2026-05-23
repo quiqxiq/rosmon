@@ -93,22 +93,28 @@ func (s *gormProfileConfigStore) DeleteByName(ctx context.Context, deviceID uint
 }
 
 // UpsertResult — return created=true bila record baru di-INSERT, false kalau UPDATE.
-// Detect via existing row check di transaksi.
-func (s *gormProfileConfigStore) UpsertResult(ctx context.Context, cfg *model.HotspotProfileConfig) (bool, error) {
-	var existing model.HotspotProfileConfig
-	err := s.db.WithContext(ctx).
-		Where("device_id = ? AND profile_name = ?", cfg.DeviceID, cfg.ProfileName).
-		First(&existing).Error
-	created := errors.Is(err, gorm.ErrRecordNotFound)
-	if err != nil && !created {
-		return false, err
-	}
-	if !created {
-		cfg.ID = existing.ID
-		cfg.CreatedAt = existing.CreatedAt
-	}
-	if err := s.Upsert(ctx, cfg); err != nil {
-		return false, err
-	}
-	return created, nil
+// Seluruh SELECT + Upsert dibungkus dalam satu transaksi untuk menghindari
+// TOCTOU race: dua request concurrent tidak akan sama-sama INSERT row baru.
+func (s *gormProfileConfigStore) UpsertResult(ctx context.Context, cfg *model.HotspotProfileConfig) (created bool, err error) {
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var existing model.HotspotProfileConfig
+		lookupErr := tx.
+			Where("device_id = ? AND profile_name = ?", cfg.DeviceID, cfg.ProfileName).
+			First(&existing).Error
+		created = errors.Is(lookupErr, gorm.ErrRecordNotFound)
+		if lookupErr != nil && !created {
+			return lookupErr
+		}
+		if !created {
+			cfg.ID = existing.ID
+			cfg.CreatedAt = existing.CreatedAt
+		}
+		// Gunakan tx (bukan s.db) supaya Upsert berada dalam transaksi yang sama.
+		return tx.
+			Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "device_id"}, {Name: "profile_name"}},
+				DoUpdates: clause.AssignmentColumns([]string{"expiry_mode", "validity", "price", "sell_price", "lock_mac", "updated_at"}),
+			}).Create(cfg).Error
+	})
+	return created, err
 }

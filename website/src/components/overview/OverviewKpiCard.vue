@@ -37,13 +37,12 @@ const accentBg = computed(
     })[props.accent],
 )
 
-const trendColor = computed(
-  () =>
-    props.trend === 'up'
-      ? 'var(--success)'
-      : props.trend === 'down'
-        ? 'var(--danger)'
-        : 'var(--muted)',
+const trendColor = computed(() =>
+  props.trend === 'up'
+    ? 'var(--success)'
+    : props.trend === 'down'
+      ? 'var(--danger)'
+      : 'var(--muted)',
 )
 </script>
 
@@ -60,10 +59,7 @@ const trendColor = computed(
     </div>
     <div class="text-xs font-medium" style="color: var(--muted)">{{ label }}</div>
     <div class="mt-1 flex items-baseline gap-2">
-      <span
-        class="tabular text-[26px] font-semibold"
-        style="letter-spacing: -0.02em"
-      >
+      <span class="tabular text-[26px] font-semibold" style="letter-spacing: -0.02em">
         {{ value }}
       </span>
       <slot name="subValue" />

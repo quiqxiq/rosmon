@@ -28,3 +28,27 @@ export function useHotspotActiveQuery(deviceId: MaybeRefOrGetter<string | null>)
     enabled: () => Boolean(toValue(deviceId)),
   })
 }
+
+export function useHotspotBindingsQuery(deviceId: MaybeRefOrGetter<string | null>) {
+  return useQuery({
+    queryKey: queryKeys.hotspot.bindings(String(toValue(deviceId))),
+    queryFn: () => hotspotSessionsService.listBindings(String(toValue(deviceId))),
+    enabled: () => Boolean(toValue(deviceId)),
+  })
+}
+
+export function useHotspotHostsQuery(deviceId: MaybeRefOrGetter<string | null>) {
+  return useQuery({
+    queryKey: queryKeys.hotspot.hosts(String(toValue(deviceId))),
+    queryFn: () => hotspotSessionsService.listHosts(String(toValue(deviceId))),
+    enabled: () => Boolean(toValue(deviceId)),
+  })
+}
+
+export function useHotspotCookiesQuery(deviceId: MaybeRefOrGetter<string | null>) {
+  return useQuery({
+    queryKey: ['hotspot', 'cookies', String(toValue(deviceId))] as const,
+    queryFn: () => hotspotSessionsService.listCookies(String(toValue(deviceId))),
+    enabled: () => Boolean(toValue(deviceId)),
+  })
+}

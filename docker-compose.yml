@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: mikhmon
       POSTGRES_PASSWORD: secret
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -18,7 +18,9 @@ services:
       retries: 10
 
   influxdb3:
-    image: quay.io/influxdb/influxdb3-core:latest
+    # Pin ke versi stable untuk reproducible builds.
+    # Update manual saat ada security fix: https://quay.io/repository/influxdb/influxdb3-core
+    image: quay.io/influxdb/influxdb3-core:3
     container_name: mikhmon-influx
     command:
       - serve

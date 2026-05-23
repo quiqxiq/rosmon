@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
-import Icon from '@/components/ui/Icon.vue'
+import { useRoute, useRouter } from 'vue-router'
 import BrandMark from './BrandMark.vue'
-import DeviceRow from './DeviceRow.vue'
 import NavItem from './NavItem.vue'
+import RouterTrigger from './RouterTrigger.vue'
 import UserCard from './UserCard.vue'
-import { DEVICES, NAV } from '@/fixtures/devices'
-import { useActiveDevice } from '@/composables/useActiveDevice'
+import { NAV } from '@/fixtures/devices'
 import { useTweaks } from '@/composables/useTweaks'
+import { useAuthStore } from '@/stores/auth'
+import { authService } from '@/services/auth'
 
 const props = defineProps<{
   mobile?: boolean
@@ -19,13 +19,33 @@ defineEmits<{
 }>()
 
 const route = useRoute()
+const router = useRouter()
 const { sidebarMode } = useTweaks()
-const { activeDeviceId, setActiveDevice } = useActiveDevice()
+const authStore = useAuthStore()
 
 const compact = computed(() => !props.mobile && sidebarMode.value === 'icon')
 
+const userName = computed(() => authStore.user?.username || 'Guest')
+const userRole = computed(() => {
+  const r = authStore.user?.role || 'viewer'
+  return `${r} · MikroTik`
+})
+
 function isActive(to: string) {
   return route.path === to || route.path.startsWith(`${to}/`)
+}
+
+async function onLogout() {
+  try {
+    if (authStore.refreshToken) {
+      await authService.logout(authStore.refreshToken)
+    }
+  } catch (err) {
+    console.error('Logout failed:', err)
+  } finally {
+    authStore.reset()
+    router.push('/login')
+  }
 }
 </script>
 
@@ -36,31 +56,10 @@ function isActive(to: string) {
       <BrandMark :small="compact" />
     </div>
 
-    <!-- Devices section -->
-    <div v-if="!compact" class="px-3 pb-1">
-      <div class="flex items-center justify-between px-1 py-1.5">
-        <span
-          class="text-[10px] font-semibold uppercase"
-          style="color: var(--muted); letter-spacing: 0.08em"
-        >
-          Devices
-        </span>
-        <button class="btn btn-ghost btn-xs btn-icon" title="Tambah device">
-          <Icon name="Plus" :size="12" />
-        </button>
-      </div>
-      <div class="flex flex-col gap-0.5">
-        <DeviceRow
-          v-for="d in DEVICES"
-          :key="d.id"
-          :device="d"
-          :active="activeDeviceId === d.id"
-          @click="setActiveDevice(d.id)"
-        />
-      </div>
+    <!-- Router Switcher -->
+    <div v-if="!compact" class="px-3 pb-2">
+      <RouterTrigger @select="$emit('navigate')" />
     </div>
-
-    <div v-if="!compact" class="divider" style="margin: 12px 16px" />
 
     <!-- Nav -->
     <div
@@ -85,6 +84,11 @@ function isActive(to: string) {
     </div>
 
     <!-- User card -->
-    <UserCard :compact="compact" name="Rendra Admin" role="operator · RT-08" />
+    <UserCard
+      :compact="compact"
+      :name="userName"
+      :role="userRole"
+      @logout="onLogout"
+    />
   </aside>
 </template>

@@ -2,7 +2,6 @@
 package middleware
 
 import (
-	"fmt"
 	"net/http"
 	"runtime/debug"
 
@@ -28,7 +27,7 @@ func Recovery(log *logrus.Logger) gin.HandlerFunc {
 
 				c.AbortWithStatusJSON(http.StatusInternalServerError, dto.Err(
 					"INTERNAL",
-					fmt.Sprintf("internal server error: %v", r),
+					"internal server error",
 					c.Request.URL.Path,
 				))
 			}
