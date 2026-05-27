@@ -32,7 +32,17 @@ const userRole = computed(() => {
 })
 
 function isActive(to: string) {
-  return route.path === to || route.path.startsWith(`${to}/`)
+  if (route.path === to) return true
+  if (route.path.startsWith(`${to}/`)) {
+    // Don't highlight parent if a more specific child nav item matches
+    return !NAV.some(
+      (n) =>
+        n.to !== to &&
+        n.to.startsWith(`${to}/`) &&
+        (route.path === n.to || route.path.startsWith(`${n.to}/`)),
+    )
+  }
+  return false
 }
 
 async function onLogout() {

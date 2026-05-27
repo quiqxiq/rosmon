@@ -1,6 +1,10 @@
 import { http } from '@/plugins/axios'
 import type { ApiEnvelope } from '@/types/api'
-import type { HotspotProfile } from '@/types/hotspot'
+import type {
+  HotspotProfile,
+  HotspotProfileCreateInput,
+  HotspotProfileUpdateInput,
+} from '@/types/hotspot'
 
 const base = (deviceId: string) => `/devices/${deviceId}/hotspot/profiles`
 
@@ -9,16 +13,16 @@ export const hotspotProfilesService = {
     const { data } = await http.get<ApiEnvelope<HotspotProfile[]>>(base(deviceId))
     return data.data
   },
-  async create(deviceId: string, payload: Partial<HotspotProfile>): Promise<HotspotProfile> {
+  async create(deviceId: string, payload: HotspotProfileCreateInput): Promise<HotspotProfile> {
     const { data } = await http.post<ApiEnvelope<HotspotProfile>>(base(deviceId), payload)
     return data.data
   },
   async update(
     deviceId: string,
     id: string,
-    payload: Partial<HotspotProfile>,
+    payload: HotspotProfileUpdateInput,
   ): Promise<HotspotProfile> {
-    const { data } = await http.patch<ApiEnvelope<HotspotProfile>>(
+    const { data } = await http.put<ApiEnvelope<HotspotProfile>>(
       `${base(deviceId)}/${id}`,
       payload,
     )

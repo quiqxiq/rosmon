@@ -18,11 +18,10 @@ const emit = defineEmits<{
 
 <template>
   <div
-    class="relative"
+    class="relative max-w-full sm:max-w-[360px]"
     :style="{
-      flex: width ? 'none' : '1',
+      flex: width ? 'none' : '1 0 auto',
       width: typeof width === 'number' ? `${width}px` : width,
-      maxWidth: '360px',
     }"
   >
     <span

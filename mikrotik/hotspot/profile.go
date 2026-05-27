@@ -70,6 +70,7 @@ type ProfileAddArgs struct {
 	StatusAutorefresh string // mis. "1m"
 	OnLogin           string // body script — biasanya hasil scripts/onlogin.Build*
 	ParentQueue       string
+	Comment           string // marker ownership di RouterOS (mis. "rosmon:bw | desc")
 }
 
 // ProfileAdd → /ip/hotspot/user/profile/add (analisis §1.7).
@@ -97,6 +98,9 @@ func (c *Client) ProfileAdd(ctx context.Context, a ProfileAddArgs) (string, erro
 	if a.ParentQueue != "" {
 		pairs = append(pairs, roslib.NewPair("parent-queue", a.ParentQueue))
 	}
+	if a.Comment != "" {
+		pairs = append(pairs, roslib.NewPair("comment", a.Comment))
+	}
 	reply, err := c.dev.Path(profilePath).Add(ctx, pairs...)
 	if err != nil {
 		return "", err
@@ -117,6 +121,7 @@ type ProfileSetArgs struct {
 	StatusAutorefresh string
 	OnLogin           *string
 	ParentQueue       string
+	Comment           *string // pointer supaya bisa overwrite ke string kosong kalau perlu
 }
 
 // ProfileSet → /ip/hotspot/user/profile/set (analisis §1.7).
@@ -145,6 +150,9 @@ func (c *Client) ProfileSet(ctx context.Context, a ProfileSetArgs) error {
 	}
 	if a.ParentQueue != "" {
 		pairs = append(pairs, roslib.NewPair("parent-queue", a.ParentQueue))
+	}
+	if a.Comment != nil {
+		pairs = append(pairs, roslib.NewPair("comment", *a.Comment))
 	}
 	_, err := c.dev.Path(profilePath).Set(ctx, a.ID, pairs...)
 	return err
@@ -178,6 +186,7 @@ func sentenceToProfile(s *roslib.Sentence) domain.HotspotProfile {
 		MACCookieTimeout:  s.Get("mac-cookie-timeout"),
 		AddMACCookie:      s.BoolOr("add-mac-cookie", false),
 		TransparentProxy:  s.BoolOr("transparent-proxy", false),
+		Comment:           s.Get("comment"),
 	}
 }
 

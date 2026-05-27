@@ -23,7 +23,7 @@ const emit = defineEmits<{
 <template>
   <div
     class="flex gap-1 overflow-x-auto border-b"
-    style="border-color: var(--border); scrollbar-width: none"
+    style="border-color: var(--border); -webkit-overflow-scrolling: touch; scrollbar-width: thin"
   >
     <button
       v-for="t in tabs"

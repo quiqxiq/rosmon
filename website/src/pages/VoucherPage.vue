@@ -273,27 +273,14 @@ async function copyOne(code: string, password: string) {
           </div>
           <div class="mt-3">
             <Field label="Profile">
-              <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-                <button
-                  v-for="p in mergedProfiles"
-                  :key="p.name"
-                  type="button"
-                  class="rounded-lg border p-2 text-left"
-                  :style="{
-                    borderColor: profileName === p.name ? 'var(--accent-cyan)' : 'var(--border)',
-                    background: profileName === p.name ? 'var(--accent-cyan-soft)' : 'var(--bg-1)',
-                  }"
-                  @click="chooseProfile(p.name)"
-                >
-                  <div class="text-[12px] font-semibold">{{ p.name }}</div>
-                  <div class="mono mt-0.5 text-[10.5px]" style="color: var(--muted)">
-                    {{ p.speed }} · {{ p.validity }}
-                  </div>
-                  <div class="mt-1 text-[11px] font-semibold" style="color: var(--accent-cyan)">
-                    {{ fmtRpShort(p.price) }}
-                  </div>
-                </button>
-              </div>
+              <Select
+                :model-value="profileName"
+                :options="mergedProfiles.map((p) => ({
+                  value: p.name,
+                  label: `${p.name}  —  ${p.speed} · ${p.validity} · ${fmtRpShort(p.price)}`,
+                }))"
+                @update:model-value="chooseProfile($event)"
+              />
             </Field>
           </div>
           <div class="mt-3 grid gap-3 sm:grid-cols-2">

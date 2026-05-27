@@ -2,6 +2,7 @@
 import { computed, h, ref } from 'vue'
 import type { ColumnDef } from '@tanstack/vue-table'
 import SearchInput from '@/components/ui/SearchInput.vue'
+import Select from '@/components/ui/Select.vue'
 import Badge from '@/components/ui/Badge.vue'
 import DataTable from '@/components/ui/DataTable.vue'
 import { useActiveDevice } from '@/composables/useActiveDevice'
@@ -98,12 +99,16 @@ const columns = computed<ColumnDef<HotspotIpBinding>[]>(() => [
     >
       <template #toolbar>
         <SearchInput v-model="search" placeholder="Cari MAC, address, server..." />
-        <select v-model="filterType" class="select select-sm">
-          <option value="all">Semua tipe</option>
-          <option value="regular">Regular</option>
-          <option value="bypassed">Bypassed</option>
-          <option value="blocked">Blocked</option>
-        </select>
+        <Select
+          v-model="filterType"
+          sm
+          :options="[
+            { value: 'all', label: 'Semua tipe' },
+            { value: 'regular', label: 'Regular' },
+            { value: 'bypassed', label: 'Bypassed' },
+            { value: 'blocked', label: 'Blocked' },
+          ]"
+        />
       </template>
     </DataTable>
   </div>

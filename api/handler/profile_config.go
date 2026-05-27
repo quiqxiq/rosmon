@@ -219,6 +219,7 @@ func (h *ProfileConfig) Sync(c *gin.Context) {
 		Orphan:       nilToEmpty(res.Orphan),
 		Injected:     nilToEmpty(res.Injected),
 		InjectFailed: nilToEmpty(res.InjectFailed),
+		Skipped:      nilToEmpty(res.Skipped),
 	})
 }
 

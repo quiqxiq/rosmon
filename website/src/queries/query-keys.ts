@@ -49,4 +49,33 @@ export const queryKeys = {
     byName: (deviceId: string, name: string) =>
       ['profile-configs', deviceId, name] as const,
   },
+  customers: {
+    all: ['customers'] as const,
+    list: (filter: { status?: string; area?: string; q?: string } = {}) =>
+      ['customers', 'list', filter.status ?? '', filter.area ?? '', filter.q ?? ''] as const,
+    detail: (id: number) => ['customers', 'detail', id] as const,
+  },
+  bandwidthProfiles: {
+    all: (deviceId: string) => ['bandwidth-profiles', deviceId] as const,
+    detail: (deviceId: string, id: number) =>
+      ['bandwidth-profiles', deviceId, id] as const,
+  },
+  subscriptions: {
+    all: ['subscriptions'] as const,
+    list: (filter: {
+      customer_id?: number
+      device_id?: number
+      status?: string
+      service_type?: string
+    } = {}) =>
+      [
+        'subscriptions',
+        'list',
+        filter.customer_id ?? 0,
+        filter.device_id ?? 0,
+        filter.status ?? '',
+        filter.service_type ?? '',
+      ] as const,
+    detail: (id: number) => ['subscriptions', 'detail', id] as const,
+  },
 }

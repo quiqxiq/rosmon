@@ -21,9 +21,12 @@ type Deps struct {
 	DB         *gorm.DB
 
 	// Stores
-	DeviceStore  store.DeviceStore
-	TxStore      store.TransactionStore
-	ProfileStore store.ProfileConfigStore
+	DeviceStore       store.DeviceStore
+	TxStore           store.TransactionStore
+	ProfileStore      store.ProfileConfigStore
+	CustomerStore     store.CustomerStore
+	BandwidthStore    store.BandwidthProfileStore
+	SubscriptionStore store.SubscriptionStore
 
 	// Auth (Phase 2). Nil → routes /auth/* tidak di-mount dan
 	// proteksi route lain di-skip. Production wajib set.

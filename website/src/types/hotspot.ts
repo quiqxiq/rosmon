@@ -38,6 +38,38 @@ export interface HotspotProfile {
   transparent_proxy: boolean
 }
 
+// Sesuai dto.HotspotProfileCreateRequest backend — field writable saat
+// POST /devices/:id/hotspot/profiles. on_logout + timeouts + flags
+// (add_mac_cookie, transparent_proxy) tidak di-expose karena router
+// mengelola sendiri / read-only.
+export interface HotspotProfileCreateInput {
+  name: string
+  address_pool?: string
+  rate_limit?: string
+  shared_users?: number
+  status_autorefresh?: string
+  on_login?: string
+  parent_queue?: string
+}
+
+export type HotspotProfileUpdateInput = Partial<HotspotProfileCreateInput>
+
+export interface HotspotUserCreateInput {
+  name: string
+  password?: string
+  profile?: string
+  server?: string
+  disabled?: boolean
+  comment?: string
+  mac_address?: string
+  limit_uptime?: string
+  limit_bytes_total?: number
+  limit_bytes_in?: number
+  limit_bytes_out?: number
+}
+
+export type HotspotUserUpdateInput = Partial<HotspotUserCreateInput>
+
 // Sesuai dto.HotspotActiveResponse backend.
 export interface HotspotSession {
   id: string

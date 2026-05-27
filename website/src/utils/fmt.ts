@@ -66,6 +66,19 @@ export function fmtAgoFromMs(ms: number): string {
   return fmtAgo((Date.now() - ms) / 1000)
 }
 
+export function fmtDateTime(input: string | Date | null | undefined): string {
+  if (!input) return '—'
+  const d = typeof input === 'string' ? new Date(input) : input
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 export const fmt = {
   bytes: fmtBytes,
   rate: fmtRate,

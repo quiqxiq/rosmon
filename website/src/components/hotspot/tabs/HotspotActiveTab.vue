@@ -160,7 +160,7 @@ async function kick(id: string, user: string) {
 
     <div v-else>
       <!-- Live stats -->
-      <div class="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <OverviewKpiCard
           label="Active Sessions"
           :value="(apiActive ?? []).length"

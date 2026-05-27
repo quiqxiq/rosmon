@@ -10,9 +10,19 @@ import Card from '@/components/ui/Card.vue'
 import DataTable from '@/components/ui/DataTable.vue'
 import OverviewKpiCard from '@/components/overview/OverviewKpiCard.vue'
 import { useActiveDevice } from '@/composables/useActiveDevice'
-import { usePPPSecretsQuery, usePPPActiveQuery, usePPPProfilesQuery } from '@/queries/ppp.queries'
+import {
+  usePPPSecretsQuery,
+  usePPPActiveQuery,
+  usePPPProfilesQuery,
+  useCreatePPPProfileMutation,
+  useUpdatePPPProfileMutation,
+  useRemovePPPProfileMutation,
+} from '@/queries/ppp.queries'
 import { useToast } from '@/composables/useToast'
-import type { PPPSecret, PPPActive } from '@/types/ppp'
+import type { PPPSecret, PPPActive, PPPProfile, PPPProfileCreateInput } from '@/types/ppp'
+import PPPProfileFormModal from '@/components/ppp/PPPProfileFormModal.vue'
+import ConfirmModal from '@/components/ui/ConfirmModal.vue'
+import { extractApiError } from '@/utils/http-error'
 
 const toast = useToast()
 const { activeDeviceId } = useActiveDevice()
@@ -136,6 +146,87 @@ function reload() {
     toast.success('Data PPP disinkronkan!')
   }
 }
+
+// ── PPP Profile CRUD ────────────────────────────────────────────────────
+const createProfileMutation = useCreatePPPProfileMutation(activeDeviceId)
+const updateProfileMutation = useUpdatePPPProfileMutation(activeDeviceId)
+const removeProfileMutation = useRemovePPPProfileMutation(activeDeviceId)
+
+const showProfileForm = ref(false)
+const editingProfile = ref<PPPProfile | null>(null)
+const deleteCandidate = ref<PPPProfile | null>(null)
+
+function openCreateProfile() {
+  editingProfile.value = null
+  showProfileForm.value = true
+}
+
+function openEditProfile(p: PPPProfile) {
+  editingProfile.value = p
+  showProfileForm.value = true
+}
+
+function closeProfileForm() {
+  showProfileForm.value = false
+  editingProfile.value = null
+}
+
+const editingInitial = computed<PPPProfileCreateInput | null>(() => {
+  const p = editingProfile.value
+  if (!p) return null
+  return {
+    name: p.name,
+    local_address: p.local_address,
+    remote_address: p.remote_address,
+    rate_limit: p.rate_limit,
+    session_timeout: p.session_timeout,
+    idle_timeout: p.idle_timeout,
+    parent_queue: p.parent_queue,
+    on_up: p.on_up,
+    on_down: p.on_down,
+    disabled: p.disabled,
+    comment: p.comment,
+  }
+})
+
+async function saveProfile(payload: PPPProfileCreateInput) {
+  try {
+    if (editingProfile.value) {
+      await updateProfileMutation.mutateAsync({ id: editingProfile.value.id, input: payload })
+      toast.success(`Profile "${payload.name}" diperbarui`)
+    } else {
+      await createProfileMutation.mutateAsync(payload)
+      toast.success(`Profile "${payload.name}" ditambahkan`)
+    }
+    showProfileForm.value = false
+    editingProfile.value = null
+  } catch (e) {
+    const err = extractApiError(e)
+    toast.error(err.message || 'Gagal menyimpan profile')
+  }
+}
+
+async function confirmDeleteProfile() {
+  if (!deleteCandidate.value) return
+  try {
+    await removeProfileMutation.mutateAsync(deleteCandidate.value.id)
+    toast.success(`Profile "${deleteCandidate.value.name}" dihapus`)
+    deleteCandidate.value = null
+  } catch (e) {
+    const err = extractApiError(e)
+    toast.error(err.message || 'Gagal menghapus profile')
+  }
+}
+
+const isProfileMutating = computed(
+  () => createProfileMutation.isPending.value || updateProfileMutation.isPending.value,
+)
+
+const deleteMessage = computed(() =>
+  deleteCandidate.value
+    ? `Hapus profile "${deleteCandidate.value.name}"? Aksi ini akan dipropagate ke MikroTik.`
+    : '',
+)
 </script>
 
 <template>
@@ -192,7 +283,24 @@ function reload() {
       </div>
 
       <!-- Profile -->
-      <div v-else-if="tab === 'profile'" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div v-else-if="tab === 'profile'">
+        <div class="mb-3 flex items-center justify-between">
+          <span class="text-xs" style="color: var(--muted)">
+            {{ (apiProfiles ?? []).length }} profile
+          </span>
+          <button class="btn btn-primary btn-sm" type="button" @click="openCreateProfile">
+            <Icon name="Plus" :size="13" />
+            Tambah Profile
+          </button>
+        </div>
+        <div
+          v-if="(apiProfiles ?? []).length === 0"
+          class="rounded-lg p-8 text-center text-sm"
+          style="background: var(--bg-2); color: var(--muted)"
+        >
+          Belum ada PPP profile. Klik "Tambah Profile" untuk membuat baru.
+        </div>
+        <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card v-for="p in apiProfiles ?? []" :key="p.id" accent="var(--accent-violet)">
           <div class="mb-3 flex items-center justify-between">
             <div class="flex items-center gap-2.5">
@@ -206,6 +314,25 @@ function reload() {
                 <div class="text-sm font-semibold">{{ p.name }}</div>
                 <div class="mono text-[11px]" style="color: var(--muted)">{{ p.id }}</div>
               </div>
+            </div>
+            <div class="flex items-center gap-1">
+              <button
+                class="btn btn-ghost btn-icon btn-sm"
+                type="button"
+                title="Edit"
+                @click="openEditProfile(p)"
+              >
+                <Icon name="Edit3" :size="14" />
+              </button>
+              <button
+                class="btn btn-ghost btn-icon btn-sm"
+                type="button"
+                title="Hapus"
+                style="color: var(--danger)"
+                @click="deleteCandidate = p"
+              >
+                <Icon name="Trash2" :size="14" />
+              </button>
             </div>
           </div>
           <div class="grid grid-cols-2 gap-2 text-xs">
@@ -226,11 +353,12 @@ function reload() {
               <div class="mono font-medium">{{ p.session_timeout || '—' }}</div>
             </div>
             <div>
-              <div style="color: var(--muted)">Only One</div>
-              <div class="mono font-medium">{{ p.only_one || '—' }}</div>
+              <div style="color: var(--muted)">Idle Timeout</div>
+              <div class="mono font-medium">{{ p.idle_timeout || '—' }}</div>
             </div>
           </div>
         </Card>
+        </div>
       </div>
 
       <!-- Inactive -->
@@ -244,5 +372,24 @@ function reload() {
         />
       </div>
     </div>
+
+    <PPPProfileFormModal
+      :open="showProfileForm"
+      :initial="editingInitial"
+      :submitting="isProfileMutating"
+      @close="closeProfileForm"
+      @save="saveProfile"
+    />
+
+    <ConfirmModal
+      :open="deleteCandidate !== null"
+      title="Hapus PPP profile"
+      :message="deleteMessage"
+      confirm-text="Hapus"
+      variant="danger"
+      :loading="removeProfileMutation.isPending.value"
+      @close="deleteCandidate = null"
+      @confirm="confirmDeleteProfile"
+    />
   </div>
 </template>

@@ -15,6 +15,10 @@ import { EXPIRY_MODE_OPTIONS } from './profile-vm'
 export interface ProfileFormPayload {
   name: string
   rate_limit: string
+  address_pool: string
+  shared_users: number
+  status_autorefresh: string
+  parent_queue: string
   expiry_mode: ExpiryMode
   validity: string
   price: number
@@ -36,6 +40,10 @@ const emit = defineEmits<{
 const DEFAULT: ProfileFormPayload = {
   name: '',
   rate_limit: '5M/2M',
+  address_pool: '',
+  shared_users: 1,
+  status_autorefresh: '',
+  parent_queue: '',
   expiry_mode: '0',
   validity: '1d',
   price: 0,
@@ -88,6 +96,20 @@ function submit() {
           </Field>
           <Field label="Rate limit (RX/TX)" hint="Format MikroTik, mis. 10M/3M">
             <Input v-model="form.rate_limit" placeholder="10M/3M" />
+          </Field>
+          <Field label="Address pool" hint="Nama IP pool untuk DHCP hotspot (opsional)">
+            <Input v-model="form.address_pool" placeholder="hs-pool" />
+          </Field>
+          <div class="grid grid-cols-2 gap-3">
+            <Field label="Shared users" hint="Concurrent session per user">
+              <NumberInput v-model="form.shared_users" :min="1" :step="1" />
+            </Field>
+            <Field label="Status autorefresh" hint="Interval refresh (mis. 1m)">
+              <Input v-model="form.status_autorefresh" placeholder="1m" />
+            </Field>
+          </div>
+          <Field label="Parent queue" hint="Reference queue tree (opsional)">
+            <Input v-model="form.parent_queue" placeholder="" />
           </Field>
         </div>
       </section>

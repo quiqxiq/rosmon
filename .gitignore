@@ -1,5 +1,19 @@
+# Environment
 .env
+.env.*
+!.env.example
+
+# Go
 coverage.out
 *.test
+*.out
+
+# Compiled binaries
+/server
+/rosmon
+
+# Legacy (pre-migration PHP app)
 mikhmonv3/
-# website/
+
+# AI session tools (internal planning files, not for public repo)
+.sisyphus/

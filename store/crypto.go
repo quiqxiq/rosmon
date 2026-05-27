@@ -51,6 +51,13 @@ func encryptDevicePassword(plaintext string) (string, error) {
 	return hex.EncodeToString(ciphertext), nil
 }
 
+// encryptSecret / decryptSecret — alias generic untuk encryptDevicePassword /
+// decryptDevicePassword. Dipakai store/subscription_store untuk encrypt
+// MikrotikPassword. Share key sama (deviceCryptoKey package var), supaya
+// operator hanya perlu set DEVICE_PASSWORD_KEY sekali.
+func encryptSecret(plaintext string) (string, error) { return encryptDevicePassword(plaintext) }
+func decryptSecret(encoded string) (string, error)   { return decryptDevicePassword(encoded) }
+
 // decryptDevicePassword mendekripsi hex-encoded ciphertext dari encryptDevicePassword.
 // Jika key tidak di-set, return input apa adanya (backward compat / dev mode).
 // Jika decode hex gagal (artinya value adalah plaintext legacy), return input apa adanya

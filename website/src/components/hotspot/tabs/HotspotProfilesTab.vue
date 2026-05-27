@@ -106,10 +106,11 @@ async function onCreate(p: ProfileFormPayload) {
     // 1. Create standard profile di RouterOS.
     await hotspotProfilesService.create(activeDeviceId.value, {
       name: p.name,
-      rate_limit: p.rate_limit,
-      shared_users: 1,
-      add_mac_cookie: true,
-      transparent_proxy: false,
+      rate_limit: p.rate_limit || undefined,
+      address_pool: p.address_pool || undefined,
+      shared_users: p.shared_users,
+      status_autorefresh: p.status_autorefresh || undefined,
+      parent_queue: p.parent_queue || undefined,
     })
 
     // 2. Upsert mikhmon local config (auto-inject on-login script di backend).
@@ -240,7 +241,7 @@ async function executeSync() {
     </div>
 
     <div v-else>
-      <div class="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <OverviewKpiCard
           label="Total Profile"
           :value="mergedProfiles.length"

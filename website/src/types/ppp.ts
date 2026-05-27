@@ -11,6 +11,20 @@ export interface PPPSecret {
   comment?: string
 }
 
+export interface PPPSecretCreateInput {
+  name: string
+  password?: string
+  service?: string
+  profile?: string
+  local_address?: string
+  remote_address?: string
+  caller_id?: string
+  disabled?: boolean
+  comment?: string
+}
+
+export type PPPSecretUpdateInput = Partial<PPPSecretCreateInput>
+
 export interface PPPProfile {
   id: string
   name: string
@@ -18,8 +32,29 @@ export interface PPPProfile {
   remote_address?: string
   rate_limit?: string
   session_timeout?: string
-  only_one?: 'yes' | 'no' | 'default'
+  idle_timeout?: string
+  parent_queue?: string
+  on_up?: string
+  on_down?: string
+  disabled: boolean
+  comment?: string
 }
+
+export interface PPPProfileCreateInput {
+  name: string
+  local_address?: string
+  remote_address?: string
+  rate_limit?: string
+  session_timeout?: string
+  idle_timeout?: string
+  parent_queue?: string
+  on_up?: string
+  on_down?: string
+  disabled?: boolean
+  comment?: string
+}
+
+export type PPPProfileUpdateInput = Partial<PPPProfileCreateInput>
 
 export interface PPPActive {
   id: string

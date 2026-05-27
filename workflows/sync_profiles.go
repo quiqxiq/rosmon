@@ -26,6 +26,7 @@ type ProfileSyncResult struct {
 	Orphan       []string
 	Injected     []string
 	InjectFailed []string
+	Skipped      []string
 }
 
 // SyncProfiles menarik semua hotspot profile dari router lalu reconcile
@@ -69,15 +70,22 @@ func SyncProfiles(
 		dbByName[cfg.ProfileName] = cfg
 	}
 
-	// Index router by name untuk deteksi orphan.
+	// Index router by name untuk deteksi orphan + comment check.
 	routerNames := make(map[string]struct{}, len(routerProfiles))
+	routerComments := make(map[string]string, len(routerProfiles))
 
-	// Step 3: insert profile baru, tandai existing.
+	// Step 3: insert profile baru, tandai existing. Skip bw-owned profiles.
 	for _, rp := range routerProfiles {
 		if rp.Name == "" {
 			continue
 		}
+		// Skip profiles owned by bandwidth_profiles.
+		if hasTag(rp.Comment, TagBW) {
+			result.Skipped = append(result.Skipped, rp.Name+" (bandwidth)")
+			continue
+		}
 		routerNames[rp.Name] = struct{}{}
+		routerComments[rp.Name] = rp.Comment
 
 		if _, exists := dbByName[rp.Name]; exists {
 			result.Synced = append(result.Synced, rp.Name)
@@ -103,6 +111,11 @@ func SyncProfiles(
 	for _, cfg := range dbConfigs {
 		if _, exists := routerNames[cfg.ProfileName]; !exists {
 			result.Orphan = append(result.Orphan, cfg.ProfileName)
+			continue
+		}
+		// Skip if router profile was claimed by bandwidth_profiles.
+		if comment := routerComments[cfg.ProfileName]; hasTag(comment, TagBW) {
+			result.Skipped = append(result.Skipped, cfg.ProfileName+" (bw-claimed)")
 			continue
 		}
 		if cfg.ExpiryMode == "0" {

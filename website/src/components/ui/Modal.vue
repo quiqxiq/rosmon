@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { onBeforeUnmount, watch } from 'vue'
+import { computed, onBeforeUnmount, watch } from 'vue'
 import Icon from './Icon.vue'
 
-const props = defineProps<{
-  open: boolean
-  title?: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    open: boolean
+    title?: string
+    size?: 'sm' | 'md' | 'lg' | 'xl'
+  }>(),
+  { size: 'sm' },
+)
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -18,6 +22,8 @@ function close() {
 function onKey(e: KeyboardEvent) {
   if (e.key === 'Escape') close()
 }
+
+const sizeClass = computed(() => (props.size !== 'sm' ? `modal-${props.size}` : ''))
 
 watch(
   () => props.open,
@@ -44,7 +50,7 @@ onBeforeUnmount(() => {
     <Transition>
       <div v-if="open">
         <div class="overlay" @click="close" />
-        <div class="modal" role="dialog" aria-modal="true">
+        <div class="modal" :class="sizeClass" role="dialog" aria-modal="true">
           <header
             v-if="title || $slots.header"
             class="flex items-center justify-between px-5 py-4"

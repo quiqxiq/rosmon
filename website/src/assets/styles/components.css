@@ -636,6 +636,9 @@ select {
   flex-direction: column;
   overflow: hidden;
 }
+.modal-md { width: 640px; }
+.modal-lg { width: 900px; }
+.modal-xl { width: 1100px; }
 
 /* mobile-first drawer/modal: full-screen below md */
 @media (max-width: 767px) {
@@ -763,6 +766,17 @@ select {
     border-color: #ccc !important;
     background: transparent !important;
     color: black !important;
+  }
+  .voucher-wrap {
+    display: inline-block;
+    vertical-align: top;
+  }
+}
+
+/* responsive table column hiding */
+@media (max-width: 767px) {
+  .mobile-hidden {
+    display: none !important;
   }
 }
 

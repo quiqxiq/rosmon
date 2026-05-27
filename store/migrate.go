@@ -13,6 +13,9 @@ func Migrate(db *gorm.DB) error {
 		&model.MikrotikDevice{},
 		&model.Transaction{},
 		&model.HotspotProfileConfig{},
+		&model.Customer{},
+		&model.BandwidthProfile{},
+		&model.Subscription{},
 	); err != nil {
 		return err
 	}

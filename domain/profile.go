@@ -19,6 +19,7 @@ type HotspotProfile struct {
 	MACCookieTimeout  string // mac-cookie-timeout
 	AddMACCookie      bool
 	TransparentProxy  bool
+	Comment           string // marker ownership: "rosmon:bw" / "rosmon:vc" / kosong
 }
 
 // VoucherSpec mendeskripsikan parameter generate voucher batch.

@@ -155,6 +155,34 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		}
 		handler.NewProfileConfig(deps.ProfileStore, deps.DevMgr, deps.GoServiceURL, deps.Logger).Register(configScope)
 	}
+
+	// Customer / BandwidthProfile / Subscription API — business layer.
+	// Scope authenticated, tidak per-device (kecuali bandwidth_profiles yang
+	// di-nest karena join key-nya device + profile_name).
+	if deps.CustomerStore != nil {
+		bizScope := g.Group("")
+		for _, mw := range authChain {
+			bizScope.Use(mw)
+		}
+		handler.NewCustomers(deps.CustomerStore).Register(bizScope)
+	}
+	if deps.BandwidthStore != nil {
+		bwScope := g.Group("/devices/:device_id")
+		for _, mw := range authChain {
+			bwScope.Use(mw)
+		}
+		handler.NewBandwidthProfiles(deps.BandwidthStore, deps.DevMgr, deps.Logger).Register(bwScope)
+	}
+	if deps.SubscriptionStore != nil && deps.CustomerStore != nil && deps.BandwidthStore != nil {
+		subScope := g.Group("")
+		for _, mw := range authChain {
+			subScope.Use(mw)
+		}
+		handler.NewSubscriptions(
+			deps.SubscriptionStore, deps.CustomerStore, deps.BandwidthStore,
+			deps.DevMgr, deps.Logger,
+		).Register(subScope)
+	}
 }
 
 // roleAdmin shortcut konstanta (avoid import cycle ke service/auth).

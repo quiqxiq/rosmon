@@ -106,6 +106,9 @@ func main() {
 	profileStore := store.NewProfileConfigStore(db)
 	userStore := store.NewUserStore(db)
 	refreshStore := store.NewRefreshTokenStore(db)
+	customerStore := store.NewCustomerStore(db)
+	bandwidthStore := store.NewBandwidthProfileStore(db)
+	subscriptionStore := store.NewSubscriptionStore(db)
 
 	// ── Auth Service ──────────────────────────────────────────────────────
 	authSigner := auth.NewSigner(authCfg.JWTSecret, authCfg.AccessTTL, authCfg.RefreshTTL)
@@ -188,21 +191,24 @@ func main() {
 
 	// ── HTTP Server ───────────────────────────────────────────────────────
 	deps := &api.Deps{
-		Logger:       log,
-		HTTPConfig:   httpCfg,
-		DB:           db,
-		DeviceStore:  deviceStore,
-		TxStore:      txStore,
-		ProfileStore: profileStore,
-		AuthService:  authSvc,
-		AuthSigner:   authSigner,
-		UserLimiter:  userLim,
-		IPLimiter:    ipLim,
-		HeavyLimiter: heavyLim,
-		DevMgr:       devMgr,
-		Hub:          hub,
-		InfluxReader: influxReader,
-		GoServiceURL: goServiceURL,
+		Logger:            log,
+		HTTPConfig:        httpCfg,
+		DB:                db,
+		DeviceStore:       deviceStore,
+		TxStore:           txStore,
+		ProfileStore:      profileStore,
+		CustomerStore:     customerStore,
+		BandwidthStore:    bandwidthStore,
+		SubscriptionStore: subscriptionStore,
+		AuthService:       authSvc,
+		AuthSigner:        authSigner,
+		UserLimiter:       userLim,
+		IPLimiter:         ipLim,
+		HeavyLimiter:      heavyLim,
+		DevMgr:            devMgr,
+		Hub:               hub,
+		InfluxReader:      influxReader,
+		GoServiceURL:      goServiceURL,
 	}
 
 	handler := api.NewServer(deps)

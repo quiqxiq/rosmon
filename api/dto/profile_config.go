@@ -66,4 +66,5 @@ type ProfileConfigSyncResponse struct {
 	Orphan       []string `json:"orphan"`
 	Injected     []string `json:"injected"`
 	InjectFailed []string `json:"inject_failed"`
+	Skipped      []string `json:"skipped"`
 }

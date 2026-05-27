@@ -36,6 +36,17 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/pages/VoucherPage.vue'),
       },
       { path: 'ppp', name: 'ppp', component: () => import('@/pages/PPPPage.vue') },
+      { path: 'customers', name: 'customers', component: () => import('@/pages/CustomersPage.vue') },
+      {
+        path: 'subscriptions',
+        name: 'subscriptions',
+        component: () => import('@/pages/SubscriptionsPage.vue'),
+      },
+      {
+        path: 'bandwidth-profiles',
+        name: 'bandwidth-profiles',
+        component: () => import('@/pages/BandwidthProfilesPage.vue'),
+      },
       { path: 'network', name: 'network', component: () => import('@/pages/NetworkPage.vue') },
       { path: 'system', name: 'system', component: () => import('@/pages/SystemPage.vue') },
       { path: 'reports', name: 'reports', component: () => import('@/pages/ReportsPage.vue') },

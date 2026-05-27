@@ -1,6 +1,10 @@
 import { http } from '@/plugins/axios'
 import type { ApiEnvelope } from '@/types/api'
-import type { HotspotUser } from '@/types/hotspot'
+import type {
+  HotspotUser,
+  HotspotUserCreateInput,
+  HotspotUserUpdateInput,
+} from '@/types/hotspot'
 
 const base = (deviceId: string) => `/devices/${deviceId}/hotspot/users`
 
@@ -15,21 +19,7 @@ export const hotspotUsersService = {
     return data.data
   },
 
-  async create(
-    deviceId: string,
-    payload: {
-      name: string
-      password?: string
-      profile?: string
-      server?: string
-      disabled?: boolean
-      limit_uptime?: string
-      limit_bytes_total?: number
-      limit_bytes_in?: number
-      limit_bytes_out?: number
-      comment?: string
-    },
-  ): Promise<HotspotUser> {
+  async create(deviceId: string, payload: HotspotUserCreateInput): Promise<HotspotUser> {
     const { data } = await http.post<ApiEnvelope<HotspotUser>>(base(deviceId), payload)
     return data.data
   },
@@ -37,21 +27,9 @@ export const hotspotUsersService = {
   async update(
     deviceId: string,
     id: string,
-    payload: {
-      name?: string
-      password?: string
-      profile?: string
-      server?: string
-      disabled?: boolean
-      limit_uptime?: string
-      limit_bytes_total?: number
-      limit_bytes_in?: number
-      limit_bytes_out?: number
-      comment?: string | null
-      mac_address?: string | null
-    },
+    payload: HotspotUserUpdateInput,
   ): Promise<HotspotUser> {
-    const { data } = await http.patch<ApiEnvelope<HotspotUser>>(`${base(deviceId)}/${id}`, payload)
+    const { data } = await http.put<ApiEnvelope<HotspotUser>>(`${base(deviceId)}/${id}`, payload)
     return data.data
   },
 

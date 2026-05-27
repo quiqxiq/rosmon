@@ -4,7 +4,6 @@ import Modal from '@/components/ui/Modal.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import Select from '@/components/ui/Select.vue'
 import Icon from '@/components/ui/Icon.vue'
-import Badge from '@/components/ui/Badge.vue'
 import { fmtRp } from '@/utils/fmt'
 import { useTweaksStore } from '@/stores/tweaks'
 import { useActiveDevice } from '@/composables/useActiveDevice'
@@ -167,10 +166,12 @@ function doPrint() {
 
   const style = `
     <style>
-      body { margin: 0; padding: 8px; background: #fff; }
+      body { margin: 0; padding: 4px; background: #fff; font-size: 0; }
+      .voucher-wrap { display: inline-block; vertical-align: top; margin: 2px; font-size: 12px; }
       @media print {
-        body { margin: 0; padding: 4px; }
+        body { margin: 0; padding: 2px; }
         .no-print { display: none !important; }
+        .voucher-wrap { page-break-inside: avoid; }
       }
     </style>
   `
@@ -196,8 +197,8 @@ const printCount = computed(() =>
 </script>
 
 <template>
-  <Modal :open="props.open" title="Print Voucher" @close="emit('close')">
-    <div class="flex flex-col gap-4 lg:flex-row">
+  <Modal :open="props.open" title="Print Voucher" size="lg" @close="emit('close')">
+    <div class="flex flex-col gap-4 md:flex-row">
       <!-- Left panel: user selection (hanya tampil untuk existing users) -->
       <div v-if="!isGeneratedMode" class="flex-1 space-y-3">
         <div class="flex flex-wrap gap-2">
@@ -303,7 +304,7 @@ const printCount = computed(() =>
       </div>
 
       <!-- Right panel: template selector + preview -->
-      <div class="w-full lg:w-[360px]">
+      <div class="w-full md:w-[360px] md:shrink-0">
         <div class="mb-2 flex items-center justify-between">
           <div class="text-xs font-medium" style="color: var(--muted)">Template</div>
           <Select

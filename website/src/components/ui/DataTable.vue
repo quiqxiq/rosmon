@@ -151,7 +151,7 @@ defineExpose({ table, clearSelection })
   <div class="card" style="padding: 0; overflow: hidden">
     <div
       v-if="$slots.toolbar"
-      class="flex flex-wrap items-center gap-3 p-3"
+      class="flex flex-col gap-2 p-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3"
       style="border-bottom: 1px solid var(--border)"
     >
       <slot
@@ -178,6 +178,7 @@ defineExpose({ table, clearSelection })
             <th
               v-for="header in table.getHeaderGroups()[0].headers"
               :key="header.id"
+              :class="{ 'mobile-hidden': header.column.columnDef.meta?.mobileHidden }"
               :style="{
                 width: header.column.columnDef.meta?.width
                   ? `${header.column.columnDef.meta.width}px`
@@ -228,6 +229,7 @@ defineExpose({ table, clearSelection })
             <td
               v-for="cell in row.getVisibleCells()"
               :key="cell.id"
+              :class="{ 'mobile-hidden': cell.column.columnDef.meta?.mobileHidden }"
               :style="{
                 textAlign: cell.column.columnDef.meta?.align ?? 'left',
                 width: cell.column.columnDef.meta?.width
