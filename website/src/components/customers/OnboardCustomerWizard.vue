@@ -9,7 +9,8 @@ import Icon from '@/components/ui/Icon.vue'
 import { useCreateCustomerMutation } from '@/queries/customers.queries'
 import { useCreateSubscriptionMutation } from '@/queries/subscriptions.queries'
 import { useDevicesQuery } from '@/queries/devices.queries'
-import { useBandwidthProfilesQuery } from '@/queries/bandwidth-profiles.queries'
+import { usePPPProfilesDBQuery } from '@/queries/ppp-profiles-db.queries'
+import { useHotspotProfilesDBQuery } from '@/queries/hotspot-profiles-db.queries'
 import { useToast } from '@/composables/useToast'
 import { extractApiError } from '@/utils/http-error'
 import type { ServiceType } from '@/types/subscription'
@@ -43,7 +44,8 @@ interface CustomerForm {
 
 interface SubscriptionForm {
   device_id: number
-  bandwidth_profile_id: number
+  ppp_profile_id: number
+  hotspot_profile_id: number
   service_type: ServiceType
   mikrotik_username: string
   mikrotik_password: string
@@ -59,7 +61,8 @@ const customerForm = ref<CustomerForm>({
 
 const subscriptionForm = ref<SubscriptionForm>({
   device_id: 0,
-  bandwidth_profile_id: 0,
+  ppp_profile_id: 0,
+  hotspot_profile_id: 0,
   service_type: 'pppoe',
   mikrotik_username: '',
   mikrotik_password: '',
@@ -77,7 +80,8 @@ watch(
       customerForm.value = { full_name: '', phone: '', address: '', area: '', notes: '' }
       subscriptionForm.value = {
         device_id: 0,
-        bandwidth_profile_id: 0,
+        ppp_profile_id: 0,
+        hotspot_profile_id: 0,
         service_type: 'pppoe',
         mikrotik_username: '',
         mikrotik_password: '',
@@ -91,15 +95,18 @@ watch(
 const deviceIdStr = computed(() =>
   subscriptionForm.value.device_id > 0 ? String(subscriptionForm.value.device_id) : '',
 )
-const { data: bwProfiles } = useBandwidthProfilesQuery(deviceIdStr, () => ({
-  service_type: subscriptionForm.value.service_type,
+
+const { data: pppProfiles } = usePPPProfilesDBQuery(deviceIdStr)
+const { data: hotspotProfiles } = useHotspotProfilesDBQuery(deviceIdStr, () => ({
+  role: 'permanent',
   only_active: true,
 }))
 
 watch(
   () => [subscriptionForm.value.device_id, subscriptionForm.value.service_type] as const,
   () => {
-    subscriptionForm.value.bandwidth_profile_id = 0
+    subscriptionForm.value.ppp_profile_id = 0
+    subscriptionForm.value.hotspot_profile_id = 0
   },
 )
 
@@ -110,16 +117,34 @@ const deviceOptions = computed(() => [
     label: `${d.display_name} (${d.address})`,
   })),
 ])
-const profileOptions = computed(() => [
+
+const pppProfileOptions = computed(() => [
   {
     value: 0,
-    label: subscriptionForm.value.device_id ? '— pilih paket —' : '— pilih device dulu —',
+    label: subscriptionForm.value.device_id ? '— pilih profil PPP —' : '— pilih device dulu —',
   },
-  ...(bwProfiles.value ?? []).map((p) => ({
+  ...(pppProfiles.value ?? []).map((p) => ({
     value: p.id,
-    label: `${p.name} · ${p.rate_limit || 'unlimited'}`,
+    label: `${p.name}${p.rate_limit ? ' · ' + p.rate_limit : ''}`,
   })),
 ])
+
+const hotspotProfileOptions = computed(() => [
+  {
+    value: 0,
+    label: subscriptionForm.value.device_id ? '— pilih profil Hotspot —' : '— pilih device dulu —',
+  },
+  ...(hotspotProfiles.value ?? []).map((p) => ({
+    value: p.id,
+    label: `${p.name}${p.rate_limit ? ' · ' + p.rate_limit : ''}`,
+  })),
+])
+
+const selectedProfileId = computed(() =>
+  subscriptionForm.value.service_type === 'pppoe'
+    ? subscriptionForm.value.ppp_profile_id
+    : subscriptionForm.value.hotspot_profile_id,
+)
 
 const canSubmitStep1 = computed(
   () => customerForm.value.full_name.trim() && customerForm.value.phone.trim(),
@@ -130,7 +155,7 @@ const canSubmitStep2 = computed(() => {
   const s = subscriptionForm.value
   return (
     s.device_id > 0 &&
-    s.bandwidth_profile_id > 0 &&
+    selectedProfileId.value > 0 &&
     s.mikrotik_username.trim().length > 0 &&
     s.mikrotik_password.length > 0
   )
@@ -165,14 +190,20 @@ async function submitStep2() {
   if (!canSubmitStep2.value || createSubscription.isPending.value) return
   try {
     const s = subscriptionForm.value
-    const res = await createSubscription.mutateAsync({
+    const payload: Parameters<typeof createSubscription.mutateAsync>[0] = {
       customer_id: createdCustomerId.value,
       device_id: s.device_id,
-      bandwidth_profile_id: s.bandwidth_profile_id,
       service_type: s.service_type,
       mikrotik_username: s.mikrotik_username.trim(),
       mikrotik_password: s.mikrotik_password,
-    })
+    }
+    if (s.service_type === 'pppoe' && s.ppp_profile_id > 0) {
+      payload.ppp_profile_id = s.ppp_profile_id
+    }
+    if (s.service_type === 'hotspot' && s.hotspot_profile_id > 0) {
+      payload.hotspot_profile_id = s.hotspot_profile_id
+    }
+    const res = await createSubscription.mutateAsync(payload)
     if (res.warning) {
       toast.error(
         `Pelanggan & langganan tersimpan, sync MikroTik gagal: ${res.warning}. Coba reconcile dari detail.`,
@@ -295,20 +326,39 @@ function generatePassword() {
           <Field label="Device router" required>
             <Select v-model="subscriptionForm.device_id" :options="deviceOptions" />
           </Field>
-          <Field label="Paket bandwidth" required>
+
+          <!-- PPPoE profile -->
+          <Field v-if="subscriptionForm.service_type === 'pppoe'" label="Profil PPP" required>
             <Select
-              v-model="subscriptionForm.bandwidth_profile_id"
-              :options="profileOptions"
-              :disabled="!subscriptionForm.device_id || profileOptions.length <= 1"
+              v-model="subscriptionForm.ppp_profile_id"
+              :options="pppProfileOptions"
+              :disabled="!subscriptionForm.device_id || pppProfileOptions.length <= 1"
             />
             <p
-              v-if="subscriptionForm.device_id && profileOptions.length <= 1"
+              v-if="subscriptionForm.device_id && pppProfileOptions.length <= 1"
               class="mt-1 text-[11px]"
               style="color: var(--warn)"
             >
-              Belum ada paket aktif di device ini.
+              Belum ada profil PPP di device ini.
             </p>
           </Field>
+
+          <!-- Hotspot permanent profile -->
+          <Field v-else label="Profil Hotspot" required>
+            <Select
+              v-model="subscriptionForm.hotspot_profile_id"
+              :options="hotspotProfileOptions"
+              :disabled="!subscriptionForm.device_id || hotspotProfileOptions.length <= 1"
+            />
+            <p
+              v-if="subscriptionForm.device_id && hotspotProfileOptions.length <= 1"
+              class="mt-1 text-[11px]"
+              style="color: var(--warn)"
+            >
+              Belum ada profil Hotspot Permanent di device ini.
+            </p>
+          </Field>
+
           <Field label="Username MikroTik" required>
             <Input v-model="subscriptionForm.mikrotik_username" placeholder="budi-001" />
           </Field>

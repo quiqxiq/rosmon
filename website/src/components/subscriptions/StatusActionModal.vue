@@ -24,8 +24,8 @@ watch(
   ([open, sub]) => {
     if (open && sub) {
       // Default ke status berbeda dari saat ini supaya tidak no-op.
-      const fallback: SubscriptionStatus = sub.status === 'active' ? 'isolir' : 'active'
-      target.value = fallback
+      const nonActive: SubscriptionStatus = sub.status === 'isolir' ? 'paused' : 'isolir'
+      target.value = sub.status === 'active' ? nonActive : 'active'
     }
   },
   { immediate: true },
@@ -33,18 +33,19 @@ watch(
 
 const effectLabel = computed(() => {
   const t = target.value
-  if (t === 'active') return 'Secret/user di MikroTik di-enable (disabled=no).'
-  if (t === 'isolir' || t === 'suspended')
-    return 'Secret/user di MikroTik di-disable (disabled=yes). Customer tidak bisa connect.'
-  if (t === 'terminated')
-    return 'Secret/user di MikroTik DIHAPUS. Record di DB tetap untuk audit.'
+  if (t === 'active') return 'Profile direset ke normal, disabled=no. Jika sebelumnya terminated, secret/user dibuat ulang di router.'
+  if (t === 'isolir') return 'Ganti ke PROFILE_ISOLIR (throttle + captive portal), disabled=no. Customer masih terhubung tapi dibatasi.'
+  if (t === 'paused') return 'Ganti ke PROFILE_PAUSED (kecepatan sangat rendah), disabled=no. Untuk pelanggan yang cuti sementara.'
+  if (t === 'suspended') return 'Secret/user di MikroTik di-disable keras (disabled=yes). Customer tidak bisa connect sama sekali.'
+  if (t === 'terminated') return 'Secret/user di MikroTik DIHAPUS permanen. Record di DB tetap untuk audit.'
   return 'Status di-set ke pending_install — tidak ada perubahan di router.'
 })
 
 const effectTone = computed<'success' | 'warn' | 'danger' | 'neutral'>(() => {
   if (target.value === 'active') return 'success'
-  if (target.value === 'isolir' || target.value === 'suspended') return 'warn'
-  if (target.value === 'terminated') return 'danger'
+  if (target.value === 'paused') return 'neutral'
+  if (target.value === 'isolir') return 'warn'
+  if (target.value === 'suspended' || target.value === 'terminated') return 'danger'
   return 'neutral'
 })
 </script>
@@ -70,9 +71,10 @@ const effectTone = computed<'success' | 'warn' | 'danger' | 'neutral'>(() => {
           v-model="target"
           :options="[
             { value: 'pending_install', label: 'Pending install' },
-            { value: 'active', label: 'Active' },
-            { value: 'isolir', label: 'Isolir (disable sementara)' },
-            { value: 'suspended', label: 'Suspended (disable keras)' },
+            { value: 'active', label: 'Active (pulihkan)' },
+            { value: 'isolir', label: 'Isolir (throttle, captive portal)' },
+            { value: 'paused', label: 'Paused (kecepatan sangat rendah)' },
+            { value: 'suspended', label: 'Suspended (blokir keras)' },
             { value: 'terminated', label: 'Terminated (hapus dari router)' },
           ]"
         />

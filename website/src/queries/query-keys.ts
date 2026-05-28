@@ -55,10 +55,14 @@ export const queryKeys = {
       ['customers', 'list', filter.status ?? '', filter.area ?? '', filter.q ?? ''] as const,
     detail: (id: number) => ['customers', 'detail', id] as const,
   },
-  bandwidthProfiles: {
-    all: (deviceId: string) => ['bandwidth-profiles', deviceId] as const,
+  pppProfilesDB: {
+    all: (deviceId: string) => ['ppp-profiles-db', deviceId] as const,
+    detail: (deviceId: string, id: number) => ['ppp-profiles-db', deviceId, id] as const,
+  },
+  hotspotProfilesDB: {
+    all: (deviceId: string) => ['hotspot-profiles-db', deviceId] as const,
     detail: (deviceId: string, id: number) =>
-      ['bandwidth-profiles', deviceId, id] as const,
+      ['hotspot-profiles-db', deviceId, id] as const,
   },
   subscriptions: {
     all: ['subscriptions'] as const,

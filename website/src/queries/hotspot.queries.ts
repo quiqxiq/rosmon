@@ -1,5 +1,5 @@
 import { type MaybeRefOrGetter, toValue } from 'vue'
-import { useQuery } from '@tanstack/vue-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { hotspotUsersService } from '@/services/hotspot-users'
 import { hotspotProfilesService } from '@/services/hotspot-profiles'
 import { hotspotSessionsService } from '@/services/hotspot-sessions'
@@ -50,5 +50,38 @@ export function useHotspotCookiesQuery(deviceId: MaybeRefOrGetter<string | null>
     queryKey: ['hotspot', 'cookies', String(toValue(deviceId))] as const,
     queryFn: () => hotspotSessionsService.listCookies(String(toValue(deviceId))),
     enabled: () => Boolean(toValue(deviceId)),
+  })
+}
+
+export function useDisconnectActiveMutation(deviceId: MaybeRefOrGetter<string | null>) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) =>
+      hotspotSessionsService.disconnectActive(String(toValue(deviceId)), id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.hotspot.active(String(toValue(deviceId))) })
+    },
+  })
+}
+
+export function useSetBindingDisabledMutation(deviceId: MaybeRefOrGetter<string | null>) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, disabled }: { id: string; disabled: boolean }) =>
+      hotspotSessionsService.setBindingDisabled(String(toValue(deviceId)), id, disabled),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.hotspot.bindings(String(toValue(deviceId))) })
+    },
+  })
+}
+
+export function useRemoveBindingMutation(deviceId: MaybeRefOrGetter<string | null>) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) =>
+      hotspotSessionsService.removeBinding(String(toValue(deviceId)), id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.hotspot.bindings(String(toValue(deviceId))) })
+    },
   })
 }

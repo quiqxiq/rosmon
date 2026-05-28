@@ -1,11 +1,14 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import Drawer from '@/components/ui/Drawer.vue'
 import Icon from '@/components/ui/Icon.vue'
 import Badge from '@/components/ui/Badge.vue'
 import type { Subscription } from '@/types/subscription'
 import { fmtDateTime } from '@/utils/fmt'
+import { usePPPProfileDBQuery } from '@/queries/ppp-profiles-db.queries'
+import { useHotspotProfileDBQuery } from '@/queries/hotspot-profiles-db.queries'
 
-defineProps<{
+const props = defineProps<{
   open: boolean
   subscription: Subscription | null
 }>()
@@ -17,6 +20,29 @@ const emit = defineEmits<{
   (e: 'reconcile', s: Subscription): void
   (e: 'delete', s: Subscription): void
 }>()
+
+const deviceIdStr = computed(() =>
+  props.subscription ? String(props.subscription.device_id) : null,
+)
+const pppProfileId = computed(() => props.subscription?.ppp_profile_id ?? null)
+const hotspotProfileId = computed(() => props.subscription?.hotspot_profile_id ?? null)
+
+const { data: pppProfile } = usePPPProfileDBQuery(deviceIdStr, pppProfileId)
+const { data: hotspotProfile } = useHotspotProfileDBQuery(deviceIdStr, hotspotProfileId)
+
+const profileLabel = computed(() => {
+  if (!props.subscription) return '—'
+  if (props.subscription.service_type === 'pppoe') {
+    if (!pppProfile.value) return pppProfileId.value ? `#${pppProfileId.value}` : '—'
+    return pppProfile.value.rate_limit
+      ? `${pppProfile.value.name} · ${pppProfile.value.rate_limit}`
+      : pppProfile.value.name
+  }
+  if (!hotspotProfile.value) return hotspotProfileId.value ? `#${hotspotProfileId.value}` : '—'
+  return hotspotProfile.value.rate_limit
+    ? `${hotspotProfile.value.name} · ${hotspotProfile.value.rate_limit}`
+    : hotspotProfile.value.name
+})
 
 function statusTone(status: string): 'success' | 'warn' | 'danger' | 'neutral' {
   if (status === 'active') return 'success'
@@ -87,7 +113,7 @@ function statusTone(status: string): 'success' | 'warn' | 'danger' | 'neutral' {
           </div>
           <div class="flex justify-between">
             <span style="color: var(--muted)">Paket</span>
-            <span class="mono">#{{ subscription.bandwidth_profile_id }}</span>
+            <span class="font-medium">{{ profileLabel }}</span>
           </div>
           <div v-if="subscription.notes" class="pt-2" style="border-top: 1px solid var(--border)">
             <span style="color: var(--muted)">Catatan</span>

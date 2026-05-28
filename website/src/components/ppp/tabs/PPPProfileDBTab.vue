@@ -4,45 +4,33 @@ import type { ColumnDef } from '@tanstack/vue-table'
 import DataTable from '@/components/ui/DataTable.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Icon from '@/components/ui/Icon.vue'
-import Segmented from '@/components/ui/Segmented.vue'
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
-import HotspotProfileDBDrawer from '@/components/hotspot/HotspotProfileDBDrawer.vue'
-import HotspotProfileDBFormModal from '@/components/hotspot/HotspotProfileDBFormModal.vue'
+import PPPProfileDBDrawer from '@/components/ppp/PPPProfileDBDrawer.vue'
+import PPPProfileDBFormModal from '@/components/ppp/PPPProfileDBFormModal.vue'
 import { useActiveDevice } from '@/composables/useActiveDevice'
 import {
-  useHotspotProfilesDBQuery,
-  useCreateHotspotProfileDBMutation,
-  useSyncHotspotProfilesMutation,
-} from '@/queries/hotspot-profiles-db.queries'
+  usePPPProfilesDBQuery,
+  useCreatePPPProfileDBMutation,
+  useSyncPPPProfilesMutation,
+} from '@/queries/ppp-profiles-db.queries'
 import { useToast } from '@/composables/useToast'
 import { extractApiError } from '@/utils/http-error'
 import { fmtRp } from '@/utils/fmt'
-import type { HotspotProfileDB, HotspotProfileDBCreateInput, HotspotProfileRole } from '@/types/hotspot-profile-db'
+import type { PPPProfileDB, PPPProfileDBCreateInput } from '@/types/ppp-profile-db'
 
 const toast = useToast()
 const { activeDeviceId } = useActiveDevice()
 
-type RoleFilter = 'all' | HotspotProfileRole
-const roleFilter = ref<RoleFilter>('all')
+const { data: profiles, isLoading } = usePPPProfilesDBQuery(activeDeviceId)
+const createMutation = useCreatePPPProfileDBMutation(activeDeviceId)
+const syncMutation = useSyncPPPProfilesMutation(activeDeviceId)
 
-const filterParam = computed(() =>
-  roleFilter.value === 'all' ? undefined : roleFilter.value,
-)
-
-const { data: profiles, isLoading } = useHotspotProfilesDBQuery(
-  activeDeviceId,
-  computed(() => (filterParam.value ? { role: filterParam.value } : {})),
-)
-
-const createMutation = useCreateHotspotProfileDBMutation(activeDeviceId)
-const syncMutation = useSyncHotspotProfilesMutation(activeDeviceId)
-
-const selectedProfile = ref<HotspotProfileDB | null>(null)
+const selectedProfile = ref<PPPProfileDB | null>(null)
 const showDrawer = ref(false)
 const showCreateForm = ref(false)
 const showSyncConfirm = ref(false)
 
-function openDetail(p: HotspotProfileDB) {
+function openDetail(p: PPPProfileDB) {
   selectedProfile.value = p
   showDrawer.value = true
 }
@@ -52,8 +40,8 @@ function closeDrawer() {
   selectedProfile.value = null
 }
 
-async function handleCreate(payload: HotspotProfileDBCreateInput | unknown) {
-  const input = payload as HotspotProfileDBCreateInput
+async function handleCreate(payload: PPPProfileDBCreateInput | unknown) {
+  const input = payload as PPPProfileDBCreateInput
   try {
     await createMutation.mutateAsync(input)
     toast.success(`Profil "${input.name}" ditambahkan`)
@@ -65,8 +53,7 @@ async function handleCreate(payload: HotspotProfileDBCreateInput | unknown) {
 
 async function runSync() {
   try {
-    const role = roleFilter.value !== 'all' ? roleFilter.value : undefined
-    const res = await syncMutation.mutateAsync(role)
+    const res = await syncMutation.mutateAsync()
     showSyncConfirm.value = false
     toast.success(
       `Sync selesai: ${res.synced.length} disinkron, ${res.created.length} baru, ${res.orphan.length} orphan`,
@@ -76,15 +63,7 @@ async function runSync() {
   }
 }
 
-const EXPIRY_LABEL: Record<string, string> = {
-  '0': '—',
-  rem: 'rem',
-  ntf: 'ntf',
-  remc: 'remc',
-  ntfc: 'ntfc',
-}
-
-const columns = computed<ColumnDef<HotspotProfileDB>[]>(() => [
+const columns = computed<ColumnDef<PPPProfileDB>[]>(() => [
   {
     accessorKey: 'name',
     header: 'Nama',
@@ -97,44 +76,16 @@ const columns = computed<ColumnDef<HotspotProfileDB>[]>(() => [
       ]),
   },
   {
-    id: 'role',
-    header: 'Role',
-    cell: ({ row }) =>
-      h(
-        Badge,
-        { tone: row.original.role === 'permanent' ? 'cyan' : 'violet' },
-        () => row.original.role === 'permanent' ? 'Permanent' : 'Voucher',
-      ),
-  },
-  {
     accessorKey: 'rate_limit',
     header: 'Rate Limit',
-    cell: ({ row }) => h('span', { class: 'mono text-[12px]' }, row.original.rate_limit || '—'),
-    meta: { mobileHidden: true },
+    cell: ({ row }) =>
+      h('span', { class: 'mono text-[12px]' }, row.original.rate_limit || '—'),
   },
   {
-    id: 'price',
-    header: 'Harga',
-    cell: ({ row }) => {
-      const p = row.original
-      if (p.role === 'permanent') {
-        return h('span', { class: 'text-sm font-medium' }, fmtRp(p.price_monthly) + '/bln')
-      }
-      return h('span', { class: 'text-sm font-medium' }, fmtRp(p.sell_price))
-    },
-    meta: { mobileHidden: true },
-  },
-  {
-    id: 'expiry',
-    header: 'Expiry',
-    cell: ({ row }) => {
-      const p = row.original
-      if (p.role === 'permanent') return h('span', { style: 'color: var(--muted)' }, '—')
-      const parts = []
-      if (p.validity) parts.push(p.validity)
-      if (p.expiry_mode && p.expiry_mode !== '0') parts.push(EXPIRY_LABEL[p.expiry_mode] ?? p.expiry_mode)
-      return h('span', { class: 'mono text-[12px]' }, parts.join(' · ') || '—')
-    },
+    accessorKey: 'price_monthly',
+    header: 'Harga / Bulan',
+    cell: ({ row }) =>
+      h('span', { class: 'text-sm font-medium' }, fmtRp(row.original.price_monthly)),
     meta: { mobileHidden: true },
   },
   {
@@ -151,7 +102,7 @@ const columns = computed<ColumnDef<HotspotProfileDB>[]>(() => [
 <template>
   <div>
     <div v-if="isLoading" class="flex items-center justify-center p-8">
-      <div class="text-sm" style="color: var(--muted)">Memuat profil hotspot...</div>
+      <div class="text-sm" style="color: var(--muted)">Memuat profil PPP...</div>
     </div>
 
     <DataTable
@@ -161,18 +112,13 @@ const columns = computed<ColumnDef<HotspotProfileDB>[]>(() => [
       :get-row-id="(p) => String(p.id)"
       :page-size="15"
       clickable
-      empty-message="Belum ada profil hotspot. Tambah manual atau sync dari router."
+      empty-message="Belum ada profil PPP. Tambah manual atau sync dari router."
       @row-click="openDetail"
     >
       <template #toolbar>
-        <Segmented
-          v-model="roleFilter"
-          :options="[
-            { value: 'all', label: 'Semua' },
-            { value: 'voucher', label: 'Voucher' },
-            { value: 'permanent', label: 'Permanent' },
-          ]"
-        />
+        <span class="text-xs" style="color: var(--muted)">
+          {{ (profiles ?? []).length }} profil
+        </span>
         <div class="flex-1" />
         <button
           class="btn btn-sm"
@@ -190,13 +136,13 @@ const columns = computed<ColumnDef<HotspotProfileDB>[]>(() => [
       </template>
     </DataTable>
 
-    <HotspotProfileDBDrawer
+    <PPPProfileDBDrawer
       :open="showDrawer"
       :profile="selectedProfile"
       @close="closeDrawer"
     />
 
-    <HotspotProfileDBFormModal
+    <PPPProfileDBFormModal
       :open="showCreateForm"
       :initial="null"
       :submitting="createMutation.isPending.value"
@@ -207,7 +153,7 @@ const columns = computed<ColumnDef<HotspotProfileDB>[]>(() => [
     <ConfirmModal
       :open="showSyncConfirm"
       title="Sync Profil dari Router"
-      message="Profil Hotspot dari router akan disinkronkan ke database. Data billing yang sudah dikonfigurasi tidak akan ditimpa."
+      message="Profil PPP di router akan disinkronkan ke database. Profil yang sudah ada di DB tidak akan ditimpa konfigurasi billing-nya."
       confirm-text="Sync"
       :loading="syncMutation.isPending.value"
       @close="showSyncConfirm = false"

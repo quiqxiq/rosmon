@@ -24,6 +24,12 @@ export const hotspotSessionsService = {
   async disconnectActive(deviceId: string, id: string): Promise<void> {
     await http.delete(`${base(deviceId)}/active/${id}`)
   },
+  async setBindingDisabled(deviceId: string, id: string, disabled: boolean): Promise<void> {
+    await http.patch(`${base(deviceId)}/bindings/${id}/disabled`, { disabled })
+  },
+  async removeBinding(deviceId: string, id: string): Promise<void> {
+    await http.delete(`${base(deviceId)}/bindings/${id}`)
+  },
   async removeCookie(deviceId: string, id: string): Promise<void> {
     await http.delete(`${base(deviceId)}/cookies/${id}`)
   },

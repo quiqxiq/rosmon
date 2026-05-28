@@ -5,11 +5,20 @@ import SearchInput from '@/components/ui/SearchInput.vue'
 import Select from '@/components/ui/Select.vue'
 import Badge from '@/components/ui/Badge.vue'
 import DataTable from '@/components/ui/DataTable.vue'
+import HotspotIpBindingDrawer from '@/components/hotspot/HotspotIpBindingDrawer.vue'
 import { useActiveDevice } from '@/composables/useActiveDevice'
 import { useHotspotBindingsQuery } from '@/queries/hotspot.queries'
 import type { HotspotIpBinding } from '@/types/hotspot'
 
 const { activeDeviceId } = useActiveDevice()
+
+const selectedBinding = ref<HotspotIpBinding | null>(null)
+const showDrawer = ref(false)
+
+function openDetail(b: HotspotIpBinding) {
+  selectedBinding.value = b
+  showDrawer.value = true
+}
 
 const search = ref('')
 const filterType = ref<string>('all')
@@ -94,8 +103,10 @@ const columns = computed<ColumnDef<HotspotIpBinding>[]>(() => [
       :get-row-id="(b) => b.id"
       :global-filter="search"
       :page-size="10"
+      clickable
       empty-message="Tidak ada IP binding"
       @update:global-filter="(v) => (search = v)"
+      @row-click="openDetail"
     >
       <template #toolbar>
         <SearchInput v-model="search" placeholder="Cari MAC, address, server..." />
@@ -111,5 +122,11 @@ const columns = computed<ColumnDef<HotspotIpBinding>[]>(() => [
         />
       </template>
     </DataTable>
+
+    <HotspotIpBindingDrawer
+      :open="showDrawer"
+      :binding="selectedBinding"
+      @close="showDrawer = false; selectedBinding = null"
+    />
   </div>
 </template>

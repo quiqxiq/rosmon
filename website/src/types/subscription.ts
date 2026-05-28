@@ -2,6 +2,7 @@ export type SubscriptionStatus =
   | 'pending_install'
   | 'active'
   | 'isolir'
+  | 'paused'
   | 'suspended'
   | 'terminated'
 
@@ -12,7 +13,8 @@ export interface Subscription {
   id: number
   customer_id: number
   device_id: number
-  bandwidth_profile_id: number
+  ppp_profile_id?: number | null
+  hotspot_profile_id?: number | null
   service_type: ServiceType
   mikrotik_username: string
   status: SubscriptionStatus
@@ -27,7 +29,8 @@ export interface Subscription {
 export interface SubscriptionCreateInput {
   customer_id: number
   device_id: number
-  bandwidth_profile_id: number
+  ppp_profile_id?: number
+  hotspot_profile_id?: number
   service_type: ServiceType
   mikrotik_username: string
   mikrotik_password: string
@@ -36,7 +39,8 @@ export interface SubscriptionCreateInput {
 
 // Sesuai dto.SubscriptionUpdateRequest backend (sparse).
 export interface SubscriptionUpdateInput {
-  bandwidth_profile_id?: number
+  ppp_profile_id?: number
+  hotspot_profile_id?: number
   mikrotik_password?: string
   notes?: string
 }

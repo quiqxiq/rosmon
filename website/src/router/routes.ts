@@ -42,12 +42,7 @@ export const routes: RouteRecordRaw[] = [
         name: 'subscriptions',
         component: () => import('@/pages/SubscriptionsPage.vue'),
       },
-      {
-        path: 'bandwidth-profiles',
-        name: 'bandwidth-profiles',
-        component: () => import('@/pages/BandwidthProfilesPage.vue'),
-      },
-      { path: 'network', name: 'network', component: () => import('@/pages/NetworkPage.vue') },
+{ path: 'network', name: 'network', component: () => import('@/pages/NetworkPage.vue') },
       { path: 'system', name: 'system', component: () => import('@/pages/SystemPage.vue') },
       { path: 'reports', name: 'reports', component: () => import('@/pages/ReportsPage.vue') },
       { path: 'settings', name: 'settings', component: () => import('@/pages/SettingsPage.vue') },

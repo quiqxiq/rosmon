@@ -39,6 +39,8 @@ const addForm = ref({
   password: '',
   use_tls: false,
   expiry_check_interval: '2m',
+  isolir_profile: '',
+  paused_profile: '',
 })
 
 async function submitAdd() {
@@ -54,6 +56,8 @@ async function submitAdd() {
       password: '',
       use_tls: false,
       expiry_check_interval: '2m',
+      isolir_profile: '',
+      paused_profile: '',
     }
   } catch {
     toast.error('Gagal menambahkan device')
@@ -70,6 +74,8 @@ const editForm = ref({
   password: '',
   use_tls: false,
   expiry_check_interval: '2m',
+  isolir_profile: '',
+  paused_profile: '',
 })
 
 function openEdit(d: Device) {
@@ -81,6 +87,8 @@ function openEdit(d: Device) {
     password: '', // Kosongkan password, hanya diisi jika ingin diubah
     use_tls: d.use_tls,
     expiry_check_interval: d.expiry_check_interval || '2m',
+    isolir_profile: d.isolir_profile ?? '',
+    paused_profile: d.paused_profile ?? '',
   }
   showEditForm.value = true
 }
@@ -385,6 +393,16 @@ const columns = computed<ColumnDef<Device>[]>(() => [
             <input v-model="addForm.use_tls" type="checkbox" />
             Gunakan TLS (API-SSL)
           </label>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="mb-1 block text-xs" style="color: var(--muted)">Profile Isolir</label>
+              <input v-model="addForm.isolir_profile" class="input w-full font-mono text-xs" placeholder="PROFILE_ISOLIR" />
+            </div>
+            <div>
+              <label class="mb-1 block text-xs" style="color: var(--muted)">Profile Paused</label>
+              <input v-model="addForm.paused_profile" class="input w-full font-mono text-xs" placeholder="PROFILE_PAUSED" />
+            </div>
+          </div>
           <div class="mt-2 flex justify-end gap-2">
             <button type="button" class="btn btn-ghost btn-sm" @click="showAddForm = false">Batal</button>
             <button type="submit" class="btn btn-primary btn-sm" :disabled="createMutation.isPending.value">
@@ -432,6 +450,16 @@ const columns = computed<ColumnDef<Device>[]>(() => [
             <input v-model="editForm.use_tls" type="checkbox" />
             Gunakan TLS (API-SSL)
           </label>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="mb-1 block text-xs" style="color: var(--muted)">Profile Isolir</label>
+              <input v-model="editForm.isolir_profile" class="input w-full font-mono text-xs" placeholder="PROFILE_ISOLIR" />
+            </div>
+            <div>
+              <label class="mb-1 block text-xs" style="color: var(--muted)">Profile Paused</label>
+              <input v-model="editForm.paused_profile" class="input w-full font-mono text-xs" placeholder="PROFILE_PAUSED" />
+            </div>
+          </div>
           <div class="mt-2 flex justify-end gap-2">
             <button type="button" class="btn btn-ghost btn-sm" @click="showEditForm = false">Batal</button>
             <button type="submit" class="btn btn-primary btn-sm" :disabled="updateMutation.isPending.value">

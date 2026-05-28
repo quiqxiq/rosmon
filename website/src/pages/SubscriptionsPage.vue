@@ -149,7 +149,8 @@ async function saveSubscription(payload: SubscriptionCreateInput) {
       const res = await updateMutation.mutateAsync({
         id: editingSub.value.id,
         input: {
-          bandwidth_profile_id: payload.bandwidth_profile_id,
+          ppp_profile_id: payload.ppp_profile_id,
+          hotspot_profile_id: payload.hotspot_profile_id,
           mikrotik_password: payload.mikrotik_password || undefined,
           notes: payload.notes,
         },
@@ -240,8 +241,9 @@ const deleteMessage = computed(() =>
 
 function statusTone(status: string): 'success' | 'warn' | 'danger' | 'neutral' {
   if (status === 'active') return 'success'
-  if (status === 'isolir' || status === 'suspended') return 'warn'
-  if (status === 'terminated') return 'danger'
+  if (status === 'paused') return 'neutral'
+  if (status === 'isolir') return 'warn'
+  if (status === 'suspended' || status === 'terminated') return 'danger'
   return 'neutral'
 }
 
@@ -365,6 +367,7 @@ const columns: ColumnDef<Subscription>[] = [
             { value: 'pending_install', label: 'Pending' },
             { value: 'active', label: 'Active' },
             { value: 'isolir', label: 'Isolir' },
+            { value: 'paused', label: 'Paused' },
             { value: 'suspended', label: 'Suspended' },
             { value: 'terminated', label: 'Terminated' },
           ]"

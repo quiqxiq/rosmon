@@ -12,6 +12,8 @@ export interface Device {
   last_seen?: string | null
   last_error?: string
   expiry_check_interval: string
+  isolir_profile: string
+  paused_profile: string
   created_at: string
 }
 
@@ -29,4 +31,6 @@ export interface DeviceInput {
   password: string
   use_tls?: boolean
   expiry_check_interval?: string
+  isolir_profile?: string
+  paused_profile?: string
 }
