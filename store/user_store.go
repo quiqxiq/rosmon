@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/quiqxiq/roslib-mikhmon/store/model"
+	"github.com/quiqxiq/rosmon/store/model"
 	"gorm.io/gorm"
 )
 

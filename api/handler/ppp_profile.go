@@ -2,8 +2,8 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/api/dto"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/ppp"
+	"github.com/quiqxiq/rosmon/api/dto"
+	"github.com/quiqxiq/rosmon/mikrotik/ppp"
 )
 
 type PPPProfile struct{ PPP *ppp.Client }
@@ -40,7 +40,7 @@ func (h *PPPProfile) GetByName(c *gin.Context) {
 }
 
 func (h *PPPProfile) Create(c *gin.Context) {
-	var req dto.PPPProfileCreateRequest
+	var req dto.RouterPPPProfileCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		WriteValidationErr(c, err)
 		return
@@ -54,7 +54,7 @@ func (h *PPPProfile) Create(c *gin.Context) {
 }
 
 func (h *PPPProfile) Update(c *gin.Context) {
-	var req dto.PPPProfileUpdateRequest
+	var req dto.RouterPPPProfileUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		WriteValidationErr(c, err)
 		return

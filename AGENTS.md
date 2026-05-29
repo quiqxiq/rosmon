@@ -1,6 +1,6 @@
 # AGENTS.md — Business Layer Extension
 
-> Ekstensi dari `AGENTS.md` roslib-mikhmon yang sudah ada di repo.
+> Ekstensi dari `AGENTS.md` rosmon yang sudah ada di repo.
 > Semua aturan AGENTS.md lama tetap berlaku untuk `mikrotik/`, `scripts/`,
 > `workflows/`, dan `domain/`. Dokumen ini menambahkan konvensi untuk
 > business layer baru: `store/`, `service/`, `api/handler/`, `api/dto/`,

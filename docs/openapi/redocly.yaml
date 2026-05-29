@@ -1,4 +1,4 @@
-# Redocly lint config untuk OpenAPI spec roslib-mikhmon.
+# Redocly lint config untuk OpenAPI spec rosmon.
 # Run: `npx @redocly/cli@latest lint docs/openapi/openapi.yaml`
 
 extends:

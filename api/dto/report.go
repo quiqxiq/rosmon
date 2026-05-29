@@ -1,6 +1,6 @@
 package dto
 
-import "github.com/quiqxiq/roslib-mikhmon/store/model"
+import "github.com/quiqxiq/rosmon/store/model"
 
 // TransactionResponse adalah representasi 1 row transaksi penjualan
 // voucher di response API.

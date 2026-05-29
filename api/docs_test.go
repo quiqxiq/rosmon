@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/docs"
+	"github.com/quiqxiq/rosmon/docs"
 )
 
 func TestRegisterDocs_servesBundledSpec(t *testing.T) {

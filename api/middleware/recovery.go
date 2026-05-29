@@ -1,4 +1,4 @@
-// Package middleware berisi gin middleware untuk roslib-mikhmon HTTP server.
+// Package middleware berisi gin middleware untuk rosmon HTTP server.
 package middleware
 
 import (
@@ -6,7 +6,7 @@ import (
 	"runtime/debug"
 
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/api/dto"
+	"github.com/quiqxiq/rosmon/api/dto"
 	"github.com/sirupsen/logrus"
 )
 

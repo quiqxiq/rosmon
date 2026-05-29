@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/api/handler"
-	"github.com/quiqxiq/roslib-mikhmon/store"
-	"github.com/quiqxiq/roslib-mikhmon/store/model"
+	"github.com/quiqxiq/rosmon/api/handler"
+	"github.com/quiqxiq/rosmon/store"
+	"github.com/quiqxiq/rosmon/store/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -141,15 +141,16 @@ func setupHookLoginEngine(t *testing.T) (*gin.Engine, *fakeTxStore, *fakeProfile
 	profStore := newFakeProfileConfigStore()
 
 	// Seed profile configs untuk berbagai mode.
-	profiles := []model.HotspotProfileConfig{
-		{DeviceID: 1, ProfileName: "1day", ExpiryMode: "remc", Validity: "1d", Price: 5000, SellPrice: 7000},
-		{DeviceID: 1, ProfileName: "1day-ntfc", ExpiryMode: "ntfc", Validity: "1d", Price: 5000, SellPrice: 7000},
-		{DeviceID: 1, ProfileName: "rem-only", ExpiryMode: "rem", Validity: "1d"},
-		{DeviceID: 1, ProfileName: "ntf-only", ExpiryMode: "ntf", Validity: "1d"},
-		{DeviceID: 1, ProfileName: "free", ExpiryMode: "0"},
+	profiles := []model.HotspotProfile{
+		{DeviceID: 1, Name: "1day", Role: "voucher", ExpiryMode: "remc", Validity: "1d", Price: 5000, SellPrice: 7000},
+		{DeviceID: 1, Name: "1day-ntfc", Role: "voucher", ExpiryMode: "ntfc", Validity: "1d", Price: 5000, SellPrice: 7000},
+		{DeviceID: 1, Name: "rem-only", Role: "voucher", ExpiryMode: "rem", Validity: "1d"},
+		{DeviceID: 1, Name: "ntf-only", Role: "voucher", ExpiryMode: "ntf", Validity: "1d"},
+		{DeviceID: 1, Name: "free", Role: "voucher", ExpiryMode: "0"},
 	}
 	for i := range profiles {
-		require.NoError(t, profStore.Upsert(context.Background(), &profiles[i]))
+		_, err := profStore.Upsert(context.Background(), &profiles[i])
+		require.NoError(t, err)
 	}
 
 	g := r.Group("/api/v1")
@@ -374,7 +375,6 @@ func TestHookLogin_LongPayload_Truncated(t *testing.T) {
 	assert.Len(t, txs[0].IP, 45)
 }
 
-// Ensure store.ProfileConfigStore interface satisfied by fake — compile-time check.
-var _ store.ProfileConfigStore = (*fakeProfileConfigStore)(nil)
+// Compile-time interface checks.
 var _ store.DeviceStore = (*fakeDeviceStore)(nil)
 var _ store.TransactionStore = (*fakeTxStore)(nil)

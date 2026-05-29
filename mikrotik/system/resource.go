@@ -3,8 +3,8 @@ package system
 import (
 	"context"
 
-	"github.com/quiqxiq/roslib-mikhmon/domain"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik"
+	"github.com/quiqxiq/rosmon/domain"
+	"github.com/quiqxiq/rosmon/mikrotik"
 )
 
 // Resource → /system/resource/print (analisis §1.1).

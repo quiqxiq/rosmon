@@ -1,4 +1,4 @@
-# roslib-mikhmon
+# rosmon
 
 Reimplementasi RouterOS command & script milik [mikhmonv3](https://github.com/laksa19/mikhmonv3) di atas library [`roslib`](../). REST API + SSE service untuk hotspot voucher management — multi-router, JWT auth, expiry service otomatis, dan laporan penjualan.
 

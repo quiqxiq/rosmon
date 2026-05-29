@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/api/dto"
-	"github.com/quiqxiq/roslib-mikhmon/api/handler"
-	"github.com/quiqxiq/roslib-mikhmon/internal/tcpmock"
-	"github.com/quiqxiq/roslib-mikhmon/internal/testutil"
+	"github.com/quiqxiq/rosmon/api/dto"
+	"github.com/quiqxiq/rosmon/api/handler"
+	"github.com/quiqxiq/rosmon/internal/tcpmock"
+	"github.com/quiqxiq/rosmon/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -2,10 +2,10 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/api/dto"
-	"github.com/quiqxiq/roslib-mikhmon/domain"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/hotspot"
-	"github.com/quiqxiq/roslib-mikhmon/workflows"
+	"github.com/quiqxiq/rosmon/api/dto"
+	"github.com/quiqxiq/rosmon/domain"
+	"github.com/quiqxiq/rosmon/mikrotik/hotspot"
+	"github.com/quiqxiq/rosmon/workflows"
 )
 
 type HotspotActive struct {

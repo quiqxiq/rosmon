@@ -14,12 +14,12 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/api/handler"
-	"github.com/quiqxiq/roslib-mikhmon/internal/tcpmock"
-	"github.com/quiqxiq/roslib-mikhmon/internal/testutil"
-	"github.com/quiqxiq/roslib-mikhmon/service/expiry"
-	"github.com/quiqxiq/roslib-mikhmon/store"
-	"github.com/quiqxiq/roslib-mikhmon/store/model"
+	"github.com/quiqxiq/rosmon/api/handler"
+	"github.com/quiqxiq/rosmon/internal/tcpmock"
+	"github.com/quiqxiq/rosmon/internal/testutil"
+	"github.com/quiqxiq/rosmon/service/expiry"
+	"github.com/quiqxiq/rosmon/store"
+	"github.com/quiqxiq/rosmon/store/model"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,7 +31,7 @@ type sellingEnv struct {
 	DevID     uint
 	ProfName  string
 	DevStore  store.DeviceStore
-	ProfStore store.ProfileConfigStore
+	ProfStore store.HotspotProfileStore
 	TxStore   store.TransactionStore
 	MockSrv   *tcpmock.Server
 	Svc       *expiry.Service
@@ -40,7 +40,7 @@ type sellingEnv struct {
 
 // setupSellingEnv menyiapkan environment lengkap untuk test webhook selling
 // lifecycle tanpa memerlukan real RouterOS:
-//   - PostgreSQL testcontainer (DeviceStore, ProfileConfigStore, TransactionStore)
+//   - PostgreSQL testcontainer (DeviceStore, HotspotProfileStore, TransactionStore)
 //   - tcpmock server (RouterOS API mock, untuk expiry service)
 //   - devmgr.Manager terhubung ke tcpmock
 //   - Gin HTTP server dengan HookLogin + Report handler
@@ -57,14 +57,16 @@ func setupSellingEnv(t *testing.T, mode, validity string, price, sellPrice int) 
 	require.NoError(t, devStore.Create(ctx, &dev))
 
 	const profileName = "test-profile"
-	require.NoError(t, profStore.Upsert(ctx, &model.HotspotProfileConfig{
-		DeviceID:    dev.ID,
-		ProfileName: profileName,
-		ExpiryMode:  mode,
-		Validity:    validity,
-		Price:       price,
-		SellPrice:   sellPrice,
-	}))
+	_, err := profStore.Upsert(ctx, &model.HotspotProfile{
+		DeviceID:   dev.ID,
+		Name:       profileName,
+		Role:       "voucher",
+		ExpiryMode: mode,
+		Validity:   validity,
+		Price:      price,
+		SellPrice:  sellPrice,
+	})
+	require.NoError(t, err)
 
 	log := logrus.New()
 	log.SetLevel(logrus.WarnLevel)

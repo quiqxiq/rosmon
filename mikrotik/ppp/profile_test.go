@@ -3,8 +3,8 @@ package ppp_test
 import (
 	"testing"
 
-	"github.com/quiqxiq/roslib-mikhmon/internal/tcpmock"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/ppp"
+	"github.com/quiqxiq/rosmon/internal/tcpmock"
+	"github.com/quiqxiq/rosmon/mikrotik/ppp"
 	"github.com/stretchr/testify/require"
 )
 

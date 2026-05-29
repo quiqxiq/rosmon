@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/quiqxiq/roslib-mikhmon/domain"
-	"github.com/quiqxiq/roslib-mikhmon/internal/rosfmt"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/hotspot"
+	"github.com/quiqxiq/rosmon/domain"
+	"github.com/quiqxiq/rosmon/internal/rosfmt"
+	"github.com/quiqxiq/rosmon/mikrotik"
+	"github.com/quiqxiq/rosmon/mikrotik/hotspot"
 )
 
 // GeneratedVoucher adalah hasil 1 voucher yang berhasil di-create di

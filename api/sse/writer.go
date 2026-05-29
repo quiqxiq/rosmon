@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/api/dto"
+	"github.com/quiqxiq/rosmon/api/dto"
 )
 
 // KeepaliveInterval untuk SSE comment heartbeat. Cegah nginx/reverse-proxy

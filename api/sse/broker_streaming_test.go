@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/quiqxiq/roslib"
-	"github.com/quiqxiq/roslib-mikhmon/api/sse"
-	"github.com/quiqxiq/roslib-mikhmon/internal/tcpmock"
-	"github.com/quiqxiq/roslib-mikhmon/internal/testutil"
+	"github.com/quiqxiq/rosmon/api/sse"
+	"github.com/quiqxiq/rosmon/internal/tcpmock"
+	"github.com/quiqxiq/rosmon/internal/testutil"
 	"github.com/stretchr/testify/require"
 )
 

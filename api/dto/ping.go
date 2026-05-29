@@ -1,7 +1,7 @@
 package dto
 
 import (
-	"github.com/quiqxiq/roslib-mikhmon/domain"
+	"github.com/quiqxiq/rosmon/domain"
 )
 
 // ── Ping ───────────────────────────────────────────────────────────────

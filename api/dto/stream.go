@@ -1,6 +1,6 @@
 package dto
 
-import "github.com/quiqxiq/roslib-mikhmon/domain"
+import "github.com/quiqxiq/rosmon/domain"
 
 // InterfaceStatsEvent adalah typed event untuk SSE /stream/network/interfaces/stats.
 type InterfaceStatsEvent struct {

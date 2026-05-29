@@ -3,8 +3,8 @@ package dto_test
 import (
 	"testing"
 
-	"github.com/quiqxiq/roslib-mikhmon/api/dto"
-	"github.com/quiqxiq/roslib-mikhmon/domain"
+	"github.com/quiqxiq/rosmon/api/dto"
+	"github.com/quiqxiq/rosmon/domain"
 	"github.com/stretchr/testify/require"
 )
 
@@ -98,9 +98,9 @@ func TestFromDomainPPPProfile_exposesDisabledAndScripts(t *testing.T) {
 	require.Equal(t, ":log info down", got.OnDown)
 }
 
-func TestPPPProfileCreateRequest_ToArgs_mapsAllFields(t *testing.T) {
+func TestRouterPPPProfileCreateRequest_ToArgs_mapsAllFields(t *testing.T) {
 	dis := true
-	req := dto.PPPProfileCreateRequest{
+	req := dto.RouterPPPProfileCreateRequest{
 		Name:           "vip",
 		LocalAddr:      "10.0.0.1",
 		RemoteAddr:     "pool-vip",

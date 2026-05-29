@@ -1,8 +1,8 @@
 package dto
 
 import (
-	"github.com/quiqxiq/roslib-mikhmon/domain"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/ppp"
+	"github.com/quiqxiq/rosmon/domain"
+	"github.com/quiqxiq/rosmon/mikrotik/ppp"
 )
 
 // ── PPP Secret ─────────────────────────────────────────────────────────
@@ -87,7 +87,7 @@ func (r PPPSecretUpdateRequest) ToArgs(id string) ppp.SecretSetArgs {
 
 // ── PPP Profile ────────────────────────────────────────────────────────
 
-type PPPProfileResponse struct {
+type RouterPPPProfileResponse struct {
 	ID             string `json:"id"`
 	Name           string `json:"name"`
 	LocalAddr      string `json:"local_address,omitempty"`
@@ -102,8 +102,8 @@ type PPPProfileResponse struct {
 	Comment        string `json:"comment,omitempty"`
 }
 
-func FromDomainPPPProfile(p domain.PPPProfile) PPPProfileResponse {
-	return PPPProfileResponse{
+func FromDomainPPPProfile(p domain.PPPProfile) RouterPPPProfileResponse {
+	return RouterPPPProfileResponse{
 		ID: p.ID, Name: p.Name, LocalAddr: p.LocalAddr, RemoteAddr: p.RemoteAddr,
 		RateLimit: p.RateLimit, SessionTimeout: p.SessionTimeout, IdleTimeout: p.IdleTimeout,
 		ParentQueue: p.ParentQueue, OnUp: p.OnUp, OnDown: p.OnDown,
@@ -111,15 +111,15 @@ func FromDomainPPPProfile(p domain.PPPProfile) PPPProfileResponse {
 	}
 }
 
-func FromDomainPPPProfiles(ps []domain.PPPProfile) []PPPProfileResponse {
-	out := make([]PPPProfileResponse, len(ps))
+func FromDomainPPPProfiles(ps []domain.PPPProfile) []RouterPPPProfileResponse {
+	out := make([]RouterPPPProfileResponse, len(ps))
 	for i, p := range ps {
 		out[i] = FromDomainPPPProfile(p)
 	}
 	return out
 }
 
-type PPPProfileCreateRequest struct {
+type RouterPPPProfileCreateRequest struct {
 	Name           string `json:"name" binding:"required,min=1,max=128"`
 	LocalAddr      string `json:"local_address,omitempty"`
 	RemoteAddr     string `json:"remote_address,omitempty"`
@@ -133,7 +133,7 @@ type PPPProfileCreateRequest struct {
 	Comment        string `json:"comment,omitempty"`
 }
 
-func (r PPPProfileCreateRequest) ToArgs() ppp.ProfileAddArgs {
+func (r RouterPPPProfileCreateRequest) ToArgs() ppp.ProfileAddArgs {
 	return ppp.ProfileAddArgs{
 		Name: r.Name, LocalAddr: r.LocalAddr, RemoteAddr: r.RemoteAddr,
 		RateLimit: r.RateLimit, SessionTimeout: r.SessionTimeout, IdleTimeout: r.IdleTimeout,
@@ -142,7 +142,7 @@ func (r PPPProfileCreateRequest) ToArgs() ppp.ProfileAddArgs {
 	}
 }
 
-type PPPProfileUpdateRequest struct {
+type RouterPPPProfileUpdateRequest struct {
 	Name           string  `json:"name,omitempty"`
 	LocalAddr      string  `json:"local_address,omitempty"`
 	RemoteAddr     string  `json:"remote_address,omitempty"`
@@ -156,7 +156,7 @@ type PPPProfileUpdateRequest struct {
 	Comment        *string `json:"comment,omitempty"`
 }
 
-func (r PPPProfileUpdateRequest) ToArgs(id string) ppp.ProfileSetArgs {
+func (r RouterPPPProfileUpdateRequest) ToArgs(id string) ppp.ProfileSetArgs {
 	return ppp.ProfileSetArgs{
 		ID: id, Name: r.Name, LocalAddr: r.LocalAddr, RemoteAddr: r.RemoteAddr,
 		RateLimit: r.RateLimit, SessionTimeout: r.SessionTimeout, IdleTimeout: r.IdleTimeout,

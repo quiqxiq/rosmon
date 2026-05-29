@@ -3,8 +3,8 @@ package network
 import (
 	"context"
 
-	"github.com/quiqxiq/roslib-mikhmon/domain"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik"
+	"github.com/quiqxiq/rosmon/domain"
+	"github.com/quiqxiq/rosmon/mikrotik"
 )
 
 // ARPByMAC → /ip/arp/print ?mac-address=<mac> (analisis §1.10).

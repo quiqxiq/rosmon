@@ -13,10 +13,10 @@ package workflows
 
 import (
 	"github.com/quiqxiq/roslib"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/hotspot"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/network"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/ppp"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/system"
+	"github.com/quiqxiq/rosmon/mikrotik/hotspot"
+	"github.com/quiqxiq/rosmon/mikrotik/network"
+	"github.com/quiqxiq/rosmon/mikrotik/ppp"
+	"github.com/quiqxiq/rosmon/mikrotik/system"
 )
 
 // Clients adalah fasade yang menggabungkan sub-client mikrotik untuk

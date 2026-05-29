@@ -1,8 +1,8 @@
 package dto
 
 import (
-	"github.com/quiqxiq/roslib-mikhmon/domain"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/system"
+	"github.com/quiqxiq/rosmon/domain"
+	"github.com/quiqxiq/rosmon/mikrotik/system"
 )
 
 // ── SystemIdentity ─────────────────────────────────────────────────────

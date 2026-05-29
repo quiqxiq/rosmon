@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/quiqxiq/roslib-mikhmon/domain"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik"
+	"github.com/quiqxiq/rosmon/domain"
+	"github.com/quiqxiq/rosmon/mikrotik"
 )
 
 // Identity → /system/identity/print (analisis §1.1).

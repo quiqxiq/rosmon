@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik"
+	"github.com/quiqxiq/rosmon/mikrotik"
 )
 
 // DeleteUser melakukan cascade hapus hotspot user mengikuti analisis §4.1:

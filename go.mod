@@ -1,4 +1,4 @@
-module github.com/quiqxiq/roslib-mikhmon
+module github.com/quiqxiq/rosmon
 
 go 1.26.3
 

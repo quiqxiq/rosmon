@@ -5,7 +5,7 @@ Peta dari analisis §4 (Alur Proses Lengkap) ke fungsi Go di paket `workflows/`.
 ## §4.1 Delete User — Cascade Cleanup
 
 ```go
-import "github.com/quiqxiq/roslib-mikhmon/workflows"
+import "github.com/quiqxiq/rosmon/workflows"
 
 wf := workflows.New(runner)
 err := workflows.DeleteUser(ctx, wf, userID)

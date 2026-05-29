@@ -4,12 +4,12 @@ package api
 
 import (
 	roslibinflux "github.com/quiqxiq/roslib/metrics/influx"
-	"github.com/quiqxiq/roslib-mikhmon/api/sse"
-	"github.com/quiqxiq/roslib-mikhmon/internal/config"
-	"github.com/quiqxiq/roslib-mikhmon/internal/ratelimit"
-	"github.com/quiqxiq/roslib-mikhmon/service/auth"
-	"github.com/quiqxiq/roslib-mikhmon/service/devmgr"
-	"github.com/quiqxiq/roslib-mikhmon/store"
+	"github.com/quiqxiq/rosmon/api/sse"
+	"github.com/quiqxiq/rosmon/internal/config"
+	"github.com/quiqxiq/rosmon/internal/ratelimit"
+	"github.com/quiqxiq/rosmon/service/auth"
+	"github.com/quiqxiq/rosmon/service/devmgr"
+	"github.com/quiqxiq/rosmon/store"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
@@ -23,10 +23,15 @@ type Deps struct {
 	// Stores
 	DeviceStore       store.DeviceStore
 	TxStore           store.TransactionStore
-	ProfileStore      store.ProfileConfigStore
+	ProfileStore      store.HotspotProfileStore
 	CustomerStore     store.CustomerStore
-	BandwidthStore    store.BandwidthProfileStore
+	PPPProfileStore   store.PPPProfileStore
+	HotspotStore      store.HotspotProfileStore
 	SubscriptionStore store.SubscriptionStore
+	SettingStore      store.SettingStore
+	SequenceStore     store.SequenceStore
+	InvoiceStore      store.InvoiceStore
+	PaymentStore      store.PaymentStore
 
 	// Auth (Phase 2). Nil → routes /auth/* tidak di-mount dan
 	// proteksi route lain di-skip. Production wajib set.

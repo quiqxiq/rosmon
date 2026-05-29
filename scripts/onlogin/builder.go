@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/quiqxiq/roslib-mikhmon/domain"
+	"github.com/quiqxiq/rosmon/domain"
 )
 
 // Build menghasilkan body script on-login untuk parameter o. Output bukan

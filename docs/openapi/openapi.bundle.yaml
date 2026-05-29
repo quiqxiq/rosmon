@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: roslib-mikhmon HTTP API
+  title: rosmon HTTP API
   version: 1.0.0
   description: |
     REST + Server-Sent Events service di atas RouterOS API. Multi-router:
@@ -67,8 +67,8 @@ info:
     ```
     JS contoh: `new EventSource('/api/v1/devices/rb-main/stream/hotspot/active')`.
   contact:
-    name: roslib-mikhmon
-    url: https://github.com/quiqxiq/roslib-mikhmon
+    name: rosmon
+    url: https://github.com/quiqxiq/rosmon
   license:
     name: Internal
 servers:

@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/api/dto"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/hotspot"
+	"github.com/quiqxiq/rosmon/api/dto"
+	"github.com/quiqxiq/rosmon/mikrotik/hotspot"
 )
 
 type HotspotServer struct{ Hot *hotspot.Client }

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik"
+	"github.com/quiqxiq/rosmon/mikrotik"
 )
 
 func TestMapError(t *testing.T) {

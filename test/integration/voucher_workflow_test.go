@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/quiqxiq/roslib-mikhmon/domain"
-	"github.com/quiqxiq/roslib-mikhmon/internal/testutil"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/hotspot"
-	"github.com/quiqxiq/roslib-mikhmon/workflows"
+	"github.com/quiqxiq/rosmon/domain"
+	"github.com/quiqxiq/rosmon/internal/testutil"
+	"github.com/quiqxiq/rosmon/mikrotik/hotspot"
+	"github.com/quiqxiq/rosmon/workflows"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

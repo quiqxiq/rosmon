@@ -3,7 +3,7 @@ package handler
 import (
 	"testing"
 
-	"github.com/quiqxiq/roslib-mikhmon/store/model"
+	"github.com/quiqxiq/rosmon/store/model"
 )
 
 func TestAggregate_empty(t *testing.T) {

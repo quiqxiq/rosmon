@@ -2,7 +2,7 @@ package hotspot
 
 import (
 	"github.com/quiqxiq/roslib"
-	"github.com/quiqxiq/roslib-mikhmon/domain"
+	"github.com/quiqxiq/rosmon/domain"
 )
 
 // UserEvent → /ip/hotspot/user/print follow event (analisis §1.6).

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/quiqxiq/roslib-mikhmon/store"
-	"github.com/quiqxiq/roslib-mikhmon/store/model"
+	"github.com/quiqxiq/rosmon/store"
+	"github.com/quiqxiq/rosmon/store/model"
 )
 
 // TokenPair gabungan access + refresh token + metadata expiry.

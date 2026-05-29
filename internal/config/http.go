@@ -1,4 +1,4 @@
-// Package config menyimpan loader env untuk HTTP server roslib-mikhmon.
+// Package config menyimpan loader env untuk HTTP server rosmon.
 // roslib internal config (router credentials, cache, influx) tetap di
 // github.com/quiqxiq/roslib/config — paket ini hanya tambahan untuk
 // HTTP server layer.

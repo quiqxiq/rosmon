@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quiqxiq/roslib-mikhmon/internal/tcpmock"
+	"github.com/quiqxiq/rosmon/internal/tcpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

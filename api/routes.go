@@ -2,10 +2,10 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/api/handler"
-	"github.com/quiqxiq/roslib-mikhmon/api/middleware"
-	"github.com/quiqxiq/roslib-mikhmon/docs"
-	"github.com/quiqxiq/roslib-mikhmon/service/auth"
+	"github.com/quiqxiq/rosmon/api/handler"
+	"github.com/quiqxiq/rosmon/api/middleware"
+	"github.com/quiqxiq/rosmon/docs"
+	"github.com/quiqxiq/rosmon/service/auth"
 )
 
 // RegisterRoutes memasang semua handler ke router group "/api/v1".
@@ -156,9 +156,25 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		handler.NewProfileConfig(deps.ProfileStore, deps.DevMgr, deps.GoServiceURL, deps.Logger).Register(configScope)
 	}
 
-	// Customer / BandwidthProfile / Subscription API — business layer.
-	// Scope authenticated, tidak per-device (kecuali bandwidth_profiles yang
-	// di-nest karena join key-nya device + profile_name).
+	// PPP profiles management (DB-backed).
+	if deps.PPPProfileStore != nil {
+		pppScope := g.Group("/devices/:device_id")
+		for _, mw := range authChain {
+			pppScope.Use(mw)
+		}
+		handler.NewPPPProfiles(deps.PPPProfileStore, deps.DevMgr, deps.Logger).Register(pppScope)
+	}
+
+	// Hotspot profiles management (DB-backed, permanent + voucher).
+	if deps.HotspotStore != nil {
+		hsScope := g.Group("/devices/:device_id")
+		for _, mw := range authChain {
+			hsScope.Use(mw)
+		}
+		handler.NewHotspotProfiles(deps.HotspotStore, deps.DevMgr, deps.GoServiceURL, deps.Logger).Register(hsScope)
+	}
+
+	// Customer / Subscription API — business layer.
 	if deps.CustomerStore != nil {
 		bizScope := g.Group("")
 		for _, mw := range authChain {
@@ -166,22 +182,39 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		}
 		handler.NewCustomers(deps.CustomerStore).Register(bizScope)
 	}
-	if deps.BandwidthStore != nil {
-		bwScope := g.Group("/devices/:device_id")
-		for _, mw := range authChain {
-			bwScope.Use(mw)
-		}
-		handler.NewBandwidthProfiles(deps.BandwidthStore, deps.DevMgr, deps.Logger).Register(bwScope)
-	}
-	if deps.SubscriptionStore != nil && deps.CustomerStore != nil && deps.BandwidthStore != nil {
+	if deps.SubscriptionStore != nil && deps.CustomerStore != nil {
 		subScope := g.Group("")
 		for _, mw := range authChain {
 			subScope.Use(mw)
 		}
 		handler.NewSubscriptions(
-			deps.SubscriptionStore, deps.CustomerStore, deps.BandwidthStore,
-			deps.DevMgr, deps.Logger,
+			deps.SubscriptionStore, deps.CustomerStore,
+			deps.PPPProfileStore, deps.HotspotStore,
+			deps.SettingStore, deps.DevMgr, deps.Logger,
 		).Register(subScope)
+	}
+
+	// Settings, Invoices, Payments — business layer billing.
+	if deps.SettingStore != nil {
+		bizAuth := g.Group("")
+		for _, mw := range authChain {
+			bizAuth.Use(mw)
+		}
+		handler.NewSettings(deps.SettingStore).Register(bizAuth)
+	}
+	if deps.InvoiceStore != nil && deps.SequenceStore != nil {
+		bizAuth := g.Group("")
+		for _, mw := range authChain {
+			bizAuth.Use(mw)
+		}
+		handler.NewInvoices(deps.InvoiceStore, deps.SequenceStore).Register(bizAuth)
+	}
+	if deps.PaymentStore != nil && deps.InvoiceStore != nil {
+		bizAuth := g.Group("")
+		for _, mw := range authChain {
+			bizAuth.Use(mw)
+		}
+		handler.NewPayments(deps.PaymentStore, deps.InvoiceStore, deps.SubscriptionStore, deps.Logger).Register(bizAuth)
 	}
 }
 

@@ -8,7 +8,7 @@ import (
 
 	influxdb3 "github.com/InfluxCommunity/influxdb3-go/v2/influxdb3"
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/api/dto"
+	"github.com/quiqxiq/rosmon/api/dto"
 	roslibinflux "github.com/quiqxiq/roslib/metrics/influx"
 )
 

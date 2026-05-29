@@ -8,14 +8,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/quiqxiq/roslib"
-	"github.com/quiqxiq/roslib-mikhmon/api/dto"
-	"github.com/quiqxiq/roslib-mikhmon/api/sse"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/hotspot"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/network"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/ppp"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/syslog"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/system"
-	"github.com/quiqxiq/roslib-mikhmon/workflows"
+	"github.com/quiqxiq/rosmon/api/dto"
+	"github.com/quiqxiq/rosmon/api/sse"
+	"github.com/quiqxiq/rosmon/mikrotik/hotspot"
+	"github.com/quiqxiq/rosmon/mikrotik/network"
+	"github.com/quiqxiq/rosmon/mikrotik/ppp"
+	"github.com/quiqxiq/rosmon/mikrotik/syslog"
+	"github.com/quiqxiq/rosmon/mikrotik/system"
+	"github.com/quiqxiq/rosmon/workflows"
 )
 
 // Stream meng-handle semua endpoint SSE. Pakai sse.Hub untuk broker

@@ -1,4 +1,4 @@
-// Command server adalah entry point HTTP API + SSE roslib-mikhmon.
+// Command server adalah entry point HTTP API + SSE rosmon.
 //
 // Lifecycle:
 //
@@ -23,16 +23,17 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	"github.com/quiqxiq/roslib-mikhmon/api"
-	"github.com/quiqxiq/roslib-mikhmon/api/sse"
-	"github.com/quiqxiq/roslib-mikhmon/internal/config"
-	"github.com/quiqxiq/roslib-mikhmon/internal/ratelimit"
-	"github.com/quiqxiq/roslib-mikhmon/service/auth"
-	"github.com/quiqxiq/roslib-mikhmon/service/devmgr"
-	"github.com/quiqxiq/roslib-mikhmon/service/expiry"
-	"github.com/quiqxiq/roslib-mikhmon/service/metrics"
-	"github.com/quiqxiq/roslib-mikhmon/store"
-	"github.com/quiqxiq/roslib-mikhmon/store/model"
+	"github.com/quiqxiq/rosmon/api"
+	"github.com/quiqxiq/rosmon/api/sse"
+	"github.com/quiqxiq/rosmon/internal/config"
+	"github.com/quiqxiq/rosmon/internal/ratelimit"
+	"github.com/quiqxiq/rosmon/job"
+	"github.com/quiqxiq/rosmon/service/auth"
+	"github.com/quiqxiq/rosmon/service/devmgr"
+	"github.com/quiqxiq/rosmon/service/expiry"
+	"github.com/quiqxiq/rosmon/service/metrics"
+	"github.com/quiqxiq/rosmon/store"
+	"github.com/quiqxiq/rosmon/store/model"
 	roslibcfg "github.com/quiqxiq/roslib/config"
 	roslibinflux "github.com/quiqxiq/roslib/metrics/influx"
 	"github.com/sirupsen/logrus"
@@ -103,12 +104,16 @@ func main() {
 	// ── Stores ────────────────────────────────────────────────────────────
 	deviceStore := store.NewDeviceStore(db)
 	txStore := store.NewTransactionStore(db)
-	profileStore := store.NewProfileConfigStore(db)
 	userStore := store.NewUserStore(db)
 	refreshStore := store.NewRefreshTokenStore(db)
 	customerStore := store.NewCustomerStore(db)
-	bandwidthStore := store.NewBandwidthProfileStore(db)
+	pppProfileStore := store.NewPPPProfileStore(db)
+	hotspotProfileStore := store.NewHotspotProfileStore(db)
 	subscriptionStore := store.NewSubscriptionStore(db)
+	settingStore := store.NewSettingStore(db)
+	sequenceStore := store.NewSequenceStore(db)
+	invoiceStore := store.NewInvoiceStore(db)
+	paymentStore := store.NewPaymentStore(db)
 
 	// ── Auth Service ──────────────────────────────────────────────────────
 	authSigner := auth.NewSigner(authCfg.JWTSecret, authCfg.AccessTTL, authCfg.RefreshTTL)
@@ -127,10 +132,21 @@ func main() {
 	}
 
 	// ── Expiry Service ────────────────────────────────────────────────────
-	expSvc := expiry.New(devMgr, deviceStore, profileStore, txStore, log)
+	expSvc := expiry.New(devMgr, deviceStore, hotspotProfileStore, txStore, log)
 	if err := expSvc.Start(rootCtx); err != nil {
 		log.WithError(err).Fatal("start expiry service")
 	}
+
+	// ── Background Jobs ──────────────────────────────────────────────────
+	outboxJob := job.NewOutboxJob(subscriptionStore, pppProfileStore, hotspotProfileStore, settingStore, devMgr, log)
+	outboxJob.Start(rootCtx)
+	log.Info("outbox job started")
+
+	billingCron := job.NewBillingCronJob(subscriptionStore, pppProfileStore, hotspotProfileStore, invoiceStore, sequenceStore, settingStore, log)
+	startDailyJob(rootCtx, 7, 0, "billing_cron", billingCron.Run, log)
+
+	suspCheck := job.NewSuspensionCheckJob(subscriptionStore, invoiceStore, settingStore, log)
+	startDailyJob(rootCtx, 9, 0, "suspension_check", suspCheck.Run, log)
 
 	// ── InfluxDB3 + Metrics Service ───────────────────────────────────────
 	influxCfg := roslibcfg.InfluxConfig{
@@ -196,10 +212,15 @@ func main() {
 		DB:                db,
 		DeviceStore:       deviceStore,
 		TxStore:           txStore,
-		ProfileStore:      profileStore,
+		ProfileStore:      hotspotProfileStore,
 		CustomerStore:     customerStore,
-		BandwidthStore:    bandwidthStore,
+		PPPProfileStore:   pppProfileStore,
+		HotspotStore:      hotspotProfileStore,
 		SubscriptionStore: subscriptionStore,
+		SettingStore:      settingStore,
+		SequenceStore:     sequenceStore,
+		InvoiceStore:      invoiceStore,
+		PaymentStore:      paymentStore,
 		AuthService:       authSvc,
 		AuthSigner:        authSigner,
 		UserLimiter:       userLim,
@@ -246,4 +267,27 @@ func main() {
 		log.WithError(err).Warn("http shutdown error")
 	}
 	log.Info("server stopped")
+}
+
+// startDailyJob spawns a goroutine that runs jobFn once per day at targetHour:targetMin (local time).
+func startDailyJob(ctx context.Context, targetHour, targetMin int, name string, jobFn func(context.Context) error, log *logrus.Logger) {
+	go func() {
+		for {
+			now := time.Now()
+			next := time.Date(now.Year(), now.Month(), now.Day(), targetHour, targetMin, 0, 0, now.Location())
+			if !next.After(now) {
+				next = next.Add(24 * time.Hour)
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Until(next)):
+				log.WithField("job", name).Info("daily job started")
+				if err := jobFn(ctx); err != nil {
+					log.WithError(err).WithField("job", name).Warn("daily job error")
+				}
+			}
+		}
+	}()
+	log.WithFields(logrus.Fields{"job": name, "hour": targetHour, "min": targetMin}).Info("daily job scheduled")
 }

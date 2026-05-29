@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/hotspot"
-	"github.com/quiqxiq/roslib-mikhmon/service/devmgr"
-	"github.com/quiqxiq/roslib-mikhmon/store"
-	"github.com/quiqxiq/roslib-mikhmon/store/model"
-	"github.com/quiqxiq/roslib-mikhmon/workflows"
+	"github.com/quiqxiq/rosmon/mikrotik/hotspot"
+	"github.com/quiqxiq/rosmon/service/devmgr"
+	"github.com/quiqxiq/rosmon/store"
+	"github.com/quiqxiq/rosmon/store/model"
+	"github.com/quiqxiq/rosmon/workflows"
 	"github.com/sirupsen/logrus"
 )
 
@@ -29,7 +29,7 @@ const (
 type Service struct {
 	devMgr   *devmgr.Manager
 	devices  store.DeviceStore
-	profiles store.ProfileConfigStore
+	profiles store.HotspotProfileStore
 	txStore  store.TransactionStore
 	log      *logrus.Logger
 
@@ -41,7 +41,7 @@ type Service struct {
 func New(
 	mgr *devmgr.Manager,
 	devices store.DeviceStore,
-	profiles store.ProfileConfigStore,
+	profiles store.HotspotProfileStore,
 	txStore store.TransactionStore,
 	log *logrus.Logger,
 ) *Service {
@@ -206,10 +206,10 @@ func (s *Service) checkDevice(ctx context.Context, d model.MikrotikDevice) error
 		}
 
 		// User expired — ambil konfigurasi mode dari DB. Kalau belum dikonfigurasi,
-		// skip (bukan default "rem") supaya tidak ada tindakan tanpa sepengetahuan operator.
+		// skip supaya tidak ada tindakan tanpa sepengetahuan operator.
 		cfg, err := s.profiles.GetByName(ctx, d.ID, u.Profile)
 		if err != nil {
-			if errors.Is(err, store.ErrProfileConfigNotFound) {
+			if errors.Is(err, store.ErrHotspotProfileNotFound) {
 				continue
 			}
 			s.log.WithError(err).Warnf("expiry: cannot get profile config for %s", u.Profile)
@@ -229,7 +229,7 @@ func (s *Service) executeExpiry(
 	cs *devmgr.ClientSet,
 	d model.MikrotikDevice,
 	userID, userName, profile, mac string,
-	cfg model.HotspotProfileConfig,
+	cfg model.HotspotProfile,
 ) error {
 	switch cfg.ExpiryMode {
 	case "0":

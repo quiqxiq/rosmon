@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/internal/ratelimit"
-	"github.com/quiqxiq/roslib-mikhmon/service/auth"
+	"github.com/quiqxiq/rosmon/internal/ratelimit"
+	"github.com/quiqxiq/rosmon/service/auth"
 )
 
 func TestRequirePerIPRate_429AfterBurst(t *testing.T) {

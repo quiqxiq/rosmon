@@ -1,4 +1,4 @@
-// Package domain berisi value-object murni untuk roslib-mikhmon.
+// Package domain berisi value-object murni untuk rosmon.
 // Tidak ada IO di paket ini — semua tipe deterministik dan mudah di-test.
 //
 // Tipe utama:

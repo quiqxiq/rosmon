@@ -4,25 +4,21 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/quiqxiq/roslib"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/hotspot"
-	"github.com/quiqxiq/roslib-mikhmon/scripts/onlogin"
-	"github.com/quiqxiq/roslib-mikhmon/domain"
+	"github.com/quiqxiq/rosmon/mikrotik/hotspot"
+	"github.com/quiqxiq/rosmon/scripts/onlogin"
+	"github.com/quiqxiq/rosmon/domain"
 )
 
 func main() {
 	ctx := context.Background()
 
-	cfg := roslib.DeviceConfig{
+	dev, err := roslib.New(ctx, roslib.Options{
 		Address:  "192.168.230.2:8728",
-		User:     "admin",
+		Username: "admin",
 		Password: "r00t",
-		UseTLS:   false,
-	}
-
-	dev, err := roslib.Connect(ctx, cfg)
+	})
 	if err != nil {
 		log.Fatalf("connect: %v", err)
 	}

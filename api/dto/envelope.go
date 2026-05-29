@@ -1,4 +1,4 @@
-// Package dto berisi tipe request/response HTTP untuk roslib-mikhmon.
+// Package dto berisi tipe request/response HTTP untuk rosmon.
 // DTO sengaja dipisah dari domain.* supaya:
 //   - Field naming pakai snake_case (JSON convention).
 //   - Validator tag binding:"required,..." hanya di DTO.

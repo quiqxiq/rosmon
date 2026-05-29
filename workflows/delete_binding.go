@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik"
+	"github.com/quiqxiq/rosmon/mikrotik"
 )
 
 // DeleteBinding melakukan cascade hapus IP-binding mengikuti analisis §4.2.

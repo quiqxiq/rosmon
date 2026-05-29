@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quiqxiq/roslib-mikhmon/store"
-	"github.com/quiqxiq/roslib-mikhmon/store/model"
+	"github.com/quiqxiq/rosmon/store"
+	"github.com/quiqxiq/rosmon/store/model"
 )
 
 // fakeUserStore adalah in-memory implementation untuk unit test cepat

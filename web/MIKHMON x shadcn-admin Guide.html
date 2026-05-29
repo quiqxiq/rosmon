@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MIKHMON × shadcn-admin — Complete Implementation Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<style>
+/* ─── TOKENS ──────────────────────────────────────────── */
+:root {
+  --font: 'Plus Jakarta Sans', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --accent:  #20a8d8;
+  --success: #4dbd74;
+  --warning: #f6a609;
+  --danger:  #f05252;
+  --purple:  #7c3aed;
+  --r: 10px;
+  --r-lg: 14px;
+}
+[data-theme="light"] {
+  --bg: #f0f2f5; --surface: #fff; --card: #fff;
+  --border: #e5e7eb; --border2: #d1d5db;
+  --text: #111827; --text2: #374151;
+  --muted: #6b7280; --faint: #9ca3af;
+  --hover: #f3f4f6; --thead: #f9fafb;
+  --code-bg: #1e2433; --code-fg: #cdd6f4;
+  --input: #f9fafb; --sidebar: #fff;
+}
+[data-theme="dark"] {
+  --bg: #0f172a; --surface: #1e293b; --card: #1e293b;
+  --border: #2d3748; --border2: #374151;
+  --text: #f1f5f9; --text2: #cbd5e1;
+  --muted: #94a3b8; --faint: #64748b;
+  --hover: #263040; --thead: #111827;
+  --code-bg: #0d1117; --code-fg: #c9d1d9;
+  --input: #111827; --sidebar: #0f172a;
+}
+
+/* ─── RESET ───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--font); font-size: 14px; line-height: 1.6; background: var(--bg); color: var(--text); }
+
+/* ─── SHELL ───────────────────────────────────────────── */
+.aside {
+  position: fixed; top: 0; left: 0; bottom: 0; width: 236px;
+  background: var(--surface); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow-y: auto; z-index: 100;
+}
+.aside-brand {
+  padding: 18px 18px 14px;
+  background: linear-gradient(135deg,#20a8d8,#4dbd74);
+  border-bottom: 1px solid rgba(0,0,0,.1);
+}
+.aside-brand h1 { font-size: 15px; font-weight: 800; color:#fff; display:flex; align-items:center; gap:8px; }
+.aside-brand p  { font-size: 11px; color:rgba(255,255,255,.65); margin-top:3px; }
+.aside-nav { padding: 10px 0 20px; flex:1; }
+.aside-sec { padding: 12px 16px 4px; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+.aside-nav a {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 16px; font-size: 12.5px; color: var(--text2);
+  text-decoration: none; border-right: 2px solid transparent; transition: all .14s;
+}
+.aside-nav a:hover { background: var(--hover); }
+.aside-nav a.active { background: #eff8fc; color: var(--accent); border-right-color: var(--accent); font-weight: 600; }
+[data-theme="dark"] .aside-nav a.active { background: #1a3050; }
+.aside-nav a .fa { font-size: 12px; min-width: 16px; opacity: .7; }
+
+.topbar {
+  position: fixed; top:0; left:236px; right:0; height:54px;
+  background: var(--card); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 32px; z-index: 99;
+}
+.topbar-l { display:flex; align-items:center; gap:6px; font-size:13px; color:var(--muted); }
+.topbar-l strong { color:var(--text); }
+.topbar-r { display:flex; align-items:center; gap:6px; }
+.t-btn { width:21px; height:21px; border-radius:50%; cursor:pointer; border:2.5px solid transparent; transition:all .14s; }
+.t-btn:hover { transform:scale(1.15); }
+.t-btn.active { border-color:var(--text); transform:scale(1.2); }
+
+.main { margin-left: 236px; padding: 74px 44px 100px; max-width: 1020px; }
+
+/* ─── SECTIONS ───────────────────────────────────────── */
+.sec { margin-bottom: 72px; scroll-margin-top: 74px; }
+.sec-lbl { font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--accent); margin-bottom:5px; }
+.sec-title { font-size:23px; font-weight:800; letter-spacing:-.02em; margin-bottom:8px; }
+.sec-desc { font-size:13px; color:var(--muted); line-height:1.7; max-width:580px; }
+hr.div { border:none; border-top:1px solid var(--border); margin:56px 0; }
+
+.sub-lbl {
+  font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--muted); margin-bottom:12px; display:flex; align-items:center; gap:10px;
+}
+.sub-lbl::after { content:''; flex:1; height:1px; background:var(--border); }
+
+/* ─── DEMO FRAMES ─────────────────────────────────────── */
+.demo {
+  background: var(--card); border:1px solid var(--border);
+  border-radius: var(--r-lg); padding:24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+.demo-dark { background:#161b22; border-color:#2d3748; }
+.demo-bg   { background: var(--bg); }
+
+/* ─── CODE ────────────────────────────────────────────── */
+.code-wrap { position:relative; margin-top:10px; }
+.code {
+  background: var(--code-bg); color: var(--code-fg);
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.75;
+  padding: 18px 18px 18px 18px; border-radius: var(--r);
+  overflow-x: auto; white-space: pre; tab-size: 2;
+  border: 1px solid rgba(255,255,255,.06);
+}
+.cp {
+  position:absolute; top:10px; right:10px;
+  padding:3px 12px; border-radius:6px; font-size:11px; font-weight:600;
+  background:rgba(255,255,255,.1); color:#94a3b8;
+  border:1px solid rgba(255,255,255,.15); cursor:pointer;
+  font-family:var(--font); transition:all .14s;
+}
+.cp:hover { background:rgba(255,255,255,.18); color:#fff; }
+.cp.ok { background:rgba(77,189,116,.2); color:#4dbd74; border-color:rgba(77,189,116,.3); }
+/* syntax */
+.kw  { color:#c792ea; } .str { color:#c3e88d; } .val { color:#f78c6c; }
+.cmt { color:#546e7a; font-style:italic; } .tag { color:#89ddff; }
+.fn  { color:#82aaff; } .num { color:#f78c6c; } .prop { color:#ffcb6b; }
+.op  { color:#89ddff; } .cls { color:#ffcb6b; }
+
+/* ─── TOKENS ──────────────────────────────────────────── */
+.tk { font-family:var(--mono); font-size:11px; padding:1px 6px; border-radius:4px; background:var(--hover); border:1px solid var(--border); color:var(--accent); }
+
+/* ─── FILE TABLE ──────────────────────────────────────── */
+.ftable { width:100%; border-collapse:collapse; font-size:13px; }
+.ftable th { padding:8px 12px; background:var(--thead); border-bottom:2px solid var(--border); font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-weight:700; text-align:left; }
+.ftable td { padding:10px 12px; border-bottom:1px solid var(--border); color:var(--text2); vertical-align:top; }
+.ftable tr:hover td { background:var(--hover); }
+.ftable tr:last-child td { border:none; }
+.ftable code { font-family:var(--mono); font-size:11px; background:var(--hover); padding:1px 6px; border-radius:4px; color:var(--accent); }
+.badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:700; }
+.b-new  { background:rgba(77,189,116,.12); color:#2d8a52; }
+.b-mod  { background:rgba(246,166,9,.12);  color:#a86d00; }
+.b-rep  { background:rgba(240,82,82,.12);  color:#c01f1f; }
+[data-theme="dark"] .b-new { background:rgba(77,189,116,.2); color:#4dbd74; }
+[data-theme="dark"] .b-mod { background:rgba(246,166,9,.2);  color:#fbbf24; }
+[data-theme="dark"] .b-rep { background:rgba(240,82,82,.2);  color:#f87171; }
+
+/* ─── ALERT BOX ───────────────────────────────────────── */
+.alert { display:flex; gap:10px; padding:12px 14px; border-radius:var(--r); border-left:3px solid; margin-bottom:12px; font-size:13px; }
+.a-info    { background:rgba(32,168,216,.07); border-color:var(--accent); }
+.a-warn    { background:rgba(246,166,9,.07);  border-color:var(--warning); }
+.a-ok      { background:rgba(77,189,116,.07); border-color:var(--success); }
+.a-danger  { background:rgba(240,82,82,.07);  border-color:var(--danger); }
+
+/* ─── COMPONENT PREVIEWS ──────────────────────────────── */
+
+/* Button */
+.p-btn {
+  display:inline-flex; align-items:center; gap:6px; padding:7px 16px;
+  border-radius:6px; border:none; cursor:pointer; font-size:13px; font-weight:600;
+  font-family:var(--font); transition:all .14s; white-space:nowrap;
+}
+.p-btn:hover { filter:brightness(1.08); }
+.p-btn-primary   { background:#20a8d8; color:#fff; }
+.p-btn-success   { background:#4dbd74; color:#fff; }
+.p-btn-warning   { background:#f6a609; color:#fff; }
+.p-btn-danger    { background:#f05252; color:#fff; }
+.p-btn-secondary { background:var(--hover); color:var(--text2); border:1.5px solid var(--border); }
+.p-btn-ghost     { background:transparent; color:var(--accent); border:1.5px solid var(--accent); }
+.p-btn-outline   { background:transparent; color:var(--text2); border:1.5px solid var(--border); }
+.p-btn-sm { padding:4px 12px; font-size:12px; }
+.p-btn-lg { padding:10px 22px; font-size:15px; }
+.p-btn-icon { padding:7px 9px; }
+
+/* Badge */
+.p-badge { display:inline-flex; align-items:center; gap:4px; padding:2px 9px; border-radius:20px; font-size:11px; font-weight:700; }
+.p-bdot { width:6px; height:6px; border-radius:50%; background:currentColor; flex-shrink:0; }
+.pb-default   { background:rgba(32,168,216,.12); color:#0e7fab; }
+.pb-success   { background:rgba(77,189,116,.12); color:#2d8a52; }
+.pb-warning   { background:rgba(246,166,9,.12);  color:#a86d00; }
+.pb-danger    { background:rgba(240,82,82,.12);  color:#c01f1f; }
+.pb-secondary { background:rgba(107,114,128,.1); color:#4b5563; }
+.pb-outline   { background:transparent; color:var(--text2); border:1px solid var(--border); }
+[data-theme="dark"] .pb-default   { background:rgba(56,189,248,.12); color:#38bdf8; }
+[data-theme="dark"] .pb-success   { background:rgba(77,189,116,.15); color:#4dbd74; }
+[data-theme="dark"] .pb-warning   { background:rgba(246,166,9,.15);  color:#fbbf24; }
+[data-theme="dark"] .pb-danger    { background:rgba(240,82,82,.15);  color:#f87171; }
+[data-theme="dark"] .pb-secondary { background:rgba(148,163,184,.1); color:#94a3b8; }
+
+/* Input */
+.p-input {
+  display:block; width:100%; padding:7px 11px;
+  background:var(--input); border:1.5px solid var(--border2);
+  border-radius:6px; color:var(--text);
+  font-size:13px; font-family:var(--font); outline:none;
+  transition: border-color .14s, box-shadow .14s;
+}
+.p-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(32,168,216,.15); }
+.p-input::placeholder { color:var(--faint); }
+.p-input.err { border-color:var(--danger); }
+.p-input.ok  { border-color:var(--success); }
+.p-label { display:block; font-size:12px; font-weight:600; color:var(--text2); margin-bottom:5px; }
+.p-hint  { font-size:11px; color:var(--muted); margin-top:4px; }
+
+/* Card */
+.p-card { background:var(--card); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.p-card-hdr { padding:12px 16px 10px; border-bottom:1px solid var(--border); font-size:13px; font-weight:700; display:flex; align-items:center; gap:8px; }
+.p-card-body { padding:14px 16px; background:var(--surface); }
+.p-card-ftr { padding:8px 16px; border-top:1px solid var(--border); font-size:12px; color:var(--muted); background:var(--thead); }
+
+/* Table */
+.p-table { width:100%; border-collapse:collapse; font-size:13px; }
+.p-table th { padding:9px 12px; background:var(--thead); border-bottom:2px solid var(--border); font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); font-weight:700; text-align:left; white-space:nowrap; }
+.p-table td { padding:10px 12px; border-bottom:1px solid var(--border); color:var(--text2); vertical-align:middle; }
+.p-table tbody tr:hover td { background:var(--hover); }
+.p-table tbody tr:last-child td { border:none; }
+.mono { font-family:var(--mono); font-size:12px; }
+
+/* Progress */
+.p-prog-track { height:8px; background:var(--border); border-radius:99px; overflow:hidden; }
+.p-prog-bar   { height:100%; border-radius:99px; transition:width .4s; }
+.p-prog-lbl   { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:5px; font-size:13px; }
+.p-prog-lbl span:last-child { font-family:var(--mono); font-size:12px; color:var(--muted); }
+
+/* Alert */
+.p-alert { display:flex; gap:12px; padding:12px 14px; border-radius:var(--r); border-left:4px solid; margin-bottom:8px; font-size:13px; }
+.pa-ok   { background:rgba(77,189,116,.08); border-color:#4dbd74; }
+.pa-warn { background:rgba(246,166,9,.08);  border-color:#f6a609; }
+.pa-err  { background:rgba(240,82,82,.08);  border-color:#f05252; }
+.pa-info { background:rgba(32,168,216,.08); border-color:#20a8d8; }
+.p-alert-title { font-weight:700; font-size:13px; margin-bottom:2px; }
+.p-alert-body  { font-size:12px; opacity:.85; line-height:1.5; }
+[data-theme="dark"] .pa-ok   { background:rgba(77,189,116,.12); }
+[data-theme="dark"] .pa-warn { background:rgba(246,166,9,.12);  }
+[data-theme="dark"] .pa-err  { background:rgba(240,82,82,.12);  }
+[data-theme="dark"] .pa-info { background:rgba(32,168,216,.12); }
+
+/* Toast */
+.p-toast { display:flex; align-items:flex-start; gap:12px; padding:14px 16px; border-radius:var(--r-lg); background:var(--card); border:1px solid var(--border); box-shadow:0 8px 24px rgba(0,0,0,.12); max-width:320px; }
+.p-toast-icon { width:32px; height:32px; border-radius:var(--r); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.p-toast-title { font-weight:700; font-size:13px; }
+.p-toast-body  { font-size:12px; color:var(--muted); margin-top:2px; }
+
+/* Modal */
+.p-modal-bg { background:rgba(0,0,0,.4); border-radius:var(--r-lg); padding:20px; }
+.p-modal { background:var(--card); border:1px solid var(--border); border-radius:16px; max-width:360px; margin:auto; box-shadow:0 16px 40px rgba(0,0,0,.15); overflow:hidden; }
+.p-modal-hdr { padding:14px 18px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.p-modal-tabs { padding:0 18px; border-bottom:1px solid var(--border); display:flex; gap:2px; }
+.p-modal-body { padding:18px; background:var(--surface); }
+.p-modal-ftr  { padding:12px 18px; border-top:1px solid var(--border); background:var(--thead); display:flex; justify-content:flex-end; gap:8px; }
+.p-tab { padding:6px 12px 9px; font-size:13px; font-weight:500; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; transition:all .14s; }
+.p-tab.active { color:var(--accent); border-bottom-color:var(--accent); background:var(--surface); }
+
+/* Dropdown */
+.p-dd { background:var(--card); border:1px solid var(--border); border-radius:var(--r); overflow:hidden; min-width:180px; box-shadow:0 8px 20px rgba(0,0,0,.1); }
+.p-dd-item { display:flex; align-items:center; gap:10px; padding:9px 14px; font-size:13px; color:var(--text2); cursor:pointer; transition:background .12s; }
+.p-dd-item:hover { background:var(--hover); }
+.p-dd-item .fa { color:var(--muted); font-size:12px; min-width:14px; }
+.p-dd-sep { height:1px; background:var(--border); margin:4px 0; }
+
+/* Tooltip */
+.p-tip-wrap { position:relative; display:inline-block; }
+.p-tip { position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%); background:#1f2937; color:#f1f5f9; font-size:12px; font-weight:500; padding:5px 10px; border-radius:6px; white-space:nowrap; pointer-events:none; box-shadow:0 4px 12px rgba(0,0,0,.2); }
+.p-tip::after { content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%); border:5px solid transparent; border-top-color:#1f2937; }
+
+/* Spinner */
+.p-spin { display:inline-block; border-radius:50%; border:2.5px solid var(--border); border-top-color:var(--accent); animation:spin .7s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Avatar */
+.p-avatar { width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex-shrink:0; overflow:hidden; }
+
+/* Switch */
+.p-switch { width:40px; height:22px; border-radius:99px; position:relative; cursor:pointer; transition:background .2s; flex-shrink:0; }
+.p-switch::after { content:''; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:#fff; transition:transform .2s; box-shadow:0 1px 3px rgba(0,0,0,.2); }
+.p-switch.on { background:var(--accent); }
+.p-switch.on::after { transform:translateX(18px); }
+.p-switch.off { background:var(--border2); }
+
+/* Kbd */
+.p-kbd { display:inline-flex; align-items:center; padding:2px 7px; border-radius:5px; font-family:var(--mono); font-size:11px; font-weight:600; background:var(--thead); border:1px solid var(--border2); box-shadow:0 1px 0 var(--border2); color:var(--text2); }
+
+/* Pagination */
+.p-page { display:flex; align-items:center; gap:4px; }
+.p-pg { min-width:32px; height:32px; padding:0 8px; display:flex; align-items:center; justify-content:center; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; border:1.5px solid var(--border); background:var(--card); color:var(--text2); transition:all .12s; }
+.p-pg:hover { background:var(--hover); }
+.p-pg.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+.p-pg.dis { opacity:.4; cursor:default; }
+
+/* Stat box */
+.p-stat { border-radius:var(--r-lg); color:#fff; padding:16px 14px; min-height:88px; box-shadow:0 4px 6px rgba(0,0,0,.1); position:relative; overflow:hidden; }
+.p-stat-val { font-size:32px; font-weight:800; letter-spacing:-.03em; line-height:1; }
+.p-stat-lbl { font-size:10px; opacity:.75; text-transform:uppercase; letter-spacing:.06em; margin-bottom:2px; }
+.p-stat-sub { font-size:11px; opacity:.75; margin-top:4px; }
+.p-stat-icon { position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:36px; opacity:.2; }
+
+/* Sidebar preview */
+.p-sidebar { width:210px; background:var(--sidebar); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,.08); }
+.p-sb-brand { background:#20a8d8; padding:13px 14px; display:flex; align-items:center; gap:10px; border-bottom:1px solid rgba(0,0,0,.1); }
+.p-sb-lbl { padding:10px 16px 4px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--faint); }
+.p-sb-item { display:flex; align-items:center; gap:10px; padding:8px 16px 8px 18px; font-size:13px; font-weight:500; color:var(--text2); cursor:pointer; transition:all .12s; }
+.p-sb-item.active { background:var(--accent); color:#fff; border-radius:0 20px 20px 0; margin-right:8px; box-shadow:0 2px 5px rgba(0,0,0,.15); }
+.p-sb-item:hover:not(.active) { background:var(--hover); }
+.p-sb-badge { margin-left:auto; font-size:10px; font-weight:700; padding:1px 7px; border-radius:99px; background:rgba(255,255,255,.25); color:#fff; }
+.p-sb-sub { padding-left:32px; border-left:2px solid var(--border); margin:0 0 4px 26px; }
+.p-sb-sub a { display:block; padding:5px 10px; font-size:12px; color:var(--muted); cursor:pointer; border-radius:5px; transition:all .12s; }
+.p-sb-sub a:hover { background:var(--hover); color:var(--text); }
+.p-sb-sub a.active { color:var(--accent); font-weight:600; }
+.p-sb-footer { padding:10px 14px; border-top:1px solid var(--border); background:var(--thead); display:flex; align-items:center; justify-content:space-between; }
+
+/* Select */
+.p-select { display:block; width:100%; padding:7px 11px; background:var(--input); border:1.5px solid var(--border2); border-radius:6px; color:var(--text); font-size:13px; font-family:var(--font); outline:none; cursor:pointer; -webkit-appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; padding-right:28px; }
+
+/* Checkbox */
+.p-chk-row { display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none; }
+.p-chk { width:16px; height:16px; border-radius:4px; border:1.5px solid var(--border2); background:var(--input); display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all .12s; }
+.p-chk-row.on .p-chk { background:var(--accent); border-color:var(--accent); }
+.p-chk .fa { font-size:9px; color:#fff; }
+
+/* Login card */
+.p-login { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:28px; max-width:320px; margin:auto; box-shadow:0 8px 24px rgba(0,0,0,.1); }
+.p-login-logo { width:52px; height:52px; background:var(--accent); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:24px; color:#fff; margin:0 auto 20px; box-shadow:0 4px 12px rgba(32,168,216,.3); }
+
+/* Input addon */
+.p-input-grp { display:flex; }
+.p-addon { padding:7px 11px; background:var(--hover); border:1.5px solid var(--border2); border-right:none; border-radius:6px 0 0 6px; color:var(--muted); display:flex; align-items:center; font-size:13px; }
+.p-input-grp .p-input { border-radius:0 6px 6px 0; }
+
+/* Voucher */
+.p-voucher { background:var(--card); border:1.5px dashed var(--border2); border-radius:var(--r-lg); padding:16px 18px; max-width:220px; font-family:var(--mono); position:relative; overflow:hidden; }
+.p-voucher::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,#20a8d8,#4dbd74); }
+.p-voucher-name { font-size:22px; font-weight:700; letter-spacing:.08em; color:var(--text); margin-top:10px; }
+.p-voucher-pass { font-size:13px; color:var(--muted); margin-top:3px; }
+.p-voucher-profile { position:absolute; top:12px; right:12px; background:rgba(32,168,216,.12); color:var(--accent); font-size:10px; font-weight:700; padding:2px 8px; border-radius:99px; font-family:var(--font); }
+.p-voucher-meta { font-size:11px; color:var(--faint); margin-top:10px; display:flex; flex-direction:column; gap:3px; }
+
+/* Separator */
+.p-sep { height:1px; background:var(--border); margin:12px 0; }
+
+/* Command/Search */
+.p-cmd { background:var(--card); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,.12); }
+.p-cmd-hdr { display:flex; align-items:center; gap:8px; padding:12px 14px; border-bottom:1px solid var(--border); }
+.p-cmd-hdr input { border:none; background:transparent; flex:1; font-size:14px; color:var(--text); font-family:var(--font); outline:none; }
+.p-cmd-hdr input::placeholder { color:var(--faint); }
+.p-cmd-sec { padding:6px 10px 4px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--faint); }
+.p-cmd-item { display:flex; align-items:center; gap:10px; padding:8px 12px; font-size:13px; color:var(--text2); cursor:pointer; border-radius:6px; margin:1px 4px; transition:all .12s; }
+.p-cmd-item:hover, .p-cmd-item.sel { background:var(--accent); color:#fff; }
+.p-cmd-item .fa { font-size:12px; min-width:16px; }
+
+/* Tweaks panel */
+#tweaks-panel { display:none; position:fixed; bottom:24px; right:24px; z-index:999; background:var(--card); border:1px solid var(--border); border-radius:var(--r-lg); padding:16px 18px; min-width:200px; box-shadow:0 8px 24px rgba(0,0,0,.18); }
+#tweaks-panel h4 { font-size:13px; font-weight:700; margin-bottom:12px; }
+.tw-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.tw-lbl { font-size:12px; color:var(--muted); }
+.tw-sw { display:flex; gap:6px; }
+.tw-s { width:20px; height:20px; border-radius:50%; cursor:pointer; border:2.5px solid transparent; transition:all .12s; }
+.tw-s:hover { transform:scale(1.15); }
+.tw-s.active { border-color:var(--text); transform:scale(1.2); }
+</style>
+</head>
+<body>
+
+<!-- ─── ASIDE ───────────────────────────────────────────── -->
+<aside class="aside">
+  <div class="aside-brand">
+    <h1><i class="fa fa-wifi"></i> MIKHMON × shadcn</h1>
+    <p>Complete Implementation Guide v2</p>
+  </div>
+  <nav class="aside-nav">
+    <div class="aside-sec">Setup</div>
+    <a href="#overview"><i class="fa fa-map"></i> Overview</a>
+    <a href="#tokens"><i class="fa fa-circle-o"></i> Token Mapping</a>
+    <a href="#theme-css"><i class="fa fa-paint-brush"></i> theme.css</a>
+    <a href="#mikhmon-css"><i class="fa fa-file-code-o"></i> mikhmon.css</a>
+    <a href="#fonts"><i class="fa fa-font"></i> Typography</a>
+    <div class="aside-sec">Components</div>
+    <a href="#sidebar-comp"><i class="fa fa-bars"></i> Sidebar</a>
+    <a href="#buttons-comp"><i class="fa fa-hand-o-up"></i> Buttons</a>
+    <a href="#badges-comp"><i class="fa fa-tag"></i> Badges</a>
+    <a href="#cards-comp"><i class="fa fa-clone"></i> Cards</a>
+    <a href="#inputs-comp"><i class="fa fa-pencil"></i> Inputs & Forms</a>
+    <a href="#tables-comp"><i class="fa fa-table"></i> Tables</a>
+    <a href="#progress-comp"><i class="fa fa-tasks"></i> Progress</a>
+    <a href="#alerts-comp"><i class="fa fa-bell"></i> Alerts</a>
+    <a href="#modals-comp"><i class="fa fa-window-restore"></i> Modals</a>
+    <a href="#dropdown-comp"><i class="fa fa-caret-square-o-down"></i> Dropdown</a>
+    <a href="#misc-comp"><i class="fa fa-ellipsis-h"></i> Misc</a>
+    <div class="aside-sec">Features</div>
+    <a href="#stat-boxes"><i class="fa fa-dashboard"></i> Stat Boxes</a>
+    <a href="#ping-comp"><i class="fa fa-wifi"></i> Ping Indicator</a>
+    <a href="#login-comp"><i class="fa fa-lock"></i> Login</a>
+    <a href="#voucher-comp"><i class="fa fa-ticket"></i> Voucher</a>
+    <a href="#sidebar-data"><i class="fa fa-sitemap"></i> sidebar-data.ts</a>
+    <a href="#checklist"><i class="fa fa-check-square-o"></i> Checklist</a>
+  </nav>
+</aside>
+
+<!-- ─── TOPBAR ─────────────────────────────────────────── -->
+<div class="topbar">
+  <div class="topbar-l">
+    <i class="fa fa-wifi" style="color:var(--accent)"></i>
+    <strong>MIKHMON</strong> <span>× shadcn-admin</span>
+    <span style="padding:2px 8px;background:rgba(32,168,216,.1);color:var(--accent);border-radius:20px;font-size:11px;font-weight:700;margin-left:4px">Complete Guide</span>
+  </div>
+  <div class="topbar-r">
+    <span style="font-size:12px;color:var(--muted);margin-right:4px">Theme</span>
+    <button class="t-btn active" data-t="light" style="background:#f0f2f5;border-color:#d1d5db"></button>
+    <button class="t-btn" data-t="dark" style="background:#0f172a"></button>
+  </div>
+</div>
+
+<!-- ─── MAIN ───────────────────────────────────────────── -->
+<main class="main">
+
+<!-- INTRO -->
+<div style="background:linear-gradient(135deg,#20a8d8,#4dbd74);border-radius:18px;padding:36px;margin-bottom:56px;color:#fff;box-shadow:0 8px 24px rgba(32,168,216,.25)">
+  <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.7;margin-bottom:6px">Complete Implementation Guide</div>
+  <div style="font-size:30px;font-weight:800;letter-spacing:-.02em;margin-bottom:8px">MIKHMON Design System<br>→ shadcn-admin</div>
+  <div style="font-size:13px;opacity:.88;max-width:500px;line-height:1.7">Panduan lengkap implementasi semua komponen MIKHMON ke dalam shadcn-admin. Meliputi token override, komponen TSX siap pakai, dan live preview setiap elemen.</div>
+  <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap">
+    <span style="background:rgba(255,255,255,.15);padding:4px 14px;border-radius:99px;font-size:12px;font-weight:600">Tailwind CSS v4</span>
+    <span style="background:rgba(255,255,255,.15);padding:4px 14px;border-radius:99px;font-size:12px;font-weight:600">shadcn/ui</span>
+    <span style="background:rgba(255,255,255,.15);padding:4px 14px;border-radius:99px;font-size:12px;font-weight:600">React 19</span>
+    <span style="background:rgba(255,255,255,.15);padding:4px 14px;border-radius:99px;font-size:12px;font-weight:600">Plus Jakarta Sans</span>
+    <span style="background:rgba(255,255,255,.15);padding:4px 14px;border-radius:99px;font-size:12px;font-weight:600">Lucide Icons</span>
+  </div>
+</div>
+
+<!-- ══ OVERVIEW ══ -->
+<section class="sec" id="overview">
+  <div class="sec-lbl">Setup</div>
+  <div class="sec-title">Project Overview</div>
+  <div class="sec-desc">shadcn-admin menggunakan Tailwind CSS v4 dengan token via CSS custom properties. Strategi kita: <strong>remapping token</strong> + tambah komponen baru — tanpa menyentuh komponen Radix UI yang sudah ada.</div>
+
+  <div class="alert a-ok" style="margin-top:16px"><i class="fa fa-check-circle" style="color:#4dbd74;flex-shrink:0;margin-top:1px"></i><div><strong>Non-destructive:</strong> Hanya mengubah <span class="tk">theme.css</span> dan menambah file baru. Semua komponen Radix tetap berfungsi.</div></div>
+  <div class="alert a-warn"><i class="fa fa-exclamation-triangle" style="color:var(--warning);flex-shrink:0;margin-top:1px"></i><div><strong>Tailwind v4:</strong> Token didefinisikan di dalam <span class="tk">@theme inline {}</span> di <span class="tk">theme.css</span> — bukan di <span class="tk">tailwind.config.js</span>.</div></div>
+
+  <div style="margin-top:20px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
+    <table class="ftable">
+      <thead><tr><th>File</th><th>Action</th><th>Deskripsi</th></tr></thead>
+      <tbody>
+        <tr><td><code>src/styles/theme.css</code></td><td><span class="badge b-rep">Replace</span></td><td>Ganti semua token oklch ke nilai MIKHMON</td></tr>
+        <tr><td><code>src/styles/mikhmon.css</code></td><td><span class="badge b-new">Create</span></td><td>Stat box gradient, progress bar, badge, voucher, ping</td></tr>
+        <tr><td><code>src/styles/index.css</code></td><td><span class="badge b-mod">Modify</span></td><td>Import font + mikhmon.css</td></tr>
+        <tr><td><code>index.html</code></td><td><span class="badge b-mod">Modify</span></td><td>Google Fonts link tag</td></tr>
+        <tr><td><code>src/components/layout/data/sidebar-data.ts</code></td><td><span class="badge b-rep">Replace</span></td><td>Nav items MIKHMON</td></tr>
+        <tr><td><code>src/hooks/use-ping.ts</code></td><td><span class="badge b-new">Create</span></td><td>Ping hook realtime</td></tr>
+        <tr><td><code>src/features/dashboard/index.tsx</code></td><td><span class="badge b-mod">Modify</span></td><td>KPI boxes + ping indicator</td></tr>
+        <tr><td><code>src/components/ui/badge.tsx</code></td><td><span class="badge b-mod">Modify</span></td><td>Tambah varian hotspot status</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section><hr class="div">
+
+<!-- ══ TOKEN MAPPING ══ -->
+<section class="sec" id="tokens">
+  <div class="sec-lbl">Setup</div>
+  <div class="sec-title">Token Mapping — oklch → MIKHMON</div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div>
+      <div class="sub-lbl">Light Mode</div>
+      <div class="demo" style="font-family:var(--mono);font-size:12px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;border-radius:4px;background:#f0f2f5;border:1px solid var(--border);flex-shrink:0"></div><span style="color:var(--muted)">--background</span><span style="color:var(--accent)">#f0f2f5</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;border-radius:4px;background:#ffffff;border:1px solid var(--border);flex-shrink:0"></div><span style="color:var(--muted)">--card</span><span style="color:var(--accent)">#ffffff</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;border-radius:4px;background:#20a8d8;flex-shrink:0"></div><span style="color:var(--muted)">--primary</span><span style="color:var(--accent)">#20a8d8</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;border-radius:4px;background:#f05252;flex-shrink:0"></div><span style="color:var(--muted)">--destructive</span><span style="color:var(--accent)">#f05252</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;border-radius:4px;background:#e5e7eb;flex-shrink:0"></div><span style="color:var(--muted)">--border</span><span style="color:var(--accent)">#e5e7eb</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;border-radius:4px;background:#111827;flex-shrink:0"></div><span style="color:var(--muted)">--foreground</span><span style="color:var(--accent)">#111827</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;border-radius:4px;background:#6b7280;flex-shrink:0"></div><span style="color:var(--muted)">--muted-foreground</span><span style="color:var(--accent)">#6b7280</span></div>
+      </div>
+    </div>
+    <div>
+      <div class="sub-lbl">Dark Mode</div>
+      <div class="demo demo-dark" style="font-family:var(--mono);font-size:12px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;border-radius:4px;background:#161b22;border:1px solid #2d3748;flex-shrink:0"></div><span style="color:#64748b">--background</span><span style="color:#38bdf8">#161b22</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;border-radius:4px;background:#1f2937;border:1px solid #2d3748;flex-shrink:0"></div><span style="color:#64748b">--card</span><span style="color:#38bdf8">#1f2937</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;border-radius:4px;background:#38bdf8;flex-shrink:0"></div><span style="color:#64748b">--primary</span><span style="color:#38bdf8">#38bdf8</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;border-radius:4px;background:#161b22;border:1px solid #2d3748;flex-shrink:0"></div><span style="color:#64748b">--sidebar</span><span style="color:#38bdf8">#161b22</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;border-radius:4px;background:#f87171;flex-shrink:0"></div><span style="color:#64748b">--destructive</span><span style="color:#38bdf8">#f87171</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;border-radius:4px;background:#f1f5f9;flex-shrink:0"></div><span style="color:#64748b">--foreground</span><span style="color:#38bdf8">#f1f5f9</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><div style="width:20px;height:20px;border-radius:4px;background:#94a3b8;flex-shrink:0"></div><span style="color:#64748b">--muted-foreground</span><span style="color:#38bdf8">#94a3b8</span></div>
+      </div>
+    </div>
+  </div>
+</section><hr class="div">
+
+<!-- ══ THEME.CSS ══ -->
+<section class="sec" id="theme-css">
+  <div class="sec-lbl">Setup</div>
+  <div class="sec-title">1. Ganti theme.css</div>
+  <div class="sec-desc">Replace seluruh isi <span class="tk">src/styles/theme.css</span>. Jangan hapus blok <span class="tk">@theme inline {}</span> — diperlukan Tailwind v4.</div>
+  <div style="height:8px"></div>
+  <div class="code-wrap"><button class="cp" onclick="cp(this)">Copy</button><pre class="code"><span class="cmt">/* src/styles/theme.css — MIKHMON override */</span>
+
+<span class="tag">:root</span> {
+  <span class="prop">--radius</span>: <span class="num">0.625rem</span>;
+  <span class="prop">--background</span>:           <span class="str">oklch(0.95 0.004 247)</span>;
+  <span class="prop">--foreground</span>:           <span class="str">oklch(0.13 0.02 250)</span>;
+  <span class="prop">--card</span>:                 <span class="str">oklch(1 0 0)</span>;
+  <span class="prop">--card-foreground</span>:      <span class="str">oklch(0.13 0.02 250)</span>;
+  <span class="prop">--popover</span>:              <span class="str">oklch(1 0 0)</span>;
+  <span class="prop">--popover-foreground</span>:   <span class="str">oklch(0.13 0.02 250)</span>;
+  <span class="prop">--primary</span>:              <span class="str">oklch(0.62 0.13 210)</span>;   <span class="cmt">/* #20a8d8 */</span>
+  <span class="prop">--primary-foreground</span>:   <span class="str">oklch(1 0 0)</span>;
+  <span class="prop">--secondary</span>:            <span class="str">oklch(0.96 0.006 250)</span>;
+  <span class="prop">--secondary-foreground</span>: <span class="str">oklch(0.13 0.02 250)</span>;
+  <span class="prop">--muted</span>:                <span class="str">oklch(0.96 0.006 250)</span>;
+  <span class="prop">--muted-foreground</span>:     <span class="str">oklch(0.46 0.03 255)</span>;   <span class="cmt">/* #6b7280 */</span>
+  <span class="prop">--accent</span>:               <span class="str">oklch(0.94 0.008 250)</span>;
+  <span class="prop">--accent-foreground</span>:    <span class="str">oklch(0.13 0.02 250)</span>;
+  <span class="prop">--destructive</span>:          <span class="str">oklch(0.63 0.2 25)</span>;    <span class="cmt">/* #f05252 */</span>
+  <span class="prop">--border</span>:               <span class="str">oklch(0.92 0.006 250)</span>;  <span class="cmt">/* #e5e7eb */</span>
+  <span class="prop">--input</span>:                <span class="str">oklch(0.97 0.003 250)</span>;
+  <span class="prop">--ring</span>:                 <span class="str">oklch(0.62 0.13 210)</span>;
+  <span class="prop">--chart-1</span>: <span class="str">oklch(0.62 0.13 210)</span>;  <span class="cmt">/* primary blue */</span>
+  <span class="prop">--chart-2</span>: <span class="str">oklch(0.68 0.15 155)</span>;  <span class="cmt">/* success green */</span>
+  <span class="prop">--chart-3</span>: <span class="str">oklch(0.72 0.16 55)</span>;   <span class="cmt">/* warning amber */</span>
+  <span class="prop">--chart-4</span>: <span class="str">oklch(0.55 0.2 295)</span>;   <span class="cmt">/* purple */</span>
+  <span class="prop">--chart-5</span>: <span class="str">oklch(0.63 0.2 25)</span>;   <span class="cmt">/* danger red */</span>
+  <span class="prop">--sidebar</span>:                       <span class="str">oklch(1 0 0)</span>;
+  <span class="prop">--sidebar-foreground</span>:            <span class="str">oklch(0.13 0.02 250)</span>;
+  <span class="prop">--sidebar-primary</span>:               <span class="str">oklch(0.62 0.13 210)</span>;
+  <span class="prop">--sidebar-primary-foreground</span>:    <span class="str">oklch(1 0 0)</span>;
+  <span class="prop">--sidebar-accent</span>:                <span class="str">oklch(0.94 0.01 210)</span>;
+  <span class="prop">--sidebar-accent-foreground</span>:     <span class="str">oklch(0.62 0.13 210)</span>;
+  <span class="prop">--sidebar-border</span>:                <span class="str">oklch(0.92 0.006 250)</span>;
+  <span class="prop">--sidebar-ring</span>:                  <span class="str">oklch(0.62 0.13 210)</span>;
+}
+
+<span class="tag">.dark</span> {
+  <span class="prop">--background</span>:           <span class="str">oklch(0.14 0.02 250)</span>;   <span class="cmt">/* #161b22 */</span>
+  <span class="prop">--foreground</span>:           <span class="str">oklch(0.96 0.005 250)</span>;
+  <span class="prop">--card</span>:                 <span class="str">oklch(0.17 0.025 255)</span>;  <span class="cmt">/* #1f2937 */</span>
+  <span class="prop">--card-foreground</span>:      <span class="str">oklch(0.96 0.005 250)</span>;
+  <span class="prop">--popover</span>:              <span class="str">oklch(0.19 0.025 255)</span>;
+  <span class="prop">--popover-foreground</span>:   <span class="str">oklch(0.96 0.005 250)</span>;
+  <span class="prop">--primary</span>:              <span class="str">oklch(0.72 0.14 210)</span>;   <span class="cmt">/* #38bdf8 */</span>
+  <span class="prop">--primary-foreground</span>:   <span class="str">oklch(0.14 0.02 250)</span>;
+  <span class="prop">--secondary</span>:            <span class="str">oklch(0.22 0.03 258)</span>;
+  <span class="prop">--secondary-foreground</span>: <span class="str">oklch(0.96 0.005 250)</span>;
+  <span class="prop">--muted</span>:                <span class="str">oklch(0.22 0.03 258)</span>;
+  <span class="prop">--muted-foreground</span>:     <span class="str">oklch(0.62 0.025 255)</span>;  <span class="cmt">/* #94a3b8 */</span>
+  <span class="prop">--accent</span>:               <span class="str">oklch(0.22 0.03 258)</span>;
+  <span class="prop">--accent-foreground</span>:    <span class="str">oklch(0.96 0.005 250)</span>;
+  <span class="prop">--destructive</span>:          <span class="str">oklch(0.68 0.17 25)</span>;
+  <span class="prop">--border</span>:               <span class="str">oklch(1 0 0 / 10%)</span>;
+  <span class="prop">--input</span>:                <span class="str">oklch(1 0 0 / 8%)</span>;
+  <span class="prop">--ring</span>:                 <span class="str">oklch(0.72 0.14 210)</span>;
+  <span class="prop">--chart-1</span>: <span class="str">oklch(0.72 0.14 210)</span>;
+  <span class="prop">--chart-2</span>: <span class="str">oklch(0.68 0.15 155)</span>;
+  <span class="prop">--chart-3</span>: <span class="str">oklch(0.78 0.15 55)</span>;
+  <span class="prop">--chart-4</span>: <span class="str">oklch(0.65 0.18 295)</span>;
+  <span class="prop">--chart-5</span>: <span class="str">oklch(0.68 0.17 25)</span>;
+  <span class="prop">--sidebar</span>:                       <span class="str">oklch(0.12 0.02 250)</span>;
+  <span class="prop">--sidebar-foreground</span>:            <span class="str">oklch(0.82 0.01 250)</span>;
+  <span class="prop">--sidebar-primary</span>:               <span class="str">oklch(0.72 0.14 210)</span>;
+  <span class="prop">--sidebar-primary-foreground</span>:    <span class="str">oklch(0.14 0.02 250)</span>;
+  <span class="prop">--sidebar-accent</span>:                <span class="str">oklch(0.18 0.025 250)</span>;
+  <span class="prop">--sidebar-accent-foreground</span>:     <span class="str">oklch(0.72 0.14 210)</span>;
+  <span class="prop">--sidebar-border</span>:                <span class="str">oklch(1 0 0 / 8%)</span>;
+  <span class="prop">--sidebar-ring</span>:                  <span class="str">oklch(0.72 0.14 210)</span>;
+}
+
+<span class="tag">@theme inline</span> {
+  <span class="prop">--font-inter</span>:   <span class="str">'Plus Jakarta Sans', sans-serif</span>;
+  <span class="prop">--font-manrope</span>: <span class="str">'Plus Jakarta Sans', sans-serif</span>;
+  <span class="prop">--radius-sm</span>: <span class="fn">calc</span>(<span class="kw">var</span>(--radius) - 4px);
+  <span class="prop">--radius-md</span>: <span class="fn">calc</span>(<span class="kw">var</span>(--radius) - 2px);
+  <span class="prop">--radius-lg</span>: <span class="kw">var</span>(--radius);
+  <span class="prop">--radius-xl</span>: <span class="fn">calc</span>(<span class="kw">var</span>(--radius) + 4px);
+  <span class="prop">--color-background</span>:               <span class="kw">var</span>(--background);
+  <span class="prop">--color-foreground</span>:               <span class="kw">var</span>(--foreground);
+  <span class="prop">--color-card</span>:                     <span class="kw">var</span>(--card);
+  <span class="prop">--color-card-foreground</span>:          <span class="kw">var</span>(--card-foreground);
+  <span class="prop">--color-popover</span>:                  <span class="kw">var</span>(--popover);
+  <span class="prop">--color-popover-foreground</span>:       <span class="kw">var</span>(--popover-foreground);
+  <span class="prop">--color-primary</span>:                  <span class="kw">var</span>(--primary);
+  <span class="prop">--color-primary-foreground</span>:       <span class="kw">var</span>(--primary-foreground);
+  <span class="prop">--color-secondary</span>:                <span class="kw">var</span>(--secondary);
+  <span class="prop">--color-secondary-foreground</span>:     <span class="kw">var</span>(--secondary-foreground);
+  <span class="prop">--color-muted</span>:                    <span class="kw">var</span>(--muted);
+  <span class="prop">--color-muted-foreground</span>:         <span class="kw">var</span>(--muted-foreground);
+  <span class="prop">--color-accent</span>:                   <span class="kw">var</span>(--accent);
+  <span class="prop">--color-accent-foreground</span>:        <span class="kw">var</span>(--accent-foreground);
+  <span class="prop">--color-destructive</span>:              <span class="kw">var</span>(--destructive);
+  <span class="prop">--color-border</span>:                   <span class="kw">var</span>(--border);
+  <span class="prop">--color-input</span>:                    <span class="kw">var</span>(--input);
+  <span class="prop">--color-ring</span>:                     <span class="kw">var</span>(--ring);
+  <span class="prop">--color-chart-1</span>:                  <span class="kw">var</span>(--chart-1);
+  <span class="prop">--color-chart-2</span>:                  <span class="kw">var</span>(--chart-2);
+  <span class="prop">--color-chart-3</span>:                  <span class="kw">var</span>(--chart-3);
+  <span class="prop">--color-chart-4</span>:                  <span class="kw">var</span>(--chart-4);
+  <span class="prop">--color-chart-5</span>:                  <span class="kw">var</span>(--chart-5);
+  <span class="prop">--color-sidebar</span>:                  <span class="kw">var</span>(--sidebar);
+  <span class="prop">--color-sidebar-foreground</span>:       <span class="kw">var</span>(--sidebar-foreground);
+  <span class="prop">--color-sidebar-primary</span>:          <span class="kw">var</span>(--sidebar-primary);
+  <span class="prop">--color-sidebar-primary-foreground</span>:<span class="kw">var</span>(--sidebar-primary-foreground);
+  <span class="prop">--color-sidebar-accent</span>:           <span class="kw">var</span>(--sidebar-accent);
+  <span class="prop">--color-sidebar-accent-foreground</span>: <span class="kw">var</span>(--sidebar-accent-foreground);
+  <span class="prop">--color-sidebar-border</span>:           <span class="kw">var</span>(--sidebar-border);
+  <span class="prop">--color-sidebar-ring</span>:             <span class="kw">var</span>(--sidebar-ring);
+}</pre></div>
+</section><hr class="div">
+
+<!-- ══ MIKHMON.CSS ══ -->
+<section class="sec" id="mikhmon-css">
+  <div class="sec-lbl">Setup</div>
+  <div class="sec-title">2. Buat mikhmon.css</div>
+  <div class="sec-desc">File CSS baru untuk komponen MIKHMON-specific. Import di <span class="tk">src/styles/index.css</span>: <span class="tk">@import './mikhmon.css';</span></div>
+  <div style="height:8px"></div>
+  <div class="code-wrap"><button class="cp" onclick="cp(this)">Copy</button><pre class="code"><span class="cmt">/* src/styles/mikhmon.css */</span>
+
+<span class="cmt">/* ── Stat box gradients ── */</span>
+<span class="tag">.mk-stat-red</span>   { background: linear-gradient(135deg, #f05252 0%, #d1214d 100%); }
+<span class="tag">.mk-stat-amber</span> { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+<span class="tag">.mk-stat-teal</span>  { background: linear-gradient(135deg, #14b8a6 0%, #4dbd74 100%); }
+<span class="tag">.mk-stat-blue</span>  { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
+<span class="tag">.mk-stat-rx</span>    { background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); }
+<span class="tag">.mk-stat-tx</span>    { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); }
+
+<span class="cmt">/* ── Resource progress bar ── */</span>
+<span class="tag">.mk-progress</span> {
+  height: 8px; border-radius: 9999px;
+  background: hsl(var(--muted)); overflow: hidden;
+}
+<span class="tag">.mk-progress-fill</span> {
+  height: 100%; border-radius: 9999px;
+  background: hsl(var(--primary)); transition: width .4s ease;
+}
+<span class="tag">.mk-progress-fill.warn</span>   { background: #f6a609; }
+<span class="tag">.mk-progress-fill.danger</span> { background: #f05252; }
+
+<span class="cmt">/* ── Hotspot status badges ── */</span>
+<span class="tag">.mk-badge-online</span>  { background:oklch(0.68 0.15 155/.12); color:#2d8a52; }
+<span class="tag">.mk-badge-expired</span> { background:oklch(0.63 0.2  25/.12);  color:#c01f1f; }
+<span class="tag">.mk-badge-idle</span>    { background:oklch(0.72 0.16 55/.12);  color:#a86d00; }
+<span class="tag">.mk-badge-offline</span> { background:oklch(0.46 0.03 255/.1);  color:#6b7280; }
+<span class="tag">.dark .mk-badge-online</span>  { background:oklch(0.68 0.15 155/.2); color:#4dbd74; }
+<span class="tag">.dark .mk-badge-expired</span> { background:oklch(0.63 0.2  25/.2);  color:#f87171; }
+<span class="tag">.dark .mk-badge-idle</span>    { background:oklch(0.72 0.16 55/.2);  color:#fbbf24; }
+
+<span class="cmt">/* ── Ping indicator ── */</span>
+<span class="tag">.mk-ping</span> {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px; border-radius: 9999px;
+  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+  border: 1.5px solid; transition: all .2s;
+}
+<span class="tag">.mk-ping-excellent</span> { color:#2d8a52; border-color:rgba(77,189,116,.3); background:rgba(77,189,116,.07); }
+<span class="tag">.mk-ping-good</span>      { color:#a86d00; border-color:rgba(246,166,9,.3);  background:rgba(246,166,9,.07);  }
+<span class="tag">.mk-ping-high</span>      { color:#c01f1f; border-color:rgba(240,82,82,.3);  background:rgba(240,82,82,.07);  }
+<span class="tag">.mk-ping-timeout</span>   { color:#6b7280; border-color:rgba(107,114,128,.3); background:rgba(107,114,128,.05); }
+<span class="tag">.dark .mk-ping-excellent</span> { color:#4dbd74; }
+<span class="tag">.dark .mk-ping-good</span>      { color:#fbbf24; }
+<span class="tag">.dark .mk-ping-high</span>      { color:#f87171; }
+
+<span class="cmt">/* ── Voucher print card ── */</span>
+<span class="tag">.mk-voucher</span> {
+  font-family: var(--font-mono);
+  border: 1.5px dashed hsl(var(--border));
+  border-radius: 0.625rem; padding: 1rem;
+  position: relative; overflow: hidden;
+}
+<span class="tag">.mk-voucher::before</span> {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 4px;
+  background: linear-gradient(90deg, #20a8d8, #4dbd74);
+}
+<span class="tag">@media print</span> {
+  <span class="tag">.mk-voucher</span> { break-inside: avoid; }
+  <span class="tag">.no-print</span>   { display: none !important; }
+}
+
+<span class="cmt">/* ── Ping ripple animation ── */</span>
+<span class="tag">@keyframes mk-ping</span> {
+  <span class="num">0%</span>   { transform: scale(1);   opacity: .75; }
+  <span class="num">75%, 100%</span> { transform: scale(2.4); opacity: 0; }
+}
+<span class="tag">.mk-ping-dot</span> {
+  position: relative; display: inline-flex;
+  width: 8px; height: 8px;
+}
+<span class="tag">.mk-ping-dot > span:first-child</span> {
+  position: absolute; inset: 0; border-radius: 9999px;
+  animation: mk-ping 1.4s ease infinite; opacity: .75;
+}</pre></div>
+</section><hr class="div">
+
+<!-- ══ FONTS ══ -->
+<section class="sec" id="fonts">
+  <div class="sec-lbl">Setup</div>
+  <div class="sec-title">3. Typography — Plus Jakarta Sans</div>
+  <div class="sec-desc">Ganti Inter dengan Plus Jakarta Sans. Lebih tegas, data-friendly, dan cocok untuk dashboard monitoring.</div>
+  <div style="height:8px"></div>
+  <div class="sub-lbl">index.html — tambahkan sebelum &lt;/head&gt;</div>
+  <div class="code-wrap"><button class="cp" onclick="cp(this)">Copy</button><pre class="code"><span class="tag">&lt;link</span> <span class="prop">rel</span>=<span class="str">"preconnect"</span> <span class="prop">href</span>=<span class="str">"https://fonts.googleapis.com"</span><span class="tag">&gt;</span>
+<span class="tag">&lt;link</span> <span class="prop">rel</span>=<span class="str">"preconnect"</span> <span class="prop">href</span>=<span class="str">"https://fonts.gstatic.com"</span> <span class="prop">crossorigin</span><span class="tag">&gt;</span>
+<span class="tag">&lt;link</span> <span class="prop">href</span>=<span class="str">"https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap"</span> <span class="prop">rel</span>=<span class="str">"stylesheet"</span><span class="tag">&gt;</span></pre></div>
+
+  <div style="margin-top:12px">
+  <div class="sub-lbl">src/styles/index.css — tambahkan di @layer base</div>
+  <div class="code-wrap"><button class="cp" onclick="cp(this)">Copy</button><pre class="code"><span class="cmt">/* Baris pertama di index.css — import mikhmon */</span>
+@<span class="kw">import</span> <span class="str">'./mikhmon.css'</span>;
+
+<span class="cmt">/* Di dalam @layer base {} */</span>
+<span class="tag">body</span> { font-family: <span class="str">'Plus Jakarta Sans'</span>, var(--font-inter), sans-serif; }
+<span class="tag">code, kbd, pre, .font-mono</span> { font-family: <span class="str">'JetBrains Mono'</span>, monospace; }</pre></div>
+  </div>
+
+  <div style="margin-top:20px" class="demo">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:baseline;gap:20px;padding-bottom:12px;border-bottom:1px solid var(--border)"><span style="font-family:var(--mono);font-size:11px;color:var(--muted);min-width:160px">Display · 28px · 800</span><span style="font-size:28px;font-weight:800;letter-spacing:-.02em">MIKHMON v3</span></div>
+      <div style="display:flex;align-items:baseline;gap:20px;padding-bottom:12px;border-bottom:1px solid var(--border)"><span style="font-family:var(--mono);font-size:11px;color:var(--muted);min-width:160px">H1 · 20px · 700</span><span style="font-size:20px;font-weight:700">Hotspot Management</span></div>
+      <div style="display:flex;align-items:baseline;gap:20px;padding-bottom:12px;border-bottom:1px solid var(--border)"><span style="font-family:var(--mono);font-size:11px;color:var(--muted);min-width:160px">Body · 14px · 400</span><span style="font-size:14px;color:var(--text2)">Active sessions, user profiles, traffic monitoring, voucher generation.</span></div>
+      <div style="display:flex;align-items:baseline;gap:20px;padding-bottom:12px;border-bottom:1px solid var(--border)"><span style="font-family:var(--mono);font-size:11px;color:var(--muted);min-width:160px">Small · 12px · 400</span><span style="font-size:12px;color:var(--muted)">Last sync 2s ago · Server: HS-01 · Connected</span></div>
+      <div style="display:flex;align-items:baseline;gap:20px"><span style="font-family:var(--mono);font-size:11px;color:var(--muted);min-width:160px">Mono · 13px · 500</span><span style="font-family:var(--mono);font-size:13px">192.168.88.1 · 5M/5M · A4:C3:F0:12:BE:9D · 24.6 Mbps</span></div>
+    </div>
+  </div>
+</section><hr class="div">
+
+<!-- ══ SIDEBAR ══ -->
+<section class="sec" id="sidebar-comp">
+  <div class="sec-lbl">Components</div>
+  <div class="sec-title">Sidebar</div>
+  <div class="sec-desc">shadcn-admin menggunakan Radix-based Sidebar dengan <span class="tk">SidebarMenuButton</span> yang aktif via <span class="tk">data-[active=true]</span>. Active state menggunakan <span class="tk">--sidebar-accent</span> token.</div>
+
+  <div class="demo demo-bg" style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap">
+    <div class="p-sidebar">
+      <div class="p-sb-brand">
+        <div style="width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;flex-shrink:0"><i class="fa fa-wifi"></i></div>
+        <div><div style="font-size:15px;font-weight:800;color:#fff">MIKHMON</div><div style="font-size:10px;color:rgba(255,255,255,.6)">Hotspot Monitor</div></div>
+      </div>
+      <div class="p-sb-lbl">Main</div>
+      <a class="p-sb-item active"><i class="fa fa-th-large" style="font-size:14px;min-width:18px"></i> Dashboard <span class="p-sb-badge">38</span></a>
+      <a class="p-sb-item"><i class="fa fa-wifi" style="font-size:14px;min-width:18px"></i> Hotspot</a>
+      <div class="p-sb-sub">
+        <a class="active">Users</a>
+        <a>Profiles</a>
+        <a>Active</a>
+      </div>
+      <a class="p-sb-item"><i class="fa fa-file-text" style="font-size:14px;min-width:18px"></i> Log</a>
+      <a class="p-sb-item"><i class="fa fa-money" style="font-size:14px;min-width:18px"></i> Report</a>
+      <div class="p-sb-lbl" style="margin-top:4px">System</div>
+      <a class="p-sb-item"><i class="fa fa-gear" style="font-size:14px;min-width:18px"></i> Settings</a>
+      <div class="p-sb-footer">
+        <span style="font-family:var(--mono);font-size:12px;color:var(--muted)"><i class="fa fa-hourglass-half"></i> 09:42</span>
+        <div style="display:flex;gap:6px">
+          <button style="width:26px;height:26px;border-radius:6px;background:var(--hover);border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:11px;display:flex;align-items:center;justify-content:center"><i class="fa fa-adjust"></i></button>
+          <button style="width:26px;height:26px;border-radius:6px;background:rgba(240,82,82,.1);border:1px solid rgba(240,82,82,.2);cursor:pointer;color:#f05252;font-size:11px;display:flex;align-items:center;justify-content:center"><i class="fa fa-sign-out"></i></button>
+        </div>
+      </div>
+    </div>
+    <div style="flex:1;min-width:200px">
+      <div class="sub-lbl">CSS tokens untuk active state</div>
+      <div class="code-wrap"><button class="cp" onclick="cp(this)">Copy</button><pre class="code"><span class="cmt">/* di theme.css — light */</span>
+<span class="prop">--sidebar-accent</span>:             <span class="str">oklch(0.94 0.01 210)</span>;
+<span class="prop">--sidebar-accent-foreground</span>:  <span class="str">oklch(0.62 0.13 210)</span>;
+
+<span class="cmt">/* dark */</span>
+<span class="prop">--sidebar-accent</span>:             <span class="str">oklch(0.18 0.025 250)</span>;
+<span class="prop">--sidebar-accent-foreground</span>:  <span class="str">oklch(0.72 0.14 210)</span>;</pre></div>
+    </div>
+  </div>
+</section><hr class="div">
+
+<!-- ══ BUTTONS ══ -->
+<section class="sec" id="buttons-comp">
+  <div class="sec-lbl">Components</div>
+  <div class="sec-title">Buttons</div>
+  <div class="sub-lbl">All Variants — Live Preview</div>
+  <div class="demo" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+    <button class="p-btn p-btn-primary"><i class="fa fa-save"></i> Save</button>
+    <button class="p-btn p-btn-success"><i class="fa fa-check"></i> Confirm</button>
+    <button class="p-btn p-btn-danger"><i class="fa fa-trash"></i> Remove</button>
+    <button class="p-btn p-btn-warning"><i class="fa fa-history"></i> Reset</button>
+    <button class="p-btn p-btn-secondary"><i class="fa fa-times"></i> Cancel</button>
+    <button class="p-btn p-btn-ghost"><i class="fa fa-download"></i> Export</button>
+    <button class="p-btn p-btn-outline"><i class="fa fa-print"></i> Print</button>
+  </div>
+  <div class="demo" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px">
+    <button class="p-btn p-btn-primary p-btn-lg"><i class="fa fa-save"></i> Large</button>
+    <button class="p-btn p-btn-primary"><i class="fa fa-save"></i> Default</button>
+    <button class="p-btn p-btn-primary p-btn-sm"><i class="fa fa-save"></i> Small</button>
+    <button class="p-btn p-btn-secondary p-btn-icon"><i class="fa fa-refresh"></i></button>
+    <button class="p-btn p-btn-primary" style="border-radius:99px"><i class="fa fa-ticket"></i> Pill</button>
+    <button class="p-btn p-btn-primary" disabled style="opacity:.5"><span class="p-spin" style="width:13px;height:13px;border-width:2px;border-top-color:#fff"></span> Loading</button>
+  </div>
+  <div class="code-wrap"><button class="cp" onclick="cp(this)">Copy</button><pre class="code"><span class="cmt">// src/components/ui/button.tsx — variant additions (cva)</span>
+<span class="prop">success</span>: <span class="str">'bg-emerald-500 text-white shadow-xs hover:bg-emerald-500/90'</span>,
+<span class="prop">warning</span>: <span class="str">'bg-amber-500 text-white shadow-xs hover:bg-amber-500/90'</span>,
+
+<span class="cmt">// Usage</span>
+&lt;<span class="tag">Button</span> <span class="prop">variant</span>=<span class="str">"default"</span>&gt;Save&lt;/<span class="tag">Button</span>&gt;
+&lt;<span class="tag">Button</span> <span class="prop">variant</span>=<span class="str">"destructive"</span>&gt;Delete&lt;/<span class="tag">Button</span>&gt;
+&lt;<span class="tag">Button</span> <span class="prop">variant</span>=<span class="str">"outline"</span>&gt;Cancel&lt;/<span class="tag">Button</span>&gt;
+&lt;<span class="tag">Button</span> <span class="prop">variant</span>=<span class="str">"ghost"</span> <span class="prop">size</span>=<span class="str">"icon"</span>&gt;&lt;<span class="tag">RefreshCw</span> /&gt;&lt;/<span class="tag">Button</span>&gt;
+&lt;<span class="tag">Button</span> <span class="prop">disabled</span> <span class="prop">className</span>=<span class="str">"gap-2"</span>&gt;
+  &lt;<span class="tag">Loader2</span> <span class="prop">className</span>=<span class="str">"animate-spin size-4"</span> /&gt; Saving...
+&lt;/<span class="tag">Button</span>&gt;</pre></div>
+</section><hr class="div">
+
+<!-- ══ BADGES ══ -->
+<section class="sec" id="badges-comp">
+  <div class="sec-lbl">Components</div>
+  <div class="sec-title">Badges — Hotspot Status</div>
+  <div class="sub-lbl">Live Preview</div>
+  <div class="demo" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+    <span class="p-badge pb-success"><span class="p-bdot"></span>online</span>
+    <span class="p-badge pb-danger"><span class="p-bdot"></span>expired</span>
+    <span class="p-badge pb-warning"><span class="p-bdot"></span>idle</span>
+    <span class="p-badge pb-default"><span class="p-bdot"></span>active</span>
+    <span class="p-badge pb-secondary"><span class="p-bdot"></span>bypassed</span>
+    <span class="p-badge pb-outline">authorized</span>
+    <span class="p-badge" style="background:rgba(124,58,237,.1);color:#6d28d9"><span class="p-bdot"></span>admin</span>
+  </div>
+  <div class="code-wrap"><button class="cp" onclick="cp(this)">Copy</button><pre class="code"><span class="cmt">// src/components/ui/badge.tsx — tambah varian</span>
+<span class="prop">online</span>:   <span class="str">'border-transparent bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'</span>,
+<span class="prop">expired</span>:  <span class="str">'border-transparent bg-red-500/10 text-red-700 dark:text-red-400'</span>,
+<span class="prop">idle</span>:     <span class="str">'border-transparent bg-amber-500/10 text-amber-700 dark:text-amber-400'</span>,
+<span class="prop">offline</span>:  <span class="str">'border-transparent bg-muted text-muted-foreground'</span>,
+
+<span class="cmt">// Usage</span>
+&lt;<span class="tag">Badge</span> <span class="prop">variant</span>=<span class="str">"online"</span>&gt;online&lt;/<span class="tag">Badge</span>&gt;
+&lt;<span class="tag">Badge</span> <span class="prop">variant</span>=<span class="str">"expired"</span>&gt;expired&lt;/<span class="tag">Badge</span>&gt;
+&lt;<span class="tag">Badge</span> <span class="prop">variant</span>=<span class="str">"idle"</span>&gt;idle&lt;/<span class="tag">Badge</span>&gt;</pre></div>
+</section><hr class="div">
+
+<!-- ══ CARDS ══ -->
+<section class="sec" id="cards-comp">
+  <div class="sec-lbl">Components</div>
+  <div class="sec-title">Cards &amp; Tabs</div>
+  <div class="sub-lbl">Live Preview</div>
+  <div class="demo">
+    <div class="p-card">
+      <div class="p-card-hdr">
+        <i class="fa fa-wifi" style="color:var(--accent)"></i>
+        <span>Hotspot</span>
+        <span class="p-tab active" style="margin-left:4px">Users</span>
+        <span class="p-tab">Profiles</span>
+        <span class="p-tab">Active</span>
+        <span class="p-tab">Hosts</span>
+      </div>
+      <div class="p-card-body" style="color:var(--muted);font-size:13px">Card body content — background: <span class="tk">--card</span></div>
+      <div class="p-card-ftr"><i class="fa fa-circle" style="color:#4dbd74;font-size:9px"></i> Connected · 2s ago · HS-01</div>
+    </div>
+  </div>
+  <div class="code-wrap"><button class="cp" onclick="cp(this)">Copy</button><pre class="code"><span class="cmt">// shadcn Card — tidak perlu diubah, token sudah override</span>
+&lt;<span class="tag">Card</span>&gt;
+  &lt;<span class="tag">CardHeader</span>&gt;
+    &lt;<span class="tag">CardTitle</span> <span class="prop">className</span>=<span class="str">"flex items-center gap-2"</span>&gt;
+      &lt;<span class="tag">Wifi</span> <span class="prop">className</span>=<span class="str">"size-4 text-primary"</span> /&gt;
+      Hotspot
+    &lt;/<span class="tag">CardTitle</span>&gt;
+  &lt;/<span class="tag">CardHeader</span>&gt;
+  &lt;<span class="tag">CardContent</span>&gt;...&lt;/<span class="tag">CardContent</span>&gt;
+  &lt;<span class="tag">CardFooter</span> <span class="prop">className</span>=<span class="str">"text-xs text-muted-foreground"</span>&gt;
+    Connected · 2s ago
+  &lt;/<span class="tag">CardFooter</span>&gt;
+&lt;/<span class="tag">Card</span>&gt;
+
+<span class="cmt">// Tabs dengan card header style</span>
+&lt;<span class="tag">Tabs</span> <span class="prop">defaultValue</span>=<span class="str">"users"</span>&gt;
+  &lt;<span class="tag">TabsList</span> <span class="prop">className</span>=<span class="str">"border-b rounded-none bg-transparent h-auto p-0"</span>&gt;
+    &lt;<span class="tag">TabsTrigger</span> <span class="prop">value</span>=<span class="str">"users"</span>&gt;Users&lt;/<span class="tag">TabsTrigger</span>&gt;
+    &lt;<span class="tag">TabsTrigger</span> <span class="prop">value</span>=<span class="str">"active"</span>&gt;Active&lt;/<span class="tag">TabsTrigger</span>&gt;
+  &lt;/<span class="tag">TabsList</span>&gt;
+  &lt;<span class="tag">TabsContent</span> <span class="prop">value</span>=<span class="str">"users"</span>&gt;...&lt;/<span class="tag">TabsContent</span>&gt;
+&lt;/<span class="tag">Tabs</span>&gt;</pre></div>
+</section><hr class="div">
+
+<!-- ══ INPUTS ══ -->
+<section class="sec" id="inputs-comp">
+  <div class="sec-lbl">Components</div>
+  <div class="sec-title">Inputs &amp; Forms</div>
+  <div class="sub-lbl">Live Preview</div>
+  <div class="demo">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div>
+        <label class="p-label">Username</label>
+        <input class="p-input" placeholder="e.g. user0042" type="text">
+      </div>
+      <div>
+        <label class="p-label">Password</label>
+        <div class="p-input-grp"><div class="p-addon"><i class="fa fa-lock"></i></div><input class="p-input" placeholder="••••••••" type="password"></div>
+      </div>
+      <div>
+        <label class="p-label">Profile</label>
+        <select class="p-select"><option>5M/5M — Rp 10,000</option><option>10M/10M</option><option>Unlimited</option></select>
+      </div>
+      <div>
+        <label class="p-label">Server</label>
+        <select class="p-select"><option>all</option><option>HS-01</option><option>HS-02</option></select>
+      </div>
+      <div>
+        <label class="p-label" style="color:var(--danger)">Error state</label>
+        <input class="p-input err" value="invalid-mac" type="text">
+        <div class="p-hint" style="color:var(--danger)"><i class="fa fa-exclamation-circle"></i> Invalid MAC format</div>
+      </div>
+      <div>
+        <label class="p-label" style="color:var(--success)">Valid state</label>
+        <input class="p-input ok" value="joko92" type="text">
+        <div class="p-hint" style="color:var(--success)"><i class="fa fa-check-circle"></i> Username available</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:16px;flex-wrap:wrap">
+      <label class="p-chk-row on"><div class="p-chk"><i class="fa fa-check"></i></div><span style="font-size:13px">Lock to MAC</span></label>
+      <label class="p-chk-row"><div class="p-chk"></div><span style="font-size:13px">Lock to Server</span></label>
+      <label class="p-chk-row on"><div class="p-chk"><i class="fa fa-check"></i></div><span style="font-size:13px">Send expire notice</span></label>
+    </div>
+  </div>
+  <div class="code-wrap"><button class="cp" onclick="cp(this)">Copy</button><pre class="code"><span class="cmt">// shadcn Input — tidak perlu diubah</span>
+&lt;<span class="tag">div</span> <span class="prop">className</span>=<span class="str">"flex flex-col gap-1.5"</span>&gt;
+  &lt;<span class="tag">Label</span> <span class="prop">htmlFor</span>=<span class="str">"username"</span>&gt;Username&lt;/<span class="tag">Label</span>&gt;
+  &lt;<span class="tag">Input</span> <span class="prop">id</span>=<span class="str">"username"</span> <span class="prop">placeholder</span>=<span class="str">"e.g. user0042"</span> /&gt;
+&lt;/<span class="tag">div</span>&gt;
+
+<span class="cmt">// Input dengan icon prefix</span>
+&lt;<span class="tag">div</span> <span class="prop">className</span>=<span class="str">"relative"</span>&gt;
+  &lt;<span class="tag">Lock</span> <span class="prop">className</span>=<span class="str">"absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"</span> /&gt;
+  &lt;<span class="tag">Input</span> <span class="prop">type</span>=<span class="str">"password"</span> <span class="prop">className</span>=<span class="str">"pl-9"</span> /&gt;
+&lt;/<span class="tag">div</span>&gt;
+
+<span class="cmt">// Error state (react-hook-form)</span>
+&lt;<span class="tag">Input</span> <span class="prop">aria-invalid</span>={!!errors.mac} /&gt;
+<span class="cmt">// aria-invalid adds red border via CSS: aria-invalid:border-destructive</span>
+
+<span class="cmt">// Checkbox</span>
+&lt;<span class="tag">div</span> <span class="prop">className</span>=<span class="str">"flex items-center gap-2"</span>&gt;
+  &lt;<span class="tag">Checkbox</span> <span class="prop">id</span>=<span class="str">"lock"</span> /&gt;
+  &lt;<span class="tag">Label</span> <span class="prop">htmlFor</span>=<span class="str">"lock"</span>&gt;Lock to MAC&lt;/<span class="tag">Label</span>&gt;
+&lt;/<span class="tag">div</span>&gt;</pre></div>
+</section><hr class="div">
+
+<!-- ══ TABLES ══ -->
+<section class="sec" id="tables-comp">
+  <div class="sec-lbl">Components</div>
+  <div class="sec-title">Tables</div>
+  <div class="demo" style="padding:0;overflow:hidden">
+    <div style="overflow-x:auto">
+      <table class="p-table">
+        <thead>
+          <tr><th>Status</th><th>Name</th><th>Profile</th><th>MAC Address</th><th>Uptime</th><th>Bytes In</th><th></th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="p-badge pb-success"><span class="p-bdot"></span>online</span></td>
+            <td style="font-weight:600">joko92</td><td>5M/5M</td>
+            <td class="mono">A4:C3:F0:12:BE:9D</td>
+            <td class="mono">02:14:35</td><td class="mono">142 MB</td>
+            <td><button class="p-btn p-btn-sm p-btn-secondary p-btn-icon"><i class="fa fa-edit"></i></button></td>
+          </tr>
+          <tr>
+            <td><span class="p-badge pb-danger"><span class="p-bdot"></span>expired</span></td>
+            <td style="font-weight:600">vcr0014</td><td>1M/1M</td>
+            <td class="mono">B2:A0:11:FE:CC:01</td>
+            <td class="mono">—</td><td class="mono">—</td>
+            <td><button class="p-btn p-btn-sm p-btn-danger p-btn-icon"><i class="fa fa-trash"></i></button></td>
+          </tr>
+          <tr>
+            <td><span class="p-badge pb-warning"><span class="p-bdot"></span>idle</span></td>
+            <td style="font-weight:600">budi2025</td><td>10M/10M</td>
+            <td class="mono">C0:FF:EE:00:11:22</td>
+            <td class="mono">00:42:11</td><td class="mono">28 MB</td>
+            <td><button class="p-btn p-btn-sm p-btn-secondary p-btn-icon"><i class="fa fa-edit"></i></button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12px;color:var(--muted)">Showing 3 of 142 users</span>
+      <div class="p-page">
+        <div class="p-pg dis"><i class="fa fa-chevron-left" style="font-size:11px"></i></div>
+        <div class="p-pg active">1</div>
+        <div class="p-pg">2</div>
+        <div class="p-pg">3</div>
+        <div class="p-pg" style="font-size:11px">…</div>
+        <div class="p-pg">10</div>
+        <div class="p-pg"><i class="fa fa-chevron-right" style="font-size:11px"></i></div>
+      </div>
+    </div>
+  </div>
+  <div class="code-wrap"><button class="cp" onclick="cp(this)">Copy</button><pre class="code"><span class="cmt">// shadcn Table + MIKHMON Badge</span>
+&lt;<span class="tag">Table</span>&gt;
+  &lt;<span class="tag">TableHeader</span>&gt;
+    &lt;<span class="tag">TableRow</span>&gt;
+      &lt;<span class="tag">TableHead</span>&gt;Status&lt;/<span class="tag">TableHead</span>&gt;
+      &lt;<span class="tag">TableHead</span>&gt;Name&lt;/<span class="tag">TableHead</span>&gt;
+      &lt;<span class="tag">TableHead</span>&gt;Profile&lt;/<span class="tag">TableHead</span>&gt;
+      &lt;<span class="tag">TableHead</span>&gt;MAC Address&lt;/<span class="tag">TableHead</span>&gt;
+    &lt;/<span class="tag">TableRow</span>&gt;
+  &lt;/<span class="tag">TableHeader</span>&gt;
+  &lt;<span class="tag">TableBody</span>&gt;
+    {users.map(user => (
+      &lt;<span class="tag">TableRow</span> <span class="prop">key</span>={user.id}&gt;
+        &lt;<span class="tag">TableCell</span>&gt;
+          &lt;<span class="tag">Badge</span> <span class="prop">variant</span>={user.status}&gt;{user.status}&lt;/<span class="tag">Badge</span>&gt;
+        &lt;/<span class="tag">TableCell</span>&gt;
+        &lt;<span class="tag">TableCell</span> <span class="prop">className</span>=<span class="str">"font-semibold"</span>&gt;{user.name}&lt;/<span class="tag">TableCell</span>&gt;
+        &lt;<span class="tag">TableCell</span>&gt;{user.profile}&lt;/<span class="tag">TableCell</span>&gt;
+        &lt;<span class="tag">TableCell</span> <span class="prop">className</span>=<span class="str">"font-mono text-sm"</span>&gt;{user.mac}&lt;/<span class="tag">TableCell</span>&gt;
+      &lt;/<span class="tag">TableRow</span>&gt;
+    ))}
+  &lt;/<span class="tag">TableBody</span>&gt;
+&lt;/<span class="tag">Table</span>&gt;</pre></div>
+</section><hr class="div">
+
+<!-- ══ PROGRESS ══ -->
+<section class="sec" id="progress-comp">
+  <div class="sec-lbl">Components</div>
+  <div class="sec-title">Progress Bars</div>
+  <div class="demo" style="display:flex;flex-direction:column;gap:20px">
+    <div>
+      <div class="p-prog-lbl"><span style="font-weight:600">CPU Load</span><span>34%</span></div>
+      <div class="p-prog-track"><div class="p-prog-bar" style="width:34%;background:var(--accent)"></div></div>
+    </div>
+    <div>
+      <div class="p-prog-lbl"><span style="font-weight:600">Memory</span><span style="color:var(--warning);font-weight:600">68%</span></div>
+      <div class="p-prog-track"><div class="p-prog-bar" style="width:68%;background:var(--warning)"></div></div>
+    </div>
+    <div>
+      <div class="p-prog-lbl"><span style="font-weight:600;color:var(--danger)">HDD</span><span style="color:var(--danger);font-weight:700">82% — High</span></div>
+      <div class="p-prog-track"><div class="p-prog-bar" style="width:82%;background:var(--danger)"></div></div>
+    </div>
+  </div>
+  <div class="code-wrap"><button class="cp" onclick="cp(this)">Copy</button><pre class="code"><span class="cmt">// Dengan mk-progress dari mikhmon.css</span>
+<span class="kw">function</span> <span class="fn">ResourceBar</span>({ label, value }: { label: <span class="kw">string</span>; value: <span class="kw">number</span> }) {
+  <span class="kw">const</span> cls = value >= <span class="num">80</span> ? <span class="str">'danger'</span> : value >= <span class="num">60</span> ? <span class="str">'warn'</span> : <span class="str">''</span>
+  <span class="kw">return</span> (
+    &lt;<span class="tag">div</span> <span class="prop">className</span>=<span class="str">"space-y-1.5"</span>&gt;
+      &lt;<span class="tag">div</span> <span class="prop">className</span>=<span class="str">"flex justify-between text-sm"</span>&gt;
+        &lt;<span class="tag">span</span> <span class="prop">className</span>=<span class="str">"font-semibold"</span>&gt;{label}&lt;/<span class="tag">span</span>&gt;
+        &lt;<span class="tag">span</span> <span class="prop">className</span>=<span class="str">"font-mono text-muted-foreground"</span>&gt;{value}%&lt;/<span class="tag">span</span>&gt;
+      &lt;/<span class="tag">div</span>&gt;
+      &lt;<span class="tag">div</span> <span class="prop">className</span>=<span class="str">"mk-progress"</span>&gt;
+        &lt;<span class="tag">div</span> <span class="prop">className</span>={<span class="str">`mk-progress-fill ${cls}`</span>} <span class="prop">style</span>={{ width: <span class="str">`${value}%`</span> }} /&gt;
+      &lt;/<span class="tag">div</span>&gt;
+    &lt;/<span class="tag">div</span>&gt;
+  )
+}</pre></div>
+</section><hr class="div">
+
+<!-- ══ ALERTS ══ -->
+<section class="sec" id="alerts-comp">
+  <div class="sec-lbl">Components</div>
+  <div class="sec-title">Alerts &amp; Toasts</div>
+  <div class="sub-lbl">Inline Alerts</div>
+  <div class="demo" style="display:flex;flex-direction:column;gap:0">
+    <div class="p-alert pa-ok"><i class="fa fa-check-circle" style="color:#4dbd74;flex-shrink:0;margin-top:2px"></i><div><div class="p-alert-title">User saved</div><div class="p-alert-body">joko92 added to HS-01 · Profile: 5M/5M</div></div></div>
+    <div class="p-alert pa-warn"><i class="fa fa-exclamation-triangle" style="color:var(--warning);flex-shrink:0;margin-top:2px"></i><div><div class="p-alert-title">Session expiring</div><div class="p-alert-body">vcr0014 has 5 minutes remaining.</div></div></div>
+    <div class="p-alert pa-err"><i class="fa fa-times-circle" style="color:var(--danger);flex-shrink:0;margin-top:2px"></i><div><div class="p-alert-title">Connection failed</div><div class="p-alert-body">Unable to connect to 192.168.88.1 · Check API port 8728.</div></div></div>
+    <div class="p-alert pa-info" style="margin-bottom:0"><i class="fa fa-info-circle" style="color:var(--accent);flex-shrink:0;margin-top:2px"></i><div><div class="p-alert-title">Expire monitor active</div><div class="p-alert-body">Checking for expired users every 60 seconds.</div></div></div>
+  </div>
+  <div class="sub-lbl" style="margin-top:16px">Sonner Toasts (sudah ada di project)</div>
+  <div class="demo" style="display:flex;flex-direction:column;gap:8px">
+    <div class="p-toast">
+      <div class="p-toast-icon" style="background:rgba(77,189,116,.12)"><i class="fa fa-check" style="color:#4dbd74;font-size:14px"></i></div>
+      <div><div class="p-toast-title">Voucher generated</div><div class="p-toast-body">10 vouchers · Profile: 5M/5M · Batch 3</div></div>
+      <div style="margin-left:auto;color:var(--faint);cursor:pointer"><i class="fa fa-times"></i></div>
+    </div>
+    <div class="p-toast">
+      <div class="p-toast-icon" style="background:rgba(240,82,82,.12)"><i class="fa fa-times" style="color:var(--danger);font-size:14px"></i></div>
+      <div><div class="p-toast-title">Router disconnected</div><div class="p-toast-body">Lost connection to HS-01 · Retrying in 5s...</div></div>
+      <div style="margin-left:auto;color:var(--faint);cursor:pointer"><i class="fa fa-times"></i></div>
+    </div>
+  </div>
+  <div class="code-wrap"><button class="cp" onclick="cp(this)">Copy</button><pre class="code"><span class="cmt">// shadcn Alert component</span>
+&lt;<span class="tag">Alert</span> <span class="prop">variant</span>=<span class="str">"destructive"</span>&gt;
+  &lt;<span class="tag">AlertCircle</span> <span class="prop">className</span>=<span class="str">"h-4 w-4"</span> /&gt;
+  &lt;<span class="tag">AlertTitle</span>&gt;Connection failed&lt;/<span class="tag">AlertTitle</span>&gt;
+  &lt;<span class="tag">AlertDescription</span>&gt;Unable to connect to 192.168.88.1&lt;/<span class="tag">AlertDescription</span>&gt;
+&lt;/<span class="tag">Alert</span>&gt;
+
+<span class="cmt">// Sonner toast (sudah ada di project — sonner package)</span>
+<span class="kw">import</span> { toast } <span class="kw">from</span> <span class="str">'sonner'</span>
+toast.success(<span class="str">'Voucher generated'</span>, { description: <span class="str">'10 vouchers · 5M/5M'</span> })
+toast.error(<span class="str">'Router disconnected'</span>, { description: <span class="str">'HS-01 · Retrying...'</span> })
+toast.warning(<span class="str">'Session expiring'</span>, { description: <span class="str">'5 min remaining'</span> })</pre></div>
+</section><hr class="div">
+
+<!-- ══ MODALS ══ -->
+<section class="sec" id="modals-comp">
+  <div class="sec-lbl">Components</div>
+  <div class="sec-title">Modals &amp; Dialogs</div>
+  <div class="demo">
+    <div class="p-modal-bg">
+      <div class="p-modal">
+        <div class="p-modal-hdr">
+          <div style="font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px"><i class="fa fa-user-plus" style="color:var(--accent)"></i> Add User</div>
+          <div style="color:var(--faint);cursor:pointer"><i class="fa fa-times"></i></div>
+        </div>
+        <div class="p-modal-tabs">
+          <span class="p-tab active">General</span>
+          <span class="p-tab">Details</span>
+        </div>
+        <div class="p-modal-body">
+          <div style="margin-bottom:12px"><label class="p-label">Username</label><input class="p-input" placeholder="auto-generated" type="text"></div>
+          <div style="margin-bottom:12px"><label class="p-label">Profile</label><select class="p-select"><option>5M/5M — Rp 10,000</option></select></div>
+          <div><label class="p-label">Server</label><select class="p-select"><option>all</option><option>HS-01</option></select></div>
+        </div>
+        <div class="p-modal-ftr">
+          <button class="p-btn p-btn-sm p-btn-secondary">Cancel</button>
+          <button class="p-btn p-btn-sm p-btn-primary"><i class="fa fa-save"></i> Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="code-wrap"><button class="cp" onclick="cp(this)">Copy</button><pre class="code"><span class="cmt">// shadcn Dialog — tidak perlu diubah</span>
+&lt;<span class="tag">Dialog</span>&gt;
+  &lt;<span class="tag">DialogTrigger</span> <span class="prop">asChild</span>&gt;
+    &lt;<span class="tag">Button</span>&gt;&lt;<span class="tag">UserPlus</span> /&gt; Add User&lt;/<span class="tag">Button</span>&gt;
+  &lt;/<span class="tag">DialogTrigger</span>&gt;
+  &lt;<span class="tag">DialogContent</span> <span class="prop">className</span>=<span class="str">"sm:max-w-[400px]"</span>&gt;
+    &lt;<span class="tag">DialogHeader</span>&gt;
+      &lt;<span class="tag">DialogTitle</span> <span class="prop">className</span>=<span class="str">"flex items-center gap-2"</span>&gt;
+        &lt;<span class="tag">UserPlus</span> <span class="prop">className</span>=<span class="str">"size-4 text-primary"</span> /&gt;
+        Add User
+      &lt;/<span class="tag">DialogTitle</span>&gt;
+    &lt;/<span class="tag">DialogHeader</span>&gt;
+    <span class="cmt">/* Tabs inside dialog */</span>
+    &lt;<span class="tag">Tabs</span> <span class="prop">defaultValue</span>=<span class="str">"general"</span>&gt;
+      &lt;<span class="tag">TabsList</span>&gt;
+        &lt;<span class="tag">TabsTrigger</span> <span class="prop">value</span>=<span class="str">"general"</span>&gt;General&lt;/<span class="tag">TabsTrigger</span>&gt;
+        &lt;<span class="tag">TabsTrigger</span> <span class="prop">value</span>=<span class="str">"details"</span>&gt;Details&lt;/<span class="tag">TabsTrigger</span>&gt;
+      &lt;/<span class="tag">TabsList</span>&gt;
+      &lt;<span class="tag">TabsContent</span> <span class="prop">value</span>=<span class="str">"general"</span>&gt;...&lt;/<span class="tag">TabsContent</span>&gt;
+    &lt;/<span class="tag">Tabs</span>&gt;
+    &lt;<span class="tag">DialogFooter</span>&gt;
+      &lt;<span class="tag">Button</span> <span class="prop">variant</span>=<span class="str">"outline"</span>&gt;Cancel&lt;/<span class="tag">Button</span>&gt;
+      &lt;<span class="tag">Button</span>&gt;&lt;<span class="tag">Save</span> /&gt; Save&lt;/<span class="tag">Button</span>&gt;
+    &lt;/<span class="tag">DialogFooter</span>&gt;
+  &lt;/<span class="tag">DialogContent</span>&gt;
+&lt;/<span class="tag">Dialog</span>&gt;</pre></div>
+</section><hr class="div">
+
+<!-- ══ DROPDOWN ══ -->
+<section class="sec" id="dropdown-comp">
+  <div class="sec-lbl">Components</div>
+  <div class="sec-title">Dropdown &amp; Tooltips</div>
+  <div class="demo" style="display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start">
+    <div>
+      <div class="sub-lbl">Dropdown Menu</div>
+      <div class="p-dd">
+        <div class="p-dd-item"><i class="fa fa-edit"></i> Edit User</div>
+        <div class="p-dd-item"><i class="fa fa-history"></i> Reset Session</div>
+        <div class="p-dd-item"><i class="fa fa-print"></i> Print Voucher</div>
+        <div class="p-dd-sep"></div>
+        <div class="p-dd-item" style="color:var(--danger)"><i class="fa fa-trash" style="color:var(--danger)"></i> Remove User</div>
+      </div>
+    </div>
+    <div>
+      <div class="sub-lbl">Tooltip</div>
+      <div class="p-tip-wrap" style="display:inline-block;margin-top:20px">
+        <button class="p-btn p-btn-secondary"><i class="fa fa-question-circle"></i> Rate Limit</button>
+        <div class="p-tip">Format: <strong>5M/5M</strong> (up/down)</div>
+      </div>
+    </div>
+    <div>
+      <div class="sub-lbl">Keyboard Shortcut</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:20px;font-size:13px;color:var(--muted)">
+        Toggle sidebar <span class="p-kbd">⌘</span><span class="p-kbd">B</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:13px;color:var(--muted)">
+        Command menu <span class="p-kbd">⌘</span><span class="p-kbd">K</span>
+      </div>
+    </div>
+  </div>
+  <div class="code-wrap"><button class="cp" onclick="cp(this)">Copy</button><pre class="code"><span class="cmt">// DropdownMenu untuk row actions</span>
+&lt;<span class="tag">DropdownMenu</span>&gt;
+  &lt;<span class="tag">DropdownMenuTrigger</span> <span class="prop">asChild</span>&gt;
+    &lt;<span class="tag">Button</span> <span class="prop">variant</span>=<span class="str">"ghost"</span> <span class="prop">size</span>=<span class="str">"icon"</span>&gt;&lt;<span class="tag">MoreHorizontal</span> /&gt;&lt;/<span class="tag">Button</span>&gt;
+  &lt;/<span class="tag">DropdownMenuTrigger</span>&gt;
+  &lt;<span class="tag">DropdownMenuContent</span> <span class="prop">align</span>=<span class="str">"end"</span>&gt;
+    &lt;<span class="tag">DropdownMenuItem</span>&gt;&lt;<span class="tag">Pencil</span> /&gt; Edit User&lt;/<span class="tag">DropdownMenuItem</span>&gt;
+    &lt;<span class="tag">DropdownMenuItem</span>&gt;&lt;<span class="tag">History</span> /&gt; Reset Session&lt;/<span class="tag">DropdownMenuItem</span>&gt;
+    &lt;<span class="tag">DropdownMenuSeparator</span> /&gt;
+    &lt;<span class="tag">DropdownMenuItem</span> <span class="prop">variant</span>=<span class="str">"destructive"</span>&gt;
+      &lt;<span class="tag">Trash2</span> /&gt; Remove User
+    &lt;/<span class="tag">DropdownMenuItem</span>&gt;
+  &lt;/<span class="tag">DropdownMenuContent</span>&gt;
+&lt;/<span class="tag">DropdownMenu</span>&gt;
+
+<span class="cmt">// Tooltip</span>
+&lt;<span class="tag">Tooltip</span>&gt;
+  &lt;<span class="tag">TooltipTrigger</span> <span class="prop">asChild</span>&gt;&lt;<span class="tag">Button</span> <span class="prop">variant</span>=<span class="str">"ghost"</span> <span class="prop">size</span>=<span class="str">"icon"</span>&gt;&lt;<span class="tag">HelpCircle</span> /&gt;&lt;/<span class="tag">Button</span>&gt;&lt;/<span class="tag">TooltipTrigger</span>&gt;
+  &lt;<span class="tag">TooltipContent</span>&gt;Format: 5M/5M (up/down)&lt;/<span class="tag">TooltipContent</span>&gt;
+&lt;/<span class="tag">Tooltip</span>&gt;</pre></div>
+</section><hr class="div">
+
+<!-- ══ MISC ══ -->
+<section class="sec" id="misc-comp">
+  <div class="sec-lbl">Components</div>
+  <div class="sec-title">Misc — Switch, Avatar, Spinner, Command</div>
+  <div class="demo" style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start">
+    <div>
+      <div class="sub-lbl">Switch</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px"><div class="p-switch on"></div><span style="font-size:13px">Expire monitor enabled</span></div>
+        <div style="display:flex;align-items:center;gap:10px"><div class="p-switch off"></div><span style="font-size:13px">Lock to MAC</span></div>
+      </div>
+    </div>
+    <div>
+      <div class="sub-lbl">Avatar</div>
+      <div style="display:flex;gap:8px">
+        <div class="p-avatar" style="background:#20a8d8;color:#fff">MK</div>
+        <div class="p-avatar" style="background:var(--hover);border:1.5px solid var(--border)"><i class="fa fa-user" style="color:var(--muted)"></i></div>
+        <div class="p-avatar" style="background:#4dbd74;color:#fff;border-radius:50%">AD</div>
+      </div>
+    </div>
+    <div>
+      <div class="sub-lbl">Spinners</div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div class="p-spin" style="width:16px;height:16px;border-width:2px"></div>
+        <div class="p-spin" style="width:24px;height:24px;border-width:2.5px"></div>
+        <div class="p-spin" style="width:36px;height:36px;border-width:3px"></div>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:16px">
+    <div class="sub-lbl">Command / Search (cmd+K)</div>
+    <div class="p-cmd" style="max-width:380px">
+      <div class="p-cmd-hdr">
+        <i class="fa fa-search" style="color:var(--faint);font-size:14px"></i>
+        <input placeholder="Search users, vouchers, profiles...">
+        <span class="p-kbd">Esc</span>
+      </div>
+      <div style="padding:6px 4px">
+        <div class="p-cmd-sec">Users</div>
+        <div class="p-cmd-item sel"><i class="fa fa-user"></i> joko92 <span style="margin-left:auto;font-size:11px;opacity:.7">5M/5M</span></div>
+        <div class="p-cmd-item"><i class="fa fa-user"></i> budi2025 <span style="margin-left:auto;font-size:11px;opacity:.7">10M/10M</span></div>
+        <div class="p-cmd-sec">Actions</div>
+        <div class="p-cmd-item"><i class="fa fa-user-plus"></i> Add new user</div>
+        <div class="p-cmd-item"><i class="fa fa-ticket"></i> Generate vouchers</div>
+      </div>
+    </div>
+  </div>
+</section><hr class="div">
+
+<!-- ══ STAT BOXES ══ -->
+<section class="sec" id="stat-boxes">
+  <div class="sec-lbl">Features</div>
+  <div class="sec-title">Stat Boxes — Dashboard KPI</div>
+  <div class="sub-lbl">Live Preview</div>
+  <div class="demo" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+    <div class="p-stat" style="background:linear-gradient(135deg,#f05252,#d1214d)">
+      <div class="p-stat-lbl">Active</div>
+      <div class="p-stat-val">38</div>
+      <div class="p-stat-sub">Live sessions</div>
+      <div class="p-stat-icon"><i class="fa fa-wifi"></i></div>
+    </div>
+    <div class="p-stat" style="background:linear-gradient(135deg,#f59e0b,#d97706)">
+      <div class="p-stat-lbl">Users</div>
+      <div class="p-stat-val">142</div>
+      <div class="p-stat-sub">Registered</div>
+      <div class="p-stat-icon"><i class="fa fa-users"></i></div>
+    </div>
+    <div class="p-stat" style="background:linear-gradient(135deg,#14b8a6,#4dbd74)">
+      <div class="p-stat-lbl">Income</div>
+      <div style="font-size:11px;opacity:.7;margin-bottom:2px">This month</div>
+      <div style="font-size:22px;font-weight:800;line-height:1">Rp 1.2M</div>
+      <div style="font-size:10px;opacity:.7;margin:4px 0 2px">Today</div>
+      <div style="font-size:16px;font-weight:700">Rp 85K</div>
+      <div class="p-stat-icon"><i class="fa fa-money"></i></div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px">
+    <div class="p-stat" style="background:linear-gradient(135deg,#0ea5e9,#0284c7)">
+      <div class="p-stat-lbl">Download (RX)</div>
+      <div class="p-stat-val">24.6</div>
+      <div class="p-stat-sub">Mbps</div>
+      <div class="p-stat-icon"><i class="fa fa-arrow-down"></i></div>
+    </div>
+    <div class="p-stat" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">
+      <div class="p-stat-lbl">Upload (TX)</div>
+      <div class="p-stat-val">8.2</div>
+      <div class="p-stat-sub">Mbps</div>
+      <div class="p-stat-icon"><i class="fa fa-arrow-up"></i></div>
+    </div>
+  </div>
+  <div class="code-wrap"><button class="cp" onclick="cp(this)">Copy</button><pre class="code"><span class="cmt">// src/features/dashboard/index.tsx
+// Ganti grid stat cards dengan ini:</span>
+
+<span class="kw">const</span> stats = [
+  { label: <span class="str">'Active'</span>, value: <span class="num">38</span>, sub: <span class="str">'Live sessions'</span>, icon: Wifi,    cls: <span class="str">'mk-stat-red'</span>   },
+  { label: <span class="str">'Users'</span>,  value: <span class="num">142</span>, sub: <span class="str">'Registered'</span>,   icon: Users,   cls: <span class="str">'mk-stat-amber'</span> },
+]
+
+&lt;<span class="tag">div</span> <span class="prop">className</span>=<span class="str">"grid gap-4 sm:grid-cols-2 lg:grid-cols-3"</span>&gt;
+  {stats.map(s =&gt; (
+    &lt;<span class="tag">div</span> <span class="prop">key</span>={s.label} <span class="prop">className</span>={<span class="str">`${s.cls} rounded-xl p-4 text-white shadow-md relative overflow-hidden`</span>}&gt;
+      &lt;<span class="tag">p</span> <span class="prop">className</span>=<span class="str">"text-xs font-bold uppercase tracking-widest opacity-75 mb-1"</span>&gt;{s.label}&lt;/<span class="tag">p</span>&gt;
+      &lt;<span class="tag">p</span> <span class="prop">className</span>=<span class="str">"text-4xl font-extrabold tracking-tight"</span>&gt;{s.value}&lt;/<span class="tag">p</span>&gt;
+      &lt;<span class="tag">p</span> <span class="prop">className</span>=<span class="str">"text-xs mt-1 opacity-75"</span>&gt;{s.sub}&lt;/<span class="tag">p</span>&gt;
+      &lt;<span class="tag">s.icon</span> <span class="prop">className</span>=<span class="str">"absolute right-3 top-1/2 -translate-y-1/2 size-10 opacity-20"</span> /&gt;
+    &lt;/<span class="tag">div</span>&gt;
+  ))}
+  <span class="cmt">{/* Income box dengan dua nilai */}</span>
+  &lt;<span class="tag">div</span> <span class="prop">className</span>=<span class="str">"mk-stat-teal rounded-xl p-4 text-white shadow-md"</span>&gt;
+    &lt;<span class="tag">p</span> <span class="prop">className</span>=<span class="str">"text-xs font-bold uppercase tracking-widest opacity-75 mb-1"</span>&gt;Income&lt;/<span class="tag">p</span>&gt;
+    &lt;<span class="tag">p</span> <span class="prop">className</span>=<span class="str">"text-xs opacity-70"</span>&gt;This month&lt;/<span class="tag">p</span>&gt;
+    &lt;<span class="tag">p</span> <span class="prop">className</span>=<span class="str">"text-2xl font-extrabold"</span>&gt;Rp 1.2M&lt;/<span class="tag">p</span>&gt;
+    &lt;<span class="tag">p</span> <span class="prop">className</span>=<span class="str">"text-xs mt-2 opacity-70"</span>&gt;Today&lt;/<span class="tag">p</span>&gt;
+    &lt;<span class="tag">p</span> <span class="prop">className</span>=<span class="str">"text-lg font-bold"</span>&gt;Rp 85K&lt;/<span class="tag">p</span>&gt;
+  &lt;/<span class="tag">div</span>&gt;
+&lt;/<span class="tag">div</span>&gt;</pre></div>
+</section><hr class="div">
+
+<!-- ══ PING ══ -->
+<section class="sec" id="ping-comp">
+  <div class="sec-lbl">Features</div>
+  <div class="sec-title">Ping Indicator (Realtime)</div>
+  <div class="sub-lbl">Live Preview — updates every 2s</div>
+  <div class="demo" style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+    <div id="ping-demo" style="display:inline-flex;align-items:center;gap:7px;padding:5px 14px;border-radius:99px;border:1.5px solid rgba(77,189,116,.3);background:rgba(77,189,116,.07);font-family:var(--mono);font-size:12px;font-weight:600;color:#2d8a52;transition:all .3s">
+      <span style="position:relative;display:inline-flex;width:8px;height:8px">
+        <span id="ping-ripple" style="position:absolute;inset:0;border-radius:50%;background:#4dbd74;opacity:.6;animation:ping-anim 1.4s ease infinite"></span>
+        <span id="ping-dot" style="position:relative;width:8px;height:8px;border-radius:50%;background:#4dbd74;display:inline-block"></span>
+      </span>
+      <span id="ping-ms-val">18 ms</span>
+    </div>
+    <div style="font-size:12px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap">
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#4dbd74;display:inline-block"></span>&lt;30ms Excellent</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#f6a609;display:inline-block"></span>30–80ms Good</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#f05252;display:inline-block"></span>&gt;80ms High</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:#9ca3af;display:inline-block"></span>Timeout</span>
+    </div>
+  </div>
+  <div class="code-wrap"><button class="cp" onclick="cp(this)">Copy</button><pre class="code"><span class="cmt">// src/hooks/use-ping.ts</span>
+<span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>
+<span class="kw">export type</span> PingStatus = <span class="str">'excellent'</span> | <span class="str">'good'</span> | <span class="str">'high'</span> | <span class="str">'timeout'</span>
+<span class="kw">export interface</span> PingResult { ms: <span class="kw">number</span> | <span class="kw">null</span>; status: PingStatus }
+
+<span class="kw">function</span> <span class="fn">getStatus</span>(ms: <span class="kw">number</span> | <span class="kw">null</span>): PingStatus {
+  <span class="kw">if</span> (ms === <span class="kw">null</span>) <span class="kw">return</span> <span class="str">'timeout'</span>
+  <span class="kw">if</span> (ms &lt; <span class="num">30</span>)  <span class="kw">return</span> <span class="str">'excellent'</span>
+  <span class="kw">if</span> (ms &lt; <span class="num">80</span>)  <span class="kw">return</span> <span class="str">'good'</span>
+  <span class="kw">return</span> <span class="str">'high'</span>
+}
+
+<span class="kw">export function</span> <span class="fn">usePing</span>(intervalMs = <span class="num">2000</span>) {
+  <span class="kw">const</span> [result, setResult] = <span class="fn">useState</span>&lt;PingResult&gt;({ ms: <span class="kw">null</span>, status: <span class="str">'timeout'</span> })
+  <span class="kw">const</span> [base, setBase] = <span class="fn">useState</span>(<span class="num">18</span>)
+  <span class="fn">useEffect</span>(() =&gt; {
+    <span class="kw">let</span> cancelled = <span class="kw">false</span>
+    <span class="kw">const</span> tick = <span class="kw">async</span> () =&gt; {
+      <span class="cmt">// TODO: replace with real API call</span>
+      <span class="cmt">// const { ms } = await fetch('/api/ping').then(r => r.json())</span>
+      <span class="kw">await new</span> <span class="fn">Promise</span>(r =&gt; <span class="fn">setTimeout</span>(r, <span class="num">200</span>))
+      <span class="kw">if</span> (cancelled) <span class="kw">return</span>
+      <span class="kw">if</span> (Math.<span class="fn">random</span>() &lt; <span class="num">0.04</span>) { setResult({ ms: <span class="kw">null</span>, status: <span class="str">'timeout'</span> }); <span class="kw">return</span> }
+      <span class="kw">let</span> ms = base + (Math.<span class="fn">random</span>() - <span class="num">0.4</span>) * <span class="num">12</span>
+      <span class="kw">if</span> (Math.<span class="fn">random</span>() &lt; <span class="num">0.08</span>) ms += <span class="num">60</span> + Math.<span class="fn">random</span>() * <span class="num">80</span>
+      ms = Math.<span class="fn">max</span>(<span class="num">1</span>, Math.<span class="fn">round</span>(ms))
+      setResult({ ms, status: <span class="fn">getStatus</span>(ms) })
+      setBase(b =&gt; Math.<span class="fn">max</span>(<span class="num">5</span>, Math.<span class="fn">min</span>(<span class="num">40</span>, b + (Math.<span class="fn">random</span>() - <span class="num">0.5</span>) * <span class="num">3</span>)))
+    }
+    tick()
+    <span class="kw">const</span> id = <span class="fn">setInterval</span>(tick, intervalMs)
+    <span class="kw">return</span> () =&gt; { cancelled = <span class="kw">true</span>; <span class="fn">clearInterval</span>(id) }
+  }, [intervalMs])
+  <span class="kw">return</span> result
+}
+
+<span class="cmt">// src/components/ping-indicator.tsx</span>
+<span class="kw">import</span> { usePing } <span class="kw">from</span> <span class="str">'@/hooks/use-ping'</span>
+<span class="kw">import</span> { cn } <span class="kw">from</span> <span class="str">'@/lib/utils'</span>
+
+<span class="kw">export function</span> <span class="fn">PingIndicator</span>() {
+  <span class="kw">const</span> { ms, status } = <span class="fn">usePing</span>()
+  <span class="kw">const</span> colors = {
+    excellent: <span class="str">'text-emerald-700 border-emerald-200 bg-emerald-50 dark:text-emerald-400 dark:border-emerald-900 dark:bg-emerald-950/30'</span>,
+    good:      <span class="str">'text-amber-700 border-amber-200 bg-amber-50 dark:text-amber-400 dark:border-amber-900 dark:bg-amber-950/30'</span>,
+    high:      <span class="str">'text-red-700 border-red-200 bg-red-50 dark:text-red-400 dark:border-red-900 dark:bg-red-950/30'</span>,
+    timeout:   <span class="str">'text-muted-foreground border-border bg-muted/50'</span>,
+  }
+  <span class="kw">const</span> dots = { excellent:<span class="str">'bg-emerald-500'</span>, good:<span class="str">'bg-amber-500'</span>, high:<span class="str">'bg-red-500'</span>, timeout:<span class="str">'bg-muted-foreground'</span> }
+  <span class="kw">return</span> (
+    &lt;<span class="tag">div</span> <span class="prop">className</span>={<span class="fn">cn</span>(<span class="str">'flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-mono font-semibold transition-all'</span>, colors[status])}&gt;
+      &lt;<span class="tag">span</span> <span class="prop">className</span>=<span class="str">"relative flex h-2 w-2"</span>&gt;
+        {status !== <span class="str">'timeout'</span> &amp;&amp; &lt;<span class="tag">span</span> <span class="prop">className</span>={<span class="fn">cn</span>(<span class="str">'absolute inset-0 rounded-full animate-ping opacity-75'</span>, dots[status])} /&gt;}
+        &lt;<span class="tag">span</span> <span class="prop">className</span>={<span class="fn">cn</span>(<span class="str">'relative h-2 w-2 rounded-full'</span>, dots[status])} /&gt;
+      &lt;/<span class="tag">span</span>&gt;
+      &lt;<span class="tag">span</span> <span class="prop">className</span>=<span class="str">"min-w-[50px]"</span>&gt;{ms === <span class="kw">null</span> ? <span class="str">'timeout'</span> : <span class="str">`${ms} ms`</span>}&lt;/<span class="tag">span</span>&gt;
+    &lt;/<span class="tag">div</span>&gt;
+  )
+}</pre></div>
+</section><hr class="div">
+
+<!-- ══ LOGIN ══ -->
+<section class="sec" id="login-comp">
+  <div class="sec-lbl">Features</div>
+  <div class="sec-title">Login Screen</div>
+  <div class="demo demo-bg">
+    <div class="p-login">
+      <div class="p-login-logo"><i class="fa fa-wifi"></i></div>
+      <div style="text-align:center;margin-bottom:24px">
+        <div style="font-size:20px;font-weight:800;letter-spacing:-.02em">MIKHMON</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:4px">MikroTik Hotspot Monitor</div>
+      </div>
+      <div style="margin-bottom:12px"><label class="p-label">Username</label><div class="p-input-grp"><div class="p-addon"><i class="fa fa-user"></i></div><input class="p-input" value="admin" type="text"></div></div>
+      <div style="margin-bottom:16px"><label class="p-label">Password</label><div class="p-input-grp"><div class="p-addon"><i class="fa fa-lock"></i></div><input class="p-input" value="••••••••" type="password"></div></div>
+      <button class="p-btn p-btn-primary" style="width:100%;justify-content:center"><i class="fa fa-sign-in"></i> Login</button>
+    </div>
+  </div>
+</section><hr class="div">
+
+<!-- ══ VOUCHER ══ -->
+<section class="sec" id="voucher-comp">
+  <div class="sec-lbl">Features</div>
+  <div class="sec-title">Voucher Cards</div>
+  <div class="demo" style="display:flex;gap:16px;flex-wrap:wrap">
+    <div class="p-voucher">
+      <div class="p-voucher-profile">5M/5M</div>
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:10px">Username</div>
+      <div class="p-voucher-name">ab2c4d</div>
+      <div class="p-voucher-pass">Pass: ab2c4d</div>
+      <div class="p-voucher-meta">
+        <span><i class="fa fa-clock-o"></i> Valid: 1 day</span>
+        <span><i class="fa fa-tachometer"></i> 5M/5M</span>
+        <span><i class="fa fa-wifi"></i> HS-01</span>
+        <span style="color:var(--faint);font-size:10px">Exp: 2 May 2026</span>
+      </div>
+    </div>
+    <div class="p-voucher" style="max-width:180px">
+      <div class="p-voucher-profile">1M/1M</div>
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:10px">Small</div>
+      <div class="p-voucher-name" style="font-size:18px">xk7z</div>
+      <div class="p-voucher-pass" style="font-size:12px">Pass: xk7z</div>
+      <div class="p-voucher-meta"><span><i class="fa fa-clock-o"></i> 12h · 1M/1M</span></div>
+    </div>
+  </div>
+</section><hr class="div">
+
+<!-- ══ SIDEBAR DATA ══ -->
+<section class="sec" id="sidebar-data">
+  <div class="sec-lbl">Features</div>
+  <div class="sec-title">sidebar-data.ts — MIKHMON Navigation</div>
+  <div class="code-wrap"><button class="cp" onclick="cp(this)">Copy</button><pre class="code"><span class="cmt">// src/components/layout/data/sidebar-data.ts</span>
+<span class="kw">import</span> {
+  LayoutDashboard, Wifi, FileText, BarChart2, Settings,
+  Users, Ticket, Activity, Server, Monitor, Wrench,
+  AlertCircle, DollarSign
+} <span class="kw">from</span> <span class="str">'lucide-react'</span>
+<span class="kw">import</span> { <span class="kw">type</span> SidebarData } <span class="kw">from</span> <span class="str">'../types'</span>
+
+<span class="kw">export const</span> sidebarData: SidebarData = {
+  user: {
+    name: <span class="str">'admin'</span>,
+    email: <span class="str">'<a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="8dece9e0e4e3cde0e4e6e5e0e2e3a3e1e2eeece1">[email&#160;protected]</a>'</span>,
+    avatar: <span class="str">'/avatars/shadcn.jpg'</span>,
+  },
+  teams: [
+    { name: <span class="str">'MIKHMON'</span>,     logo: Wifi,    plan: <span class="str">'MikroTik Hotspot Monitor'</span> },
+    { name: <span class="str">'Router-01'</span>,   logo: Server,  plan: <span class="str">'192.168.88.1 — Online'</span>    },
+    { name: <span class="str">'Warnet-02'</span>,   logo: Monitor, plan: <span class="str">'10.0.0.1 — Online'</span>        },
+  ],
+  navGroups: [
+    {
+      title: <span class="str">'Main'</span>,
+      items: [
+        { title: <span class="str">'Dashboard'</span>, url: <span class="str">'/'</span>,         icon: LayoutDashboard },
+        { title: <span class="str">'Hotspot'</span>,   url: <span class="str">'/hotspot'</span>, icon: Wifi, badge: <span class="str">'38'</span>,
+          items: [
+            { title: <span class="str">'Users'</span>,    url: <span class="str">'/hotspot/users'</span>    },
+            { title: <span class="str">'Profiles'</span>, url: <span class="str">'/hotspot/profiles'</span> },
+            { title: <span class="str">'Active'</span>,   url: <span class="str">'/hotspot/active'</span>   },
+            { title: <span class="str">'Hosts'</span>,    url: <span class="str">'/hotspot/hosts'</span>    },
+          ],
+        },
+        { title: <span class="str">'Users'</span>,    url: <span class="str">'/users'</span>,    icon: Users   },
+        { title: <span class="str">'Voucher'</span>,  url: <span class="str">'/voucher'</span>,  icon: Ticket,
+          items: [
+            { title: <span class="str">'Generate'</span>,   url: <span class="str">'/voucher/generate'</span> },
+            { title: <span class="str">'Print Queue'</span>, url: <span class="str">'/voucher/print'</span>    },
+          ],
+        },
+      ],
+    },
+    {
+      title: <span class="str">'Monitor'</span>,
+      items: [
+        { title: <span class="str">'Traffic'</span>, url: <span class="str">'/traffic'</span>, icon: Activity  },
+        { title: <span class="str">'Log'</span>,     url: <span class="str">'/log'</span>,     icon: FileText  },
+        { title: <span class="str">'Report'</span>,  url: <span class="str">'/report'</span>,  icon: BarChart2,
+          items: [
+            { title: <span class="str">'Daily'</span>,   url: <span class="str">'/report/daily'</span>   },
+            { title: <span class="str">'Monthly'</span>, url: <span class="str">'/report/monthly'</span> },
+          ],
+        },
+      ],
+    },
+    {
+      title: <span class="str">'System'</span>,
+      items: [
+        { title: <span class="str">'Settings'</span>, icon: Settings,
+          items: [
+            { title: <span class="str">'Router'</span>,     url: <span class="str">'/settings/router'</span>,     icon: Server    },
+            { title: <span class="str">'Appearance'</span>, url: <span class="str">'/settings/appearance'</span>, icon: Monitor   },
+            { title: <span class="str">'Advanced'</span>,   url: <span class="str">'/settings/advanced'</span>,   icon: Wrench    },
+          ],
+        },
+        { title: <span class="str">'Help'</span>, url: <span class="str">'/help'</span>, icon: AlertCircle },
+      ],
+    },
+  ],
+}</pre></div>
+</section><hr class="div">
+
+<!-- ══ CHECKLIST ══ -->
+<section class="sec" id="checklist">
+  <div class="sec-lbl">Reference</div>
+  <div class="sec-title">Implementation Checklist</div>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
+    <label style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
+      <input type="checkbox" style="margin-top:2px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0">
+      <div><div style="font-size:13px;font-weight:700">Replace src/styles/theme.css</div><div style="font-size:12px;color:var(--muted)">Ganti semua token oklch ke nilai MIKHMON — light + dark + @theme inline</div></div>
+    </label>
+    <label style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
+      <input type="checkbox" style="margin-top:2px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0">
+      <div><div style="font-size:13px;font-weight:700">Create src/styles/mikhmon.css</div><div style="font-size:12px;color:var(--muted)">Gradient stat boxes, progress bar, badge variants, voucher, ping styles</div></div>
+    </label>
+    <label style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
+      <input type="checkbox" style="margin-top:2px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0">
+      <div><div style="font-size:13px;font-weight:700">Import font di index.html</div><div style="font-size:12px;color:var(--muted)">Google Fonts: Plus Jakarta Sans + JetBrains Mono</div></div>
+    </label>
+    <label style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
+      <input type="checkbox" style="margin-top:2px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0">
+      <div><div style="font-size:13px;font-weight:700">Update src/styles/index.css</div><div style="font-size:12px;color:var(--muted)">@import './mikhmon.css' + font-family override di @layer base</div></div>
+    </label>
+    <label style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
+      <input type="checkbox" style="margin-top:2px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0">
+      <div><div style="font-size:13px;font-weight:700">Replace sidebar-data.ts</div><div style="font-size:12px;color:var(--muted)">Menu MIKHMON: Dashboard, Hotspot, Users, Voucher, Traffic, Log, Report, Settings</div></div>
+    </label>
+    <label style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
+      <input type="checkbox" style="margin-top:2px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0">
+      <div><div style="font-size:13px;font-weight:700">Create src/hooks/use-ping.ts</div><div style="font-size:12px;color:var(--muted)">Hook ping dengan threshold excellent/good/high/timeout</div></div>
+    </label>
+    <label style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
+      <input type="checkbox" style="margin-top:2px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0">
+      <div><div style="font-size:13px;font-weight:700">Create src/components/ping-indicator.tsx</div><div style="font-size:12px;color:var(--muted)">Komponen PingIndicator dengan ripple animation</div></div>
+    </label>
+    <label style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
+      <input type="checkbox" style="margin-top:2px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0">
+      <div><div style="font-size:13px;font-weight:700">Update dashboard/index.tsx</div><div style="font-size:12px;color:var(--muted)">KPI stat boxes + tambahkan PingIndicator ke Header</div></div>
+    </label>
+    <label style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
+      <input type="checkbox" style="margin-top:2px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0">
+      <div><div style="font-size:13px;font-weight:700">Update badge.tsx — tambah varian hotspot</div><div style="font-size:12px;color:var(--muted)">Varian: online, expired, idle, offline</div></div>
+    </label>
+  </div>
+
+  <div style="margin-top:28px;background:linear-gradient(135deg,rgba(32,168,216,.08),rgba(77,189,116,.08));border:1px solid var(--border);border-radius:var(--r-lg);padding:24px">
+    <div style="font-size:14px;font-weight:800;margin-bottom:14px;letter-spacing:-.01em">Langkah berikutnya</div>
+    <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;color:var(--text2)">
+      <div><span style="color:var(--accent);font-weight:700;margin-right:8px">01</span>Buat halaman <span class="tk">/hotspot/users</span> dengan <span class="tk">DataTable</span> shadcn + badge status + row actions dropdown</div>
+      <div><span style="color:var(--accent);font-weight:700;margin-right:8px">02</span>Integrasikan RouterOS API — ganti <span class="tk">simulatePing()</span> dengan endpoint <span class="tk">GET /api/ping?host=192.168.88.1</span></div>
+      <div><span style="color:var(--accent);font-weight:700;margin-right:8px">03</span>Buat halaman <span class="tk">/voucher/generate</span> dengan shadcn Form + react-hook-form + zod validation</div>
+      <div><span style="color:var(--accent);font-weight:700;margin-right:8px">04</span>Pakai <span class="tk">recharts</span> (sudah ada di <span class="tk">package.json</span>) untuk Traffic RX/TX chart di dashboard</div>
+      <div><span style="color:var(--accent);font-weight:700;margin-right:8px">05</span>Ganti <span class="tk">TeamSwitcher</span> agar list router diambil dari API RouterOS — bukan hardcoded</div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- TWEAKS -->
+<div id="tweaks-panel">
+  <h4><i class="fa fa-sliders"></i> Tweaks</h4>
+  <div class="tw-row"><span class="tw-lbl">Theme</span>
+    <div class="tw-sw">
+      <div class="tw-s active" data-t="light" style="background:#f0f2f5;border:2px solid #d1d5db"></div>
+      <div class="tw-s" data-t="dark" style="background:#0f172a"></div>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes ping-anim {
+  0%   { transform:scale(1);   opacity:.7; }
+  70%  { transform:scale(2.2); opacity:0;  }
+  100% { transform:scale(2.2); opacity:0;  }
+}
+</style>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+// Theme
+document.querySelectorAll('[data-t]').forEach(el => {
+  el.addEventListener('click', () => {
+    const t = el.dataset.t;
+    document.documentElement.setAttribute('data-theme', t);
+    document.querySelectorAll('[data-t]').forEach(b => b.classList.toggle('active', b.dataset.t === t));
+  });
+});
+
+// Tweaks protocol
+window.addEventListener('message', e => {
+  if (e.data?.type === '__activate_edit_mode')   document.getElementById('tweaks-panel').style.display = 'block';
+  if (e.data?.type === '__deactivate_edit_mode') document.getElementById('tweaks-panel').style.display = 'none';
+});
+window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+
+// Sidebar active on scroll
+const secs = document.querySelectorAll('section[id]');
+const lnks = document.querySelectorAll('.aside-nav a[href]');
+window.addEventListener('scroll', () => {
+  let cur = '';
+  secs.forEach(s => { if (window.scrollY >= s.offsetTop - 90) cur = s.id; });
+  lnks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + cur));
+}, { passive: true });
+
+// Copy
+function cp(btn) {
+  const pre = btn.nextElementSibling;
+  navigator.clipboard.writeText(pre.innerText).then(() => {
+    btn.textContent = '✓ Copied!'; btn.classList.add('ok');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('ok'); }, 2000);
+  });
+}
+
+// Ping demo
+(function(){
+  let base = 18;
+  function sim(){
+    if (Math.random() < .04) return null;
+    let ms = base + (Math.random()-.4)*12;
+    if (Math.random() < .08) ms += 60 + Math.random()*80;
+    base += (Math.random()-.5)*3; base = Math.max(5, Math.min(40, base));
+    return Math.max(1, Math.round(ms));
+  }
+  function update(){
+    const ms = sim();
+    const pill = document.getElementById('ping-demo');
+    const dot  = document.getElementById('ping-dot');
+    const ripple = document.getElementById('ping-ripple');
+    const val  = document.getElementById('ping-ms-val');
+    if (!pill) return;
+    let color, bg, border, textColor;
+    if (ms === null) { color='#9ca3af'; bg='rgba(107,114,128,.05)'; border='rgba(107,114,128,.3)'; textColor='#6b7280'; }
+    else if (ms < 30) { color='#4dbd74'; bg='rgba(77,189,116,.07)'; border='rgba(77,189,116,.3)'; textColor='#2d8a52'; }
+    else if (ms < 80) { color='#f6a609'; bg='rgba(246,166,9,.07)';  border='rgba(246,166,9,.3)';  textColor='#a86d00'; }
+    else              { color='#f05252'; bg='rgba(240,82,82,.07)';  border='rgba(240,82,82,.3)';  textColor='#c01f1f'; }
+    dot.style.background = ripple.style.background = color;
+    ripple.style.animationDuration = ms === null ? '0s' : ms > 80 ? '.8s' : '1.4s';
+    pill.style.borderColor = border; pill.style.background = bg; pill.style.color = textColor;
+    val.textContent = ms === null ? 'timeout' : ms + ' ms';
+  }
+  update();
+  setInterval(update, 1800);
+})();
+</script>
+</body>
+</html>

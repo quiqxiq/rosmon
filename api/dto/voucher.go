@@ -1,6 +1,6 @@
 package dto
 
-import "github.com/quiqxiq/roslib-mikhmon/domain"
+import "github.com/quiqxiq/rosmon/domain"
 
 // VoucherGenerateRequest body untuk POST /hotspot/vouchers/generate.
 // Mengikuti analisis §7 mikhmonv3 (Quick Print fields) ditambah field

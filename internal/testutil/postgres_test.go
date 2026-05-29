@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/quiqxiq/roslib-mikhmon/store/model"
+	"github.com/quiqxiq/rosmon/store/model"
 	"github.com/stretchr/testify/require"
 )
 

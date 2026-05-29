@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik"
+	"github.com/quiqxiq/rosmon/mikrotik"
 )
 
 // DeleteProfile melakukan cascade hapus user-profile mengikuti analisis §4.3:

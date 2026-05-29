@@ -11,10 +11,14 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/api/dto"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik"
-	"github.com/quiqxiq/roslib-mikhmon/service/devmgr"
+	"github.com/quiqxiq/rosmon/api/dto"
+	"github.com/quiqxiq/rosmon/mikrotik"
+	"github.com/quiqxiq/rosmon/service/devmgr"
 )
+
+// propagateTimeout is the timeout for best-effort MikroTik provisioning calls
+// that happen inline during subscription mutations.
+const propagateTimeout = 10 * time.Second
 
 // WriteOK menulis envelope success dengan status code opsional (default 200).
 func WriteOK(c *gin.Context, data any, status ...int) {

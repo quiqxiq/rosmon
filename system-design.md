@@ -1,7 +1,7 @@
 # Sistem Manajemen ISP — System Design & Architecture
 
 > Dokumen ini adalah referensi desain untuk pengembangan business layer
-> di atas roslib-mikhmon (branch `feat/backend-integration`).
+> di atas rosmon (branch `feat/backend-integration`).
 > Semua keputusan arsitektur dan skema database mengacu pada kondisi
 > riil repo yang sudah ada.
 
@@ -47,7 +47,7 @@ layer yang sudah ada.
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│                  roslib-mikhmon (satu binary)                   │
+│                  rosmon (satu binary)                   │
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │                    HTTP Layer (Gin)                      │   │
@@ -101,7 +101,7 @@ kembalikan HTTP response, sync ke MikroTik di background goroutine.
 ## 3. Struktur Direktori (Setelah Pengembangan)
 
 ```
-roslib-mikhmon/
+rosmon/
 │
 ├── mikrotik/               ← JANGAN DIUBAH
 ├── scripts/                ← JANGAN DIUBAH

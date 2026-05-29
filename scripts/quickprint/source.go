@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/quiqxiq/roslib-mikhmon/domain"
+	"github.com/quiqxiq/rosmon/domain"
 )
 
 // Config adalah representasi typed dari source QuickPrint.

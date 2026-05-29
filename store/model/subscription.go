@@ -13,24 +13,33 @@ import (
 //
 // Status enum:
 //   - pending_install — record dibuat, belum di-provision di router
-//   - active          — aktif, secret enabled di router
-//   - isolir          — disabled sementara (mis. paket expired-soft)
-//   - suspended       — disabled keras (mis. melanggar TOS / hutang lama)
+//   - active          — aktif, profile normal, disabled=no
+//   - isolir          — profile isolir (dari system_settings), disabled=no (throttle)
+//   - suspended       — disabled=yes keras (mis. hutang lama / pelanggaran TOS)
 //   - terminated      — secret sudah dihapus di router, record di-keep untuk audit
 type Subscription struct {
 	ID                 uint           `gorm:"primaryKey"`
 	CustomerID         uint           `gorm:"not null;index"`
 	Customer           Customer       `gorm:"foreignKey:CustomerID;constraint:OnDelete:RESTRICT"`
-	DeviceID           uint           `gorm:"not null;uniqueIndex:idx_sub_dev_type_user,priority:1"`
-	Device             MikrotikDevice `gorm:"foreignKey:DeviceID;constraint:OnDelete:RESTRICT"`
-	BandwidthProfileID uint           `gorm:"not null;index"`
-	BandwidthProfile   BandwidthProfile `gorm:"foreignKey:BandwidthProfileID;constraint:OnDelete:RESTRICT"`
+	DeviceID        uint           `gorm:"not null;uniqueIndex:idx_sub_dev_type_user,priority:1"`
+	Device          MikrotikDevice `gorm:"foreignKey:DeviceID;constraint:OnDelete:RESTRICT"`
+	PPPProfileID    *uint          `gorm:"index"` // non-null untuk pppoe
+	PPPProfile      *PPPProfile    `gorm:"foreignKey:PPPProfileID;constraint:OnDelete:RESTRICT"`
+	HotspotProfileID *uint         `gorm:"index"` // non-null untuk hotspot permanent
+	HotspotProfile   *HotspotProfile `gorm:"foreignKey:HotspotProfileID;constraint:OnDelete:RESTRICT"`
 
 	ServiceType      string `gorm:"size:10;not null;uniqueIndex:idx_sub_dev_type_user,priority:2"` // 'pppoe' | 'hotspot'
 	MikrotikUsername string `gorm:"size:100;not null;uniqueIndex:idx_sub_dev_type_user,priority:3"`
 	MikrotikPassword string `gorm:"type:text;not null"` // encrypted at rest
 
 	Status       string     `gorm:"size:20;not null;default:pending_install;index"`
+	BillingDay   *int       `gorm:"type:smallint"`
+	// Tanggal invoice berikutnya — di-set saat aktivasi, auto-increment tiap billing_cron.
+	NextInvoiceDate *time.Time `gorm:"type:date"`
+	// SyncStatus adalah outbox flag untuk background outbox goroutine.
+	// 'synced' = tidak ada pending. Nilai lain = perlu eksekusi MikroTik.
+	SyncStatus string `gorm:"size:30;not null;default:synced"`
+	SyncNotes  string `gorm:"type:text"`
 	ActivatedAt  *time.Time
 	TerminatedAt *time.Time
 	Notes        string `gorm:"type:text"`

@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/quiqxiq/roslib-mikhmon/domain"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/hotspot"
-	"github.com/quiqxiq/roslib-mikhmon/scripts/onlogin"
+	"github.com/quiqxiq/rosmon/domain"
+	"github.com/quiqxiq/rosmon/mikrotik"
+	"github.com/quiqxiq/rosmon/mikrotik/hotspot"
+	"github.com/quiqxiq/rosmon/scripts/onlogin"
 )
 
 // OnLoginConfig adalah subset profile_config yang dibutuhkan untuk
@@ -60,12 +60,6 @@ func InjectOnLoginScript(
 			profileName, err)
 	}
 
-	// Guard: refuse to overwrite profiles owned by bandwidth_profiles.
-	if hasTag(profile.Comment, TagBW) {
-		return fmt.Errorf("workflows.InjectOnLoginScript: profile %q owned by bandwidth_profile (comment=%q), refuse to inject",
-			profileName, profile.Comment)
-	}
-
 	var script string
 	if cfg.ExpiryMode != string(domain.ModeNone) {
 		mode, perr := domain.ParseExpiredMode(cfg.ExpiryMode)
@@ -84,12 +78,9 @@ func InjectOnLoginScript(
 		script = onlogin.Build(opts)
 	}
 
-	// Claim ownership marker + set on-login in a single ProfileSet call.
-	claim := commentVC(profileName, cfg)
 	if err := c.Hotspot.ProfileSet(ctx, hotspot.ProfileSetArgs{
 		ID:      profile.ID,
 		OnLogin: &script,
-		Comment: &claim,
 	}); err != nil {
 		return fmt.Errorf("workflows.InjectOnLoginScript: set on-login %q: %w",
 			profileName, err)

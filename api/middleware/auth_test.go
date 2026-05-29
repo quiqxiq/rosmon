@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/service/auth"
+	"github.com/quiqxiq/rosmon/service/auth"
 )
 
 const testSecret = "0123456789abcdef0123456789abcdef" // 32 char

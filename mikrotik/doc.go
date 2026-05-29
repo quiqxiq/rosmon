@@ -5,7 +5,7 @@
 //
 //   - Setiap sub-paket (hotspot, system, ppp, network, syslog) menyediakan
 //     Client yang dikonstruksi dengan New(dev *roslib.Device). Method
-//     mengembalikan domain types dari roslib-mikhmon/domain.
+//     mengembalikan domain types dari rosmon/domain.
 //   - Query snapshot pakai dev.Path(path).Print()...Exec(ctx).
 //   - Mutation pakai dev.Path(path).Add/Set/Remove/Enable/Disable.
 //   - Streaming (Print follow / inherent stream) dan polling tersedia

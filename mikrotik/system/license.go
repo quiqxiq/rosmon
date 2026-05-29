@@ -3,7 +3,7 @@ package system
 import (
 	"context"
 
-	"github.com/quiqxiq/roslib-mikhmon/domain"
+	"github.com/quiqxiq/rosmon/domain"
 )
 
 // License → /system/license/print (analisis §1.1).

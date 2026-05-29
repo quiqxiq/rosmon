@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/api/dto"
-	"github.com/quiqxiq/roslib-mikhmon/api/middleware"
-	"github.com/quiqxiq/roslib-mikhmon/service/auth"
-	"github.com/quiqxiq/roslib-mikhmon/store/model"
+	"github.com/quiqxiq/rosmon/api/dto"
+	"github.com/quiqxiq/rosmon/api/middleware"
+	"github.com/quiqxiq/rosmon/service/auth"
+	"github.com/quiqxiq/rosmon/store/model"
 )
 
 // Auth handler untuk endpoint /auth/login, /auth/refresh, /auth/logout, /auth/me.

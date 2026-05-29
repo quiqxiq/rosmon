@@ -1,7 +1,7 @@
-# Analisis `roslib` + `roslib-mikhmon`
+# Analisis `roslib` + `rosmon`
 
 Dokumen onboarding + review gap/improvement untuk dua project: library RouterOS API
-(`roslib`) dan aplikasi Mikhmon-as-a-Service Go (`roslib-mikhmon`). Disusun setelah
+(`roslib`) dan aplikasi Mikhmon-as-a-Service Go (`rosmon`). Disusun setelah
 membaca seluruh kode produksi tanpa run-test, jadi finding di Bagian 3 perlu
 divalidasi via integration test sebelum diperbaiki.
 
@@ -25,7 +25,7 @@ divalidasi via integration test sebelum diperbaiki.
                             │ (go.mod local replace)
                             │
 ┌────────────────────────────────────────────────────────────────┐
-│  roslib-mikhmon  (aplikasi)                                    │
+│  rosmon  (aplikasi)                                    │
 │  ─ HTTP (gin) + SSE + Postgres (gorm) + InfluxDB3 history      │
 │  ─ Multi-router (devmgr) + per-device goroutine expiry checker │
 │  ─ Workflows cascade (mikhmonv3 §4 — DeleteUser dst)            │
@@ -185,9 +185,9 @@ Buffer subscriber 32 event; kalau full, event di-drop untuk subscriber tsb (liha
 ## Bagian 2 — Perubahan arsitektural vs mikhmonv3 PHP
 
 Ringkasan perbedaan paling besar (untuk peta detail per-command lihat
-`mikhmonv3-analisis.md` + `roslib-mikhmon.md`):
+`mikhmonv3-analisis.md` + `rosmon.md`):
 
-| Aspek | mikhmonv3 (PHP) | roslib-mikhmon (Go) |
+| Aspek | mikhmonv3 (PHP) | rosmon (Go) |
 |---|---|---|
 | Transaksi voucher | `/system/script/add` di router, parse kembali via name+owner+source | Tabel `transactions` di Postgres (`service/expiry/service.go:192-209`). Tidak ada migrasi data lama. |
 | Expiry user | Scheduler RouterOS per profile (on-event panggil script transaksi) | Per-device goroutine checker (`expiry.runChecker`, interval default 2m). Field comment user tetap di-parse mikhmon format. |

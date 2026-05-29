@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/api/dto"
-	"github.com/quiqxiq/roslib-mikhmon/domain"
-	"github.com/quiqxiq/roslib-mikhmon/internal/rosfmt"
-	"github.com/quiqxiq/roslib-mikhmon/store"
-	"github.com/quiqxiq/roslib-mikhmon/store/model"
+	"github.com/quiqxiq/rosmon/api/dto"
+	"github.com/quiqxiq/rosmon/domain"
+	"github.com/quiqxiq/rosmon/internal/rosfmt"
+	"github.com/quiqxiq/rosmon/store"
+	"github.com/quiqxiq/rosmon/store/model"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
@@ -38,7 +38,7 @@ const LoginEventComment = "login"
 type HookLogin struct {
 	DeviceStore  store.DeviceStore
 	TxStore      store.TransactionStore
-	ProfileStore store.ProfileConfigStore
+	ProfileStore store.HotspotProfileStore
 	Log          *logrus.Logger
 }
 
@@ -46,7 +46,7 @@ type HookLogin struct {
 func NewHookLogin(
 	devStore store.DeviceStore,
 	txStore store.TransactionStore,
-	profStore store.ProfileConfigStore,
+	profStore store.HotspotProfileStore,
 	log *logrus.Logger,
 ) *HookLogin {
 	if log == nil {
@@ -127,7 +127,7 @@ func (h *HookLogin) Login(c *gin.Context) {
 	// tidak record sale dengan price=0.
 	cfg, err := h.ProfileStore.GetByName(c.Request.Context(), deviceID, profile)
 	if err != nil {
-		if errors.Is(err, store.ErrProfileConfigNotFound) {
+		if errors.Is(err, store.ErrHotspotProfileNotFound) {
 			logger.Info("hook/login: profile config not found, skip recording (run sync first)")
 			c.JSON(http.StatusOK, dto.OK(map[string]any{
 				"recorded": false,

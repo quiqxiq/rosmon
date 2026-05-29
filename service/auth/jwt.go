@@ -15,7 +15,7 @@ const (
 	TokenTypeRefresh = "refresh"
 )
 
-// Claims adalah body JWT roslib-mikhmon.
+// Claims adalah body JWT rosmon.
 type Claims struct {
 	UserID   uint   `json:"uid"`
 	Username string `json:"usr"`

@@ -6,50 +6,34 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/api/dto"
-	"github.com/quiqxiq/roslib-mikhmon/internal/rosfmt"
-	"github.com/quiqxiq/roslib-mikhmon/service/devmgr"
-	"github.com/quiqxiq/roslib-mikhmon/store"
-	"github.com/quiqxiq/roslib-mikhmon/store/model"
-	"github.com/quiqxiq/roslib-mikhmon/workflows"
+	"github.com/quiqxiq/rosmon/api/dto"
+	"github.com/quiqxiq/rosmon/internal/rosfmt"
+	"github.com/quiqxiq/rosmon/service/devmgr"
+	"github.com/quiqxiq/rosmon/store"
+	"github.com/quiqxiq/rosmon/store/model"
+	"github.com/quiqxiq/rosmon/workflows"
 	"github.com/sirupsen/logrus"
 )
 
 // ProfileConfig handler untuk endpoint /devices/{device_id}/hotspot/profile-configs.
+// Backward-compatible shim di atas HotspotProfileStore (role=voucher).
 //
-// Read/write DB selalu jalan walau router offline (config lokal di postgres,
-// terpisah dari profile router-side). DevMgr dipakai untuk best-effort
-// auto-inject on-login script ke router saat Upsert / Sync — kalau router
-// offline, DB tetap di-update dan inject di-skip dengan log warning.
-//
-// GoServiceURL adalah URL absolut Go service yang reachable dari router
-// (mis. "http://192.168.1.10:8080"), digunakan untuk membentuk webhook URL
-// di on-login script. Kalau kosong, webhook block tidak di-emit (selling
-// record akan di-skip).
+// Read/write DB selalu jalan walau router offline. DevMgr dipakai untuk best-effort
+// auto-inject on-login script ke router saat Upsert/Sync.
 type ProfileConfig struct {
-	Store        store.ProfileConfigStore
+	Store        store.HotspotProfileStore
 	DevMgr       *devmgr.Manager
 	GoServiceURL string
 	Log          *logrus.Logger
 }
 
-// NewProfileConfig constructor.
-//
-// devMgr & goServiceURL boleh nil/kosong — sync & auto-inject akan
-// di-skip dengan return code yang sesuai. log boleh nil (no-op logger
-// di-fallback).
-func NewProfileConfig(s store.ProfileConfigStore, devMgr *devmgr.Manager, goServiceURL string, log *logrus.Logger) *ProfileConfig {
+func NewProfileConfig(s store.HotspotProfileStore, devMgr *devmgr.Manager, goServiceURL string, log *logrus.Logger) *ProfileConfig {
 	if log == nil {
 		log = logrus.New()
 	}
 	return &ProfileConfig{Store: s, DevMgr: devMgr, GoServiceURL: goServiceURL, Log: log}
 }
 
-// Register mount endpoint di group `dev` (sudah ada :device_id di parent).
-//
-// PENTING: dipasang di scope yang TIDAK pakai DeviceMiddleware
-// (lookup di-handle handler sendiri pakai DeviceStore), karena config
-// tetap dapat di-baca/edit meski router offline.
 func (h *ProfileConfig) Register(dev *gin.RouterGroup) {
 	g := dev.Group("/hotspot/profile-configs")
 	g.GET("", h.List)
@@ -64,14 +48,14 @@ func (h *ProfileConfig) List(c *gin.Context) {
 	if !ok {
 		return
 	}
-	cfgs, err := h.Store.ListByDevice(c.Request.Context(), deviceID)
+	cfgs, err := h.Store.ListByDevice(c.Request.Context(), deviceID, store.HotspotProfileListFilter{Role: "voucher"})
 	if err != nil {
 		WriteErr(c, err)
 		return
 	}
 	out := make([]dto.ProfileConfigResponse, len(cfgs))
 	for i, cfg := range cfgs {
-		out[i] = dto.FromModelProfileConfig(cfg)
+		out[i] = dto.FromModelHotspotProfileConfig(cfg)
 	}
 	WriteList(c, out, len(out))
 }
@@ -82,9 +66,9 @@ func (h *ProfileConfig) Get(c *gin.Context) {
 		return
 	}
 	profileName := c.Param("profile_name")
-	cfg, err := h.Store.GetByName(c.Request.Context(), deviceID, profileName)
+	p, err := h.Store.GetByName(c.Request.Context(), deviceID, profileName)
 	if err != nil {
-		if errors.Is(err, store.ErrProfileConfigNotFound) {
+		if errors.Is(err, store.ErrHotspotProfileNotFound) {
 			c.AbortWithStatusJSON(http.StatusNotFound,
 				dto.Err("NOT_FOUND", "profile config not found", c.Request.URL.Path))
 			return
@@ -92,7 +76,7 @@ func (h *ProfileConfig) Get(c *gin.Context) {
 		WriteErr(c, err)
 		return
 	}
-	WriteOK(c, dto.FromModelProfileConfig(cfg))
+	WriteOK(c, dto.FromModelHotspotProfileConfig(p))
 }
 
 func (h *ProfileConfig) Upsert(c *gin.Context) {
@@ -107,7 +91,6 @@ func (h *ProfileConfig) Upsert(c *gin.Context) {
 		WriteValidationErr(c, err)
 		return
 	}
-	// Normalize validity: accept "168h"/"7d"/"1w" → canonical RouterOS format.
 	normalized, err := rosfmt.NormalizeDuration(req.Validity)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest,
@@ -116,37 +99,49 @@ func (h *ProfileConfig) Upsert(c *gin.Context) {
 		return
 	}
 
-	cfg := &model.HotspotProfileConfig{
-		DeviceID:    deviceID,
-		ProfileName: profileName,
-		ExpiryMode:  req.ExpiryMode,
-		Validity:    normalized,
-		Price:       req.Price,
-		SellPrice:   req.SellPrice,
-		LockMAC:     req.LockMAC,
+	p := &model.HotspotProfile{
+		DeviceID:   deviceID,
+		Name:       profileName,
+		Role:       "voucher",
+		ExpiryMode: req.ExpiryMode,
+		Validity:   normalized,
+		Price:      req.Price,
+		SellPrice:  req.SellPrice,
+		LockMAC:    req.LockMAC,
 	}
-	created, err := h.Store.UpsertResult(c.Request.Context(), cfg)
-	if err != nil {
-		WriteErr(c, err)
+	// Use Create/Update directly (not Upsert) so that operator-supplied fields
+	// are written to DB. Upsert preserves those fields and is only for sync.
+	existing, lookupErr := h.Store.GetByName(c.Request.Context(), deviceID, profileName)
+	var created bool
+	if errors.Is(lookupErr, store.ErrHotspotProfileNotFound) {
+		created = true
+		if err := h.Store.Create(c.Request.Context(), p); err != nil {
+			WriteErr(c, err)
+			return
+		}
+	} else if lookupErr == nil {
+		p.ID = existing.ID
+		if err := h.Store.Update(c.Request.Context(), p); err != nil {
+			WriteErr(c, err)
+			return
+		}
+	} else {
+		WriteErr(c, lookupErr)
 		return
 	}
-	// Re-read untuk mendapatkan timestamps fresh.
+	// Re-read for fresh timestamps.
 	persisted, err := h.Store.GetByName(c.Request.Context(), deviceID, profileName)
 	if err != nil {
 		WriteErr(c, err)
 		return
 	}
 
-	// Best-effort auto-inject on-login script ke router.
-	// Kalau router offline atau profile tidak ada di router → log warning,
-	// JANGAN gagalkan request (DB write sudah sukses, operator bisa
-	// trigger sync manual nanti).
 	h.tryInjectOnLogin(c, deviceID, persisted)
 
 	if created {
-		WriteCreated(c, dto.FromModelProfileConfig(persisted))
+		WriteCreated(c, dto.FromModelHotspotProfileConfig(persisted))
 	} else {
-		WriteOK(c, dto.FromModelProfileConfig(persisted))
+		WriteOK(c, dto.FromModelHotspotProfileConfig(persisted))
 	}
 }
 
@@ -156,10 +151,20 @@ func (h *ProfileConfig) Delete(c *gin.Context) {
 		return
 	}
 	profileName := c.Param("profile_name")
-	if err := h.Store.DeleteByName(c.Request.Context(), deviceID, profileName); err != nil {
-		if errors.Is(err, store.ErrProfileConfigNotFound) {
+	p, err := h.Store.GetByName(c.Request.Context(), deviceID, profileName)
+	if err != nil {
+		if errors.Is(err, store.ErrHotspotProfileNotFound) {
 			c.AbortWithStatusJSON(http.StatusNotFound,
 				dto.Err("NOT_FOUND", "profile config not found", c.Request.URL.Path))
+			return
+		}
+		WriteErr(c, err)
+		return
+	}
+	if err := h.Store.Delete(c.Request.Context(), p.ID); err != nil {
+		if errors.Is(err, store.ErrHotspotProfileInUse) {
+			c.AbortWithStatusJSON(http.StatusConflict,
+				dto.Err("CONFLICT", "profile still referenced by subscription", c.Request.URL.Path))
 			return
 		}
 		WriteErr(c, err)
@@ -168,8 +173,6 @@ func (h *ProfileConfig) Delete(c *gin.Context) {
 	WriteNoContent(c)
 }
 
-// parseDeviceIDForConfig ambil :device_id dari path (numeric). Tulis 400
-// kalau invalid dan return ok=false.
 func parseDeviceIDForConfig(c *gin.Context) (uint, bool) {
 	raw := c.Param("device_id")
 	n, err := strconv.ParseUint(raw, 10, 64)
@@ -182,15 +185,6 @@ func parseDeviceIDForConfig(c *gin.Context) (uint, bool) {
 }
 
 // Sync POST /hotspot/profile-configs/sync.
-//
-// Tarik semua profile dari router → reconcile dengan DB:
-//   - Profile router yang belum ada di DB → insert default ExpiryMode="0".
-//   - Profile DB yang masih ada di router → on-login script di-inject
-//     (best-effort, error per-profile masuk inject_failed list).
-//   - Profile DB yang sudah hilang dari router → masuk orphan list
-//     (tidak dihapus otomatis).
-//
-// Membutuhkan device online (router connection). Return 503 kalau offline.
 func (h *ProfileConfig) Sync(c *gin.Context) {
 	deviceID, ok := parseDeviceIDForConfig(c)
 	if !ok {
@@ -219,40 +213,36 @@ func (h *ProfileConfig) Sync(c *gin.Context) {
 		Orphan:       nilToEmpty(res.Orphan),
 		Injected:     nilToEmpty(res.Injected),
 		InjectFailed: nilToEmpty(res.InjectFailed),
-		Skipped:      nilToEmpty(res.Skipped),
+		Skipped:      []string{},
 	})
 }
 
-// tryInjectOnLogin best-effort push on-login script ke router. Tidak
-// gagalkan request kalau router offline atau profile tidak ada — DB
-// write sudah persisted, operator bisa trigger sync manual nanti.
-func (h *ProfileConfig) tryInjectOnLogin(c *gin.Context, deviceID uint, cfg model.HotspotProfileConfig) {
+func (h *ProfileConfig) tryInjectOnLogin(c *gin.Context, deviceID uint, p model.HotspotProfile) {
 	if h.DevMgr == nil {
 		return
 	}
 	cs, err := h.DevMgr.Get(deviceID)
 	if err != nil {
-		h.Log.WithError(err).WithField("profile", cfg.ProfileName).
+		h.Log.WithError(err).WithField("profile", p.Name).
 			Debug("profile_config: skip auto-inject (device offline)")
 		return
 	}
 	if err := workflows.InjectOnLoginScript(
-		c.Request.Context(), cs.WF, cfg.ProfileName,
+		c.Request.Context(), cs.WF, p.Name,
 		workflows.OnLoginConfig{
-			ExpiryMode: cfg.ExpiryMode,
-			Validity:   cfg.Validity,
-			Price:      cfg.Price,
-			SellPrice:  cfg.SellPrice,
-			LockMAC:    cfg.LockMAC,
+			ExpiryMode: p.ExpiryMode,
+			Validity:   p.Validity,
+			Price:      p.Price,
+			SellPrice:  p.SellPrice,
+			LockMAC:    p.LockMAC,
 		},
 		deviceID, h.GoServiceURL,
 	); err != nil {
-		h.Log.WithError(err).WithField("profile", cfg.ProfileName).
-			Warn("profile_config: auto-inject on-login failed (config tetap di-save)")
+		h.Log.WithError(err).WithField("profile", p.Name).
+			Warn("profile_config: auto-inject on-login failed (config saved)")
 	}
 }
 
-// nilToEmpty memastikan slice nil di-encode sebagai `[]` di JSON, bukan `null`.
 func nilToEmpty(s []string) []string {
 	if s == nil {
 		return []string{}

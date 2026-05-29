@@ -4,9 +4,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/api/dto"
-	"github.com/quiqxiq/roslib-mikhmon/api/middleware"
-	"github.com/quiqxiq/roslib-mikhmon/api/sse"
+	"github.com/quiqxiq/rosmon/api/dto"
+	"github.com/quiqxiq/rosmon/api/middleware"
+	"github.com/quiqxiq/rosmon/api/sse"
 )
 
 // NewServer membangun gin engine dengan middleware default + register

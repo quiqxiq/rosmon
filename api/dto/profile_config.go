@@ -3,7 +3,7 @@ package dto
 import (
 	"time"
 
-	"github.com/quiqxiq/roslib-mikhmon/store/model"
+	"github.com/quiqxiq/rosmon/store/model"
 )
 
 // ProfileConfigResponse expose config ke client. Field Validity selalu
@@ -33,19 +33,20 @@ type ProfileConfigUpsertRequest struct {
 	LockMAC    bool   `json:"lock_mac"`
 }
 
-// FromModelProfileConfig konversi model → response DTO.
-func FromModelProfileConfig(cfg model.HotspotProfileConfig) ProfileConfigResponse {
+// FromModelHotspotProfileConfig konversi model.HotspotProfile (role=voucher) → ProfileConfigResponse.
+// Mempertahankan API contract /hotspot/profile-configs yang existing.
+func FromModelHotspotProfileConfig(p model.HotspotProfile) ProfileConfigResponse {
 	return ProfileConfigResponse{
-		ID:          cfg.ID,
-		DeviceID:    cfg.DeviceID,
-		ProfileName: cfg.ProfileName,
-		ExpiryMode:  cfg.ExpiryMode,
-		Validity:    cfg.Validity,
-		Price:       cfg.Price,
-		SellPrice:   cfg.SellPrice,
-		LockMAC:     cfg.LockMAC,
-		CreatedAt:   cfg.CreatedAt,
-		UpdatedAt:   cfg.UpdatedAt,
+		ID:          p.ID,
+		DeviceID:    p.DeviceID,
+		ProfileName: p.Name,
+		ExpiryMode:  p.ExpiryMode,
+		Validity:    p.Validity,
+		Price:       p.Price,
+		SellPrice:   p.SellPrice,
+		LockMAC:     p.LockMAC,
+		CreatedAt:   p.CreatedAt,
+		UpdatedAt:   p.UpdatedAt,
 	}
 }
 

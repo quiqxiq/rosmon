@@ -1,4 +1,4 @@
-# roslib-mikhmon HTTP API
+# rosmon HTTP API
 
 REST + SSE service di atas paket `mikrotik/*` dan `workflows/`. Entry point:
 `cmd/server/main.go`. Bind default `127.0.0.1:8080`.

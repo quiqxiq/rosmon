@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/quiqxiq/roslib"
-	"github.com/quiqxiq/roslib-mikhmon/internal/testutil"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/syslog"
+	"github.com/quiqxiq/rosmon/internal/testutil"
+	"github.com/quiqxiq/rosmon/mikrotik/syslog"
 	"github.com/stretchr/testify/require"
 )
 

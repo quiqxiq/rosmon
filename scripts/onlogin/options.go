@@ -1,6 +1,6 @@
 package onlogin
 
-import "github.com/quiqxiq/roslib-mikhmon/domain"
+import "github.com/quiqxiq/rosmon/domain"
 
 // Options mendeskripsikan parameter generate body script on-login.
 //

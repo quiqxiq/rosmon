@@ -4,9 +4,9 @@ import (
 	"sync"
 
 	"github.com/quiqxiq/roslib"
-	"github.com/quiqxiq/roslib-mikhmon/domain"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/hotspot"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/ppp"
+	"github.com/quiqxiq/rosmon/domain"
+	"github.com/quiqxiq/rosmon/mikrotik/hotspot"
+	"github.com/quiqxiq/rosmon/mikrotik/ppp"
 )
 
 const (

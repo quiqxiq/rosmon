@@ -1,5 +1,5 @@
 // Package auth menyediakan service autentikasi (JWT access + refresh,
-// bcrypt password, RBAC 3-role) dan CRUD user untuk roslib-mikhmon.
+// bcrypt password, RBAC 3-role) dan CRUD user untuk rosmon.
 //
 // Penggunaan: cmd/server membangun Signer (JWT) + Service (orchestrator),
 // inject ke api.Deps. Middleware api/middleware/auth.go verify Bearer

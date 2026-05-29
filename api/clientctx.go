@@ -2,7 +2,7 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/service/devmgr"
+	"github.com/quiqxiq/rosmon/service/devmgr"
 )
 
 const ctxKeyClients = "device_clients"

@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/quiqxiq/roslib"
-	"github.com/quiqxiq/roslib-mikhmon/domain"
+	"github.com/quiqxiq/rosmon/domain"
 )
 
 // InterfaceTrafficStream → /interface/monitor-traffic interface=<name>

@@ -3,7 +3,7 @@ package dto
 import (
 	"time"
 
-	"github.com/quiqxiq/roslib-mikhmon/store/model"
+	"github.com/quiqxiq/rosmon/store/model"
 )
 
 // DeviceResponse adalah response publik untuk mikrotik device.

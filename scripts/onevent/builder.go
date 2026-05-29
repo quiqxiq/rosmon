@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/quiqxiq/roslib-mikhmon/domain"
+	"github.com/quiqxiq/rosmon/domain"
 )
 
 // Options adalah parameter generate body on-event.

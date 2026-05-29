@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik"
+	"github.com/quiqxiq/rosmon/mikrotik"
 )
 
 // KickActive memutus sesi aktif user mengikuti analisis §4.4:

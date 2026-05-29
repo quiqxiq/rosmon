@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/quiqxiq/roslib-mikhmon/domain"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik"
+	"github.com/quiqxiq/rosmon/domain"
+	"github.com/quiqxiq/rosmon/mikrotik"
 )
 
 func TestValidateVoucherSpec(t *testing.T) {

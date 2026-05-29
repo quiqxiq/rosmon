@@ -13,8 +13,8 @@ import (
 
 	"github.com/InfluxCommunity/influxdb3-go/v2/influxdb3"
 	roslibinflux "github.com/quiqxiq/roslib/metrics/influx"
-	"github.com/quiqxiq/roslib-mikhmon/service/devmgr"
-	"github.com/quiqxiq/roslib-mikhmon/store/model"
+	"github.com/quiqxiq/rosmon/service/devmgr"
+	"github.com/quiqxiq/rosmon/store/model"
 	"github.com/sirupsen/logrus"
 
 	"github.com/quiqxiq/roslib"

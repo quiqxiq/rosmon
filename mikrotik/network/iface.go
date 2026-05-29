@@ -3,7 +3,7 @@ package network
 import (
 	"context"
 
-	"github.com/quiqxiq/roslib-mikhmon/domain"
+	"github.com/quiqxiq/rosmon/domain"
 )
 
 // InterfaceList → /interface/print (analisis §1.11).

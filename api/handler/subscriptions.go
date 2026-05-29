@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/api/dto"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/hotspot"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/ppp"
-	"github.com/quiqxiq/roslib-mikhmon/service/devmgr"
-	"github.com/quiqxiq/roslib-mikhmon/store"
-	"github.com/quiqxiq/roslib-mikhmon/store/model"
+	"github.com/quiqxiq/rosmon/api/dto"
+	"github.com/quiqxiq/rosmon/mikrotik"
+	"github.com/quiqxiq/rosmon/mikrotik/hotspot"
+	"github.com/quiqxiq/rosmon/mikrotik/ppp"
+	"github.com/quiqxiq/rosmon/service/devmgr"
+	"github.com/quiqxiq/rosmon/store"
+	"github.com/quiqxiq/rosmon/store/model"
 	"github.com/sirupsen/logrus"
 )
 
@@ -26,17 +26,21 @@ import (
 // gagal, response berisi `warning` — DB tetap authoritative dan
 // operator bisa retry via POST /:id/reconcile.
 type Subscriptions struct {
-	Store           store.SubscriptionStore
-	CustomerStore   store.CustomerStore
-	BandwidthStore  store.BandwidthProfileStore
-	DevMgr          *devmgr.Manager
-	Log             *logrus.Logger
+	Store        store.SubscriptionStore
+	CustomerStore store.CustomerStore
+	PPPStore     store.PPPProfileStore
+	HotspotStore store.HotspotProfileStore
+	SettingStore store.SettingStore
+	DevMgr       *devmgr.Manager
+	Log          *logrus.Logger
 }
 
 func NewSubscriptions(
 	subs store.SubscriptionStore,
 	cust store.CustomerStore,
-	bw store.BandwidthProfileStore,
+	ppp store.PPPProfileStore,
+	hs store.HotspotProfileStore,
+	settings store.SettingStore,
 	devMgr *devmgr.Manager,
 	log *logrus.Logger,
 ) *Subscriptions {
@@ -44,8 +48,8 @@ func NewSubscriptions(
 		log = logrus.New()
 	}
 	return &Subscriptions{
-		Store: subs, CustomerStore: cust, BandwidthStore: bw,
-		DevMgr: devMgr, Log: log,
+		Store: subs, CustomerStore: cust, PPPStore: ppp, HotspotStore: hs,
+		SettingStore: settings, DevMgr: devMgr, Log: log,
 	}
 }
 
@@ -123,39 +127,24 @@ func (h *Subscriptions) Create(c *gin.Context) {
 		return
 	}
 
-	// Validasi: bandwidth_profile exists DAN service_type + device_id match.
-	bp, err := h.BandwidthStore.Get(c.Request.Context(), req.BandwidthProfileID)
-	if err != nil {
-		if errors.Is(err, store.ErrBandwidthProfileNotFound) {
-			c.AbortWithStatusJSON(http.StatusBadRequest,
-				dto.Err("INVALID_ARGUMENT", "bandwidth profile not found", c.Request.URL.Path))
-			return
-		}
-		WriteErr(c, err)
-		return
-	}
-	if bp.ServiceType != req.ServiceType {
+	// Validasi: profile exists dan device_id match.
+	profileName, profileErr := h.resolveProfileNameForCreate(c.Request.Context(), req)
+	if profileErr != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest,
-			dto.Err("INVALID_ARGUMENT",
-				fmt.Sprintf("service_type mismatch: subscription=%s bandwidth_profile=%s", req.ServiceType, bp.ServiceType),
-				c.Request.URL.Path))
-		return
-	}
-	if bp.DeviceID != req.DeviceID {
-		c.AbortWithStatusJSON(http.StatusBadRequest,
-			dto.Err("INVALID_ARGUMENT", "bandwidth profile belongs to a different device", c.Request.URL.Path))
+			dto.Err("INVALID_ARGUMENT", profileErr.Error(), c.Request.URL.Path))
 		return
 	}
 
 	sub := &model.Subscription{
-		CustomerID:         req.CustomerID,
-		DeviceID:           req.DeviceID,
-		BandwidthProfileID: req.BandwidthProfileID,
-		ServiceType:        req.ServiceType,
-		MikrotikUsername:   req.MikrotikUsername,
-		MikrotikPassword:   req.MikrotikPassword,
-		Notes:              req.Notes,
-		Status:             "pending_install",
+		CustomerID:       req.CustomerID,
+		DeviceID:         req.DeviceID,
+		PPPProfileID:     req.PPPProfileID,
+		HotspotProfileID: req.HotspotProfileID,
+		ServiceType:      req.ServiceType,
+		MikrotikUsername: req.MikrotikUsername,
+		MikrotikPassword: req.MikrotikPassword,
+		Notes:            req.Notes,
+		Status:           "pending_install",
 	}
 	if err := h.Store.Create(c.Request.Context(), sub); err != nil {
 		if errors.Is(err, store.ErrSubscriptionUsernameTaken) {
@@ -170,7 +159,7 @@ func (h *Subscriptions) Create(c *gin.Context) {
 	// Best-effort provision di router. Default: disabled=false (active),
 	// karena create biasanya langsung dipakai. Status di DB tetap
 	// pending_install — caller dapat PATCH ke active begitu confirmed.
-	warning := h.tryProvisionOnRouter(c, *sub, bp.MikrotikProfileName, false)
+	warning := h.tryProvisionOnRouter(c, *sub, profileName, false)
 	if warning == "" {
 		// Sync sukses → naikkan status ke active otomatis dan set activated_at.
 		now := time.Now()
@@ -207,26 +196,45 @@ func (h *Subscriptions) Update(c *gin.Context) {
 		return
 	}
 
-	// Cek pindah bandwidth_profile.
+	// Cek pindah profile.
 	var newProfileName string
-	if req.BandwidthProfileID != nil && *req.BandwidthProfileID != sub.BandwidthProfileID {
-		bp, errBP := h.BandwidthStore.Get(c.Request.Context(), *req.BandwidthProfileID)
-		if errBP != nil {
-			if errors.Is(errBP, store.ErrBandwidthProfileNotFound) {
+	if req.PPPProfileID != nil && (sub.PPPProfileID == nil || *req.PPPProfileID != *sub.PPPProfileID) {
+		p, errP := h.PPPStore.Get(c.Request.Context(), *req.PPPProfileID)
+		if errP != nil {
+			if errors.Is(errP, store.ErrPPPProfileNotFound) {
 				c.AbortWithStatusJSON(http.StatusBadRequest,
-					dto.Err("INVALID_ARGUMENT", "bandwidth profile not found", c.Request.URL.Path))
+					dto.Err("INVALID_ARGUMENT", "ppp profile not found", c.Request.URL.Path))
 				return
 			}
-			WriteErr(c, errBP)
+			WriteErr(c, errP)
 			return
 		}
-		if bp.ServiceType != sub.ServiceType || bp.DeviceID != sub.DeviceID {
+		if p.DeviceID != sub.DeviceID {
 			c.AbortWithStatusJSON(http.StatusBadRequest,
-				dto.Err("INVALID_ARGUMENT", "bandwidth profile mismatch (service_type/device_id)", c.Request.URL.Path))
+				dto.Err("INVALID_ARGUMENT", "ppp profile belongs to a different device", c.Request.URL.Path))
 			return
 		}
-		newProfileName = bp.MikrotikProfileName
-		sub.BandwidthProfileID = *req.BandwidthProfileID
+		newProfileName = p.Name
+		sub.PPPProfileID = req.PPPProfileID
+	}
+	if req.HotspotProfileID != nil && (sub.HotspotProfileID == nil || *req.HotspotProfileID != *sub.HotspotProfileID) {
+		p, errP := h.HotspotStore.Get(c.Request.Context(), *req.HotspotProfileID)
+		if errP != nil {
+			if errors.Is(errP, store.ErrHotspotProfileNotFound) {
+				c.AbortWithStatusJSON(http.StatusBadRequest,
+					dto.Err("INVALID_ARGUMENT", "hotspot profile not found", c.Request.URL.Path))
+				return
+			}
+			WriteErr(c, errP)
+			return
+		}
+		if p.DeviceID != sub.DeviceID {
+			c.AbortWithStatusJSON(http.StatusBadRequest,
+				dto.Err("INVALID_ARGUMENT", "hotspot profile belongs to a different device", c.Request.URL.Path))
+			return
+		}
+		newProfileName = p.Name
+		sub.HotspotProfileID = req.HotspotProfileID
 	}
 	if req.MikrotikPassword != nil {
 		sub.MikrotikPassword = *req.MikrotikPassword
@@ -323,8 +331,11 @@ func (h *Subscriptions) PatchStatus(c *gin.Context) {
 		sub.TerminatedAt = terminatedAt
 	}
 
+	// Hitung target profile + disabled dari device config.
+	targetProfile, disabled := h.resolveProfileForSub(c.Request.Context(), sub, req.Status)
+
 	// Sync ke router sesuai status target.
-	warning := h.trySyncStatus(c, sub)
+	warning := h.trySyncStatus(c, sub, targetProfile, disabled)
 	WriteOK(c, dto.SubscriptionWriteResponse{
 		Subscription: dto.FromModelSubscription(sub),
 		Warning:      warning,
@@ -349,11 +360,6 @@ func (h *Subscriptions) Reconcile(c *gin.Context) {
 		WriteErr(c, err)
 		return
 	}
-	bp, err := h.BandwidthStore.Get(c.Request.Context(), sub.BandwidthProfileID)
-	if err != nil {
-		WriteErr(c, fmt.Errorf("fetch bandwidth profile: %w", err))
-		return
-	}
 	cs, ok := h.lookupClientForSub(c, sub.DeviceID)
 	if !ok {
 		c.AbortWithStatusJSON(http.StatusServiceUnavailable,
@@ -363,8 +369,8 @@ func (h *Subscriptions) Reconcile(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), propagateTimeout)
 	defer cancel()
 
-	disabled := statusDisabled(sub.Status)
-	warning := h.ensureRouterState(ctx, cs, sub, bp.MikrotikProfileName, disabled)
+	targetProfile, disabled := h.resolveProfileForSub(c.Request.Context(), sub, sub.Status)
+	warning := h.ensureRouterState(ctx, cs, sub, targetProfile, disabled)
 	WriteOK(c, dto.SubscriptionWriteResponse{
 		Subscription: dto.FromModelSubscription(sub),
 		Warning:      warning,
@@ -425,8 +431,7 @@ func (h *Subscriptions) trySetOnRouter(c *gin.Context, sub model.Subscription, n
 	case "pppoe":
 		rs, err := cs.PPP.SecretByName(ctx, sub.MikrotikUsername)
 		if errors.Is(err, mikrotik.ErrNotFound) {
-			// Belum ada → create.
-			disabled := statusDisabled(sub.Status)
+			_, disabled := h.resolveProfileForSub(c.Request.Context(), sub, sub.Status)
 			return h.tryProvisionOnRouter(c, sub, newProfileName, disabled)
 		}
 		if err != nil {
@@ -440,8 +445,8 @@ func (h *Subscriptions) trySetOnRouter(c *gin.Context, sub model.Subscription, n
 	case "hotspot":
 		ru, err := cs.Hot.UserByName(ctx, sub.MikrotikUsername)
 		if errors.Is(err, mikrotik.ErrNotFound) {
-			disabled := statusDisabled(sub.Status)
-			return h.tryProvisionOnRouter(c, sub, newProfileName, disabled)
+			_, disabled2 := h.resolveProfileForSub(c.Request.Context(), sub, sub.Status)
+			return h.tryProvisionOnRouter(c, sub, newProfileName, disabled2)
 		}
 		if err != nil {
 			return mapSubErr(err, sub)
@@ -487,9 +492,11 @@ func (h *Subscriptions) tryRemoveOnRouter(c *gin.Context, sub model.Subscription
 	return ""
 }
 
-// trySyncStatus — sync field `disabled` di router sesuai status target.
-// Untuk 'terminated' → remove. Untuk yang lain → set disabled/enabled.
-func (h *Subscriptions) trySyncStatus(c *gin.Context, sub model.Subscription) string {
+// trySyncStatus — sync profile + disabled ke router sesuai status target.
+// Untuk 'terminated' → remove. Untuk 'active' → ensureRouterState (create jika
+// tidak ada, handles restore-from-terminated). Untuk yang lain → set profile +
+// disabled sesuai targetProfile dan disabled flag.
+func (h *Subscriptions) trySyncStatus(c *gin.Context, sub model.Subscription, targetProfile string, disabled bool) string {
 	if sub.Status == "terminated" {
 		return h.tryRemoveOnRouter(c, sub)
 	}
@@ -500,7 +507,11 @@ func (h *Subscriptions) trySyncStatus(c *gin.Context, sub model.Subscription) st
 	ctx, cancel := context.WithTimeout(c.Request.Context(), propagateTimeout)
 	defer cancel()
 
-	disabled := statusDisabled(sub.Status)
+	// active → ensureRouterState supaya restore dari terminated bisa recreate secret.
+	if sub.Status == "active" {
+		return h.ensureRouterState(ctx, cs, sub, targetProfile, disabled)
+	}
+
 	switch sub.ServiceType {
 	case "pppoe":
 		rs, err := cs.PPP.SecretByName(ctx, sub.MikrotikUsername)
@@ -508,6 +519,11 @@ func (h *Subscriptions) trySyncStatus(c *gin.Context, sub model.Subscription) st
 			return "secret not found on router — reconcile required"
 		}
 		if err != nil {
+			return mapSubErr(err, sub)
+		}
+		if err := cs.PPP.SecretSet(ctx, ppp.SecretSetArgs{
+			ID: rs.ID, Profile: targetProfile,
+		}); err != nil {
 			return mapSubErr(err, sub)
 		}
 		return mapSubErr(cs.PPP.SecretSetDisabled(ctx, rs.ID, disabled), sub)
@@ -519,9 +535,94 @@ func (h *Subscriptions) trySyncStatus(c *gin.Context, sub model.Subscription) st
 		if err != nil {
 			return mapSubErr(err, sub)
 		}
+		if err := cs.Hot.UserSet(ctx, hotspot.UserSetArgs{
+			ID: ru.ID, Profile: targetProfile,
+		}); err != nil {
+			return mapSubErr(err, sub)
+		}
 		return mapSubErr(cs.Hot.UserSetDisabled(ctx, ru.ID, disabled), sub)
 	}
 	return ""
+}
+
+// resolveProfileForSub mengembalikan (profileName, disabled) yang tepat untuk
+// status yang diberikan. Ambil bandwidth profile name (normal) dan isolir
+// profile name dari system_settings. Fallback ke default string jika fetch gagal.
+func (h *Subscriptions) resolveProfileForSub(ctx context.Context, sub model.Subscription, status string) (string, bool) {
+	normalProfile := ""
+	isolirProfile := "isolir"
+
+	switch sub.ServiceType {
+	case "pppoe":
+		if sub.PPPProfileID != nil && h.PPPStore != nil {
+			if p, err := h.PPPStore.Get(ctx, *sub.PPPProfileID); err == nil {
+				normalProfile = p.Name
+			}
+		}
+	case "hotspot":
+		if sub.HotspotProfileID != nil && h.HotspotStore != nil {
+			if p, err := h.HotspotStore.Get(ctx, *sub.HotspotProfileID); err == nil {
+				normalProfile = p.Name
+			}
+		}
+	}
+	if h.SettingStore != nil {
+		if v, err := h.SettingStore.Get(ctx, "billing.isolir_profile_name"); err == nil && v != "" {
+			isolirProfile = v
+		}
+	}
+	return profileForStatus(status, normalProfile, isolirProfile)
+}
+
+// resolveProfileNameForCreate validates profile exists + returns its name for router provisioning.
+func (h *Subscriptions) resolveProfileNameForCreate(ctx context.Context, req dto.SubscriptionCreateRequest) (string, error) {
+	switch req.ServiceType {
+	case "pppoe":
+		if req.PPPProfileID == nil {
+			return "", fmt.Errorf("ppp_profile_id required for pppoe subscription")
+		}
+		p, err := h.PPPStore.Get(ctx, *req.PPPProfileID)
+		if err != nil {
+			if errors.Is(err, store.ErrPPPProfileNotFound) {
+				return "", fmt.Errorf("ppp profile not found")
+			}
+			return "", err
+		}
+		if p.DeviceID != req.DeviceID {
+			return "", fmt.Errorf("ppp profile belongs to a different device")
+		}
+		return p.Name, nil
+	case "hotspot":
+		if req.HotspotProfileID == nil {
+			return "", fmt.Errorf("hotspot_profile_id required for hotspot subscription")
+		}
+		p, err := h.HotspotStore.Get(ctx, *req.HotspotProfileID)
+		if err != nil {
+			if errors.Is(err, store.ErrHotspotProfileNotFound) {
+				return "", fmt.Errorf("hotspot profile not found")
+			}
+			return "", err
+		}
+		if p.DeviceID != req.DeviceID {
+			return "", fmt.Errorf("hotspot profile belongs to a different device")
+		}
+		return p.Name, nil
+	}
+	return "", fmt.Errorf("unknown service_type: %s", req.ServiceType)
+}
+
+// profileForStatus mengembalikan (profileName, disabled) sesuai status.
+func profileForStatus(status, normalProfile, isolirProfile string) (string, bool) {
+	switch status {
+	case "active":
+		return normalProfile, false
+	case "isolir":
+		return isolirProfile, false
+	case "suspended":
+		return normalProfile, true
+	default:
+		return normalProfile, true
+	}
 }
 
 // ensureRouterState — reconcile path. Cari secret/user di router; kalau
@@ -585,13 +686,6 @@ func (h *Subscriptions) lookupClientForSub(c *gin.Context, deviceID uint) (*devm
 		return nil, false
 	}
 	return cs, true
-}
-
-// statusDisabled mapping status → disabled flag di router. 'active' =
-// enabled (disabled=false). Selain itu disabled=true. 'terminated' tidak
-// pakai disable — di-remove sepenuhnya.
-func statusDisabled(status string) bool {
-	return status != "active"
 }
 
 func mapSubErr(err error, sub model.Subscription) string {

@@ -4,10 +4,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/api/dto"
-	"github.com/quiqxiq/roslib-mikhmon/domain"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/hotspot"
-	"github.com/quiqxiq/roslib-mikhmon/workflows"
+	"github.com/quiqxiq/rosmon/api/dto"
+	"github.com/quiqxiq/rosmon/domain"
+	"github.com/quiqxiq/rosmon/mikrotik/hotspot"
+	"github.com/quiqxiq/rosmon/workflows"
 )
 
 type HotspotProfile struct {
@@ -70,7 +70,7 @@ func (h *HotspotProfile) GetByName(c *gin.Context) {
 }
 
 func (h *HotspotProfile) Create(c *gin.Context) {
-	var req dto.HotspotProfileCreateRequest
+	var req dto.RouterHotspotProfileCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		WriteValidationErr(c, err)
 		return
@@ -84,7 +84,7 @@ func (h *HotspotProfile) Create(c *gin.Context) {
 }
 
 func (h *HotspotProfile) Update(c *gin.Context) {
-	var req dto.HotspotProfileUpdateRequest
+	var req dto.RouterHotspotProfileUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		WriteValidationErr(c, err)
 		return
@@ -97,7 +97,7 @@ func (h *HotspotProfile) Update(c *gin.Context) {
 }
 
 func (h *HotspotProfile) Delete(c *gin.Context) {
-	var req dto.HotspotProfileDeleteRequest
+	var req dto.RouterHotspotProfileDeleteRequest
 	_ = c.ShouldBindJSON(&req) // body opsional — name dipakai cascade scheduler cleanup
 	if err := workflows.DeleteProfile(c.Request.Context(), h.WF, c.Param("id"), req.Name); err != nil {
 		WriteErr(c, err)

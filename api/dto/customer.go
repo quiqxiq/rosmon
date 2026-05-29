@@ -3,7 +3,7 @@ package dto
 import (
 	"time"
 
-	"github.com/quiqxiq/roslib-mikhmon/store/model"
+	"github.com/quiqxiq/rosmon/store/model"
 )
 
 // CustomerResponse adalah representasi customer di API response.

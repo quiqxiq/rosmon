@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quiqxiq/roslib-mikhmon/internal/tcpmock"
-	"github.com/quiqxiq/roslib-mikhmon/internal/testutil"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/network"
+	"github.com/quiqxiq/rosmon/internal/tcpmock"
+	"github.com/quiqxiq/rosmon/internal/testutil"
+	"github.com/quiqxiq/rosmon/mikrotik/network"
 	"github.com/stretchr/testify/require"
 )
 

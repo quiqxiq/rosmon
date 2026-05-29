@@ -3,8 +3,8 @@ package syslog
 import (
 	"context"
 
-	"github.com/quiqxiq/roslib-mikhmon/domain"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik"
+	"github.com/quiqxiq/rosmon/domain"
+	"github.com/quiqxiq/rosmon/mikrotik"
 )
 
 // LogList → /log/print (analisis §1.5). Kembalikan semua entry log

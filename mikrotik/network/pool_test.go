@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/quiqxiq/roslib"
-	"github.com/quiqxiq/roslib-mikhmon/internal/tcpmock"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/network"
+	"github.com/quiqxiq/rosmon/internal/tcpmock"
+	"github.com/quiqxiq/rosmon/mikrotik/network"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 )

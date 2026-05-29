@@ -5,8 +5,8 @@ package integration
 import (
 	"testing"
 
-	"github.com/quiqxiq/roslib-mikhmon/internal/testutil"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/system"
+	"github.com/quiqxiq/rosmon/internal/testutil"
+	"github.com/quiqxiq/rosmon/mikrotik/system"
 	"github.com/stretchr/testify/require"
 )
 

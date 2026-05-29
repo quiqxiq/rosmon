@@ -7,8 +7,8 @@ Peta dari analisis §3 (RouterOS Scripts Yang Tertanam di PHP) dan §7 (Quick Pr
 Generator: `scripts/onlogin`
 
 ```go
-import "github.com/quiqxiq/roslib-mikhmon/scripts/onlogin"
-import "github.com/quiqxiq/roslib-mikhmon/domain"
+import "github.com/quiqxiq/rosmon/scripts/onlogin"
+import "github.com/quiqxiq/rosmon/domain"
 
 s := onlogin.Build(onlogin.Options{
     Mode:      domain.ModeNoticeRecord,
@@ -41,7 +41,7 @@ Output golden file: `scripts/onlogin/testdata/golden/<mode>.txt`.
 Generator: `scripts/onevent`
 
 ```go
-import "github.com/quiqxiq/roslib-mikhmon/scripts/onevent"
+import "github.com/quiqxiq/rosmon/scripts/onevent"
 
 s := onevent.Build(onevent.Options{
     ProfileName: "1day",
@@ -57,7 +57,7 @@ Output adalah body kalkulasi expired loop (lihat analisis §3.2). Action di dala
 Generator: `scripts/transaction`
 
 ```go
-import "github.com/quiqxiq/roslib-mikhmon/scripts/transaction"
+import "github.com/quiqxiq/rosmon/scripts/transaction"
 
 name := transaction.Format(domain.TransactionRecord{
     Date: "jan/05/2025", Time: "14:32:01",
@@ -77,7 +77,7 @@ Format: 9 field dipisah `-|-`. Lihat tabel di analisis §3.1.
 Generator: `scripts/quickprint`
 
 ```go
-import "github.com/quiqxiq/roslib-mikhmon/scripts/quickprint"
+import "github.com/quiqxiq/rosmon/scripts/quickprint"
 
 src := quickprint.Format(quickprint.Config{
     Name: "1day", Server: "all", UserMode: "vc",

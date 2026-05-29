@@ -8,15 +8,15 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/api/handler"
-	"github.com/quiqxiq/roslib-mikhmon/store"
-	"github.com/quiqxiq/roslib-mikhmon/store/model"
+	"github.com/quiqxiq/rosmon/api/handler"
+	"github.com/quiqxiq/rosmon/store"
+	"github.com/quiqxiq/rosmon/store/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // fakeSubscriptionStore — in-memory implementasi store.SubscriptionStore
-// untuk handler test. Tidak meng-encrypt password (test-only).
+// untuk handler test.
 type fakeSubscriptionStore struct {
 	mu   sync.Mutex
 	rows map[uint]model.Subscription
@@ -120,46 +120,171 @@ func (f *fakeSubscriptionStore) Delete(ctx context.Context, id uint) error {
 	return nil
 }
 
+func (f *fakeSubscriptionStore) UpdateSyncStatus(_ context.Context, id uint, syncStatus, syncNotes string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	sub, ok := f.rows[id]
+	if !ok {
+		return store.ErrSubscriptionNotFound
+	}
+	sub.SyncStatus = syncStatus
+	sub.SyncNotes = syncNotes
+	f.rows[id] = sub
+	return nil
+}
+
+func (f *fakeSubscriptionStore) ListPendingSync(_ context.Context, limit int) ([]model.Subscription, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []model.Subscription
+	for _, s := range f.rows {
+		if s.SyncStatus != "synced" && s.SyncStatus != "" {
+			out = append(out, s)
+		}
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
 var _ store.SubscriptionStore = (*fakeSubscriptionStore)(nil)
 
-func setupSubEngine(t *testing.T) (*gin.Engine, *fakeSubscriptionStore, *fakeCustomerStore, *fakeBandwidthProfileStore) {
+// fakePPPProfileStore — in-memory implementasi store.PPPProfileStore.
+type fakePPPProfileStore struct {
+	mu   sync.Mutex
+	rows map[uint]model.PPPProfile
+	seq  uint
+}
+
+func newFakePPPStore() *fakePPPProfileStore {
+	return &fakePPPProfileStore{rows: map[uint]model.PPPProfile{}}
+}
+
+func (f *fakePPPProfileStore) ListByDevice(ctx context.Context, deviceID uint) ([]model.PPPProfile, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []model.PPPProfile
+	for _, p := range f.rows {
+		if p.DeviceID == deviceID {
+			out = append(out, p)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakePPPProfileStore) Get(ctx context.Context, id uint) (model.PPPProfile, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	p, ok := f.rows[id]
+	if !ok {
+		return p, store.ErrPPPProfileNotFound
+	}
+	return p, nil
+}
+
+func (f *fakePPPProfileStore) GetByName(ctx context.Context, deviceID uint, name string) (model.PPPProfile, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, p := range f.rows {
+		if p.DeviceID == deviceID && p.Name == name {
+			return p, nil
+		}
+	}
+	return model.PPPProfile{}, store.ErrPPPProfileNotFound
+}
+
+func (f *fakePPPProfileStore) Create(ctx context.Context, p *model.PPPProfile) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.seq++
+	p.ID = f.seq
+	p.CreatedAt = time.Now()
+	p.UpdatedAt = p.CreatedAt
+	f.rows[p.ID] = *p
+	return nil
+}
+
+func (f *fakePPPProfileStore) Update(ctx context.Context, p *model.PPPProfile) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if _, ok := f.rows[p.ID]; !ok {
+		return store.ErrPPPProfileNotFound
+	}
+	p.UpdatedAt = time.Now()
+	f.rows[p.ID] = *p
+	return nil
+}
+
+func (f *fakePPPProfileStore) Delete(ctx context.Context, id uint) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if _, ok := f.rows[id]; !ok {
+		return store.ErrPPPProfileNotFound
+	}
+	delete(f.rows, id)
+	return nil
+}
+
+func (f *fakePPPProfileStore) Upsert(ctx context.Context, p *model.PPPProfile) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for id, existing := range f.rows {
+		if existing.DeviceID == p.DeviceID && existing.Name == p.Name {
+			p.ID = id
+			p.CreatedAt = existing.CreatedAt
+			p.UpdatedAt = time.Now()
+			f.rows[id] = *p
+			return false, nil
+		}
+	}
+	f.seq++
+	p.ID = f.seq
+	p.CreatedAt = time.Now()
+	p.UpdatedAt = p.CreatedAt
+	f.rows[p.ID] = *p
+	return true, nil
+}
+
+var _ store.PPPProfileStore = (*fakePPPProfileStore)(nil)
+
+func setupSubEngine(t *testing.T) (*gin.Engine, *fakeSubscriptionStore, *fakeCustomerStore, *fakePPPProfileStore) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	subS := newFakeSubStore()
 	custS := newFakeCustomerStore()
-	bwS := newFakeBWStore()
+	pppS := newFakePPPStore()
 	g := r.Group("/api/v1")
-	handler.NewSubscriptions(subS, custS, bwS, nil, nil).Register(g)
-	return r, subS, custS, bwS
+	handler.NewSubscriptions(subS, custS, pppS, nil, nil, nil, nil).Register(g)
+	return r, subS, custS, pppS
 }
 
-// seedCustomerAndProfile membuat 1 customer + 1 bandwidth_profile pppoe di device 1.
-// Return: customerID, bandwidthProfileID.
-func seedCustomerAndProfile(t *testing.T, custS *fakeCustomerStore, bwS *fakeBandwidthProfileStore) (uint, uint) {
+// seedCustomerAndProfile membuat 1 customer + 1 ppp_profile di device 1.
+// Return: customerID, pppProfileID.
+func seedCustomerAndProfile(t *testing.T, custS *fakeCustomerStore, pppS *fakePPPProfileStore) (uint, uint) {
 	t.Helper()
 	cust := &model.Customer{FullName: "Pak Budi", Phone: "08111", Status: "aktif"}
 	require.NoError(t, custS.Create(context.Background(), cust))
-	bp := &model.BandwidthProfile{
-		DeviceID: 1, ServiceType: "pppoe",
-		Name: "Paket 10M", MikrotikProfileName: "ppp-10M",
+	pp := &model.PPPProfile{
+		DeviceID: 1, Name: "ppp-10M",
 		RateLimit: "10M/10M", PriceMonthly: 150000, Active: true,
 	}
-	require.NoError(t, bwS.Create(context.Background(), bp))
-	return cust.ID, bp.ID
+	require.NoError(t, pppS.Create(context.Background(), pp))
+	return cust.ID, pp.ID
 }
 
 func TestSubscriptions_Create_OfflineDevice_OK(t *testing.T) {
-	r, subS, custS, bwS := setupSubEngine(t)
-	custID, bpID := seedCustomerAndProfile(t, custS, bwS)
+	r, subS, custS, pppS := setupSubEngine(t)
+	custID, ppID := seedCustomerAndProfile(t, custS, pppS)
 
 	w := doJSON(r, http.MethodPost, "/api/v1/subscriptions", map[string]any{
-		"customer_id":          custID,
-		"device_id":            1,
-		"bandwidth_profile_id": bpID,
-		"service_type":         "pppoe",
-		"mikrotik_username":    "budi-001",
-		"mikrotik_password":    "rahasia",
+		"customer_id":       custID,
+		"device_id":         1,
+		"ppp_profile_id":    ppID,
+		"service_type":      "pppoe",
+		"mikrotik_username": "budi-001",
+		"mikrotik_password": "rahasia",
 	})
 	require.Equal(t, http.StatusCreated, w.Code, "body: %s", w.Body.String())
 	assert.Contains(t, w.Body.String(), `"mikrotik_username":"budi-001"`)
@@ -172,68 +297,66 @@ func TestSubscriptions_Create_OfflineDevice_OK(t *testing.T) {
 }
 
 func TestSubscriptions_Create_CustomerNotFound_400(t *testing.T) {
-	r, _, _, bwS := setupSubEngine(t)
-	bp := &model.BandwidthProfile{
-		DeviceID: 1, ServiceType: "pppoe",
-		Name: "X", MikrotikProfileName: "x", Active: true,
-	}
-	require.NoError(t, bwS.Create(context.Background(), bp))
+	r, _, _, pppS := setupSubEngine(t)
+	pp := &model.PPPProfile{DeviceID: 1, Name: "x", Active: true}
+	require.NoError(t, pppS.Create(context.Background(), pp))
 
 	w := doJSON(r, http.MethodPost, "/api/v1/subscriptions", map[string]any{
-		"customer_id":          99, // not exist
-		"device_id":            1,
-		"bandwidth_profile_id": bp.ID,
-		"service_type":         "pppoe",
-		"mikrotik_username":    "x",
-		"mikrotik_password":    "x",
+		"customer_id":       99, // not exist
+		"device_id":         1,
+		"ppp_profile_id":    pp.ID,
+		"service_type":      "pppoe",
+		"mikrotik_username": "x",
+		"mikrotik_password": "x",
 	})
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	assert.Contains(t, w.Body.String(), "customer not found")
 }
 
-func TestSubscriptions_Create_ServiceTypeMismatch_400(t *testing.T) {
-	r, _, custS, bwS := setupSubEngine(t)
-	custID, _ := seedCustomerAndProfile(t, custS, bwS) // bw is pppoe
+func TestSubscriptions_Create_ProfileRequired_400(t *testing.T) {
+	r, _, custS, _ := setupSubEngine(t)
+	cust := &model.Customer{FullName: "A", Phone: "081", Status: "aktif"}
+	require.NoError(t, custS.Create(context.Background(), cust))
 
+	// pppoe without ppp_profile_id → error
 	w := doJSON(r, http.MethodPost, "/api/v1/subscriptions", map[string]any{
-		"customer_id":          custID,
-		"device_id":            1,
-		"bandwidth_profile_id": 1,
-		"service_type":         "hotspot", // mismatch — bp is pppoe
-		"mikrotik_username":    "x",
-		"mikrotik_password":    "x",
+		"customer_id":       cust.ID,
+		"device_id":         1,
+		"service_type":      "pppoe",
+		"mikrotik_username": "x",
+		"mikrotik_password": "x",
 	})
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "service_type mismatch")
+	assert.Contains(t, w.Body.String(), "ppp_profile_id required")
 }
 
 func TestSubscriptions_Create_DeviceMismatch_400(t *testing.T) {
-	r, _, custS, bwS := setupSubEngine(t)
-	custID, bpID := seedCustomerAndProfile(t, custS, bwS) // bp on device 1
+	r, _, custS, pppS := setupSubEngine(t)
+	custID, ppID := seedCustomerAndProfile(t, custS, pppS) // profile on device 1
 
 	w := doJSON(r, http.MethodPost, "/api/v1/subscriptions", map[string]any{
-		"customer_id":          custID,
-		"device_id":            2, // different device
-		"bandwidth_profile_id": bpID,
-		"service_type":         "pppoe",
-		"mikrotik_username":    "x",
-		"mikrotik_password":    "x",
+		"customer_id":       custID,
+		"device_id":         2, // different device
+		"ppp_profile_id":    ppID,
+		"service_type":      "pppoe",
+		"mikrotik_username": "x",
+		"mikrotik_password": "x",
 	})
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	assert.Contains(t, w.Body.String(), "different device")
 }
 
 func TestSubscriptions_Create_DuplicateUsername_409(t *testing.T) {
-	r, _, custS, bwS := setupSubEngine(t)
-	custID, bpID := seedCustomerAndProfile(t, custS, bwS)
+	r, _, custS, pppS := setupSubEngine(t)
+	custID, ppID := seedCustomerAndProfile(t, custS, pppS)
 
 	body := map[string]any{
-		"customer_id":          custID,
-		"device_id":            1,
-		"bandwidth_profile_id": bpID,
-		"service_type":         "pppoe",
-		"mikrotik_username":    "budi-001",
-		"mikrotik_password":    "x",
+		"customer_id":       custID,
+		"device_id":         1,
+		"ppp_profile_id":    ppID,
+		"service_type":      "pppoe",
+		"mikrotik_username": "budi-001",
+		"mikrotik_password": "x",
 	}
 	doJSON(r, http.MethodPost, "/api/v1/subscriptions", body)
 	w := doJSON(r, http.MethodPost, "/api/v1/subscriptions", body)
@@ -242,10 +365,10 @@ func TestSubscriptions_Create_DuplicateUsername_409(t *testing.T) {
 }
 
 func TestSubscriptions_PatchStatus_Active_SetsActivatedAt(t *testing.T) {
-	r, subS, custS, bwS := setupSubEngine(t)
-	custID, bpID := seedCustomerAndProfile(t, custS, bwS)
+	r, subS, custS, pppS := setupSubEngine(t)
+	custID, ppID := seedCustomerAndProfile(t, custS, pppS)
 	doJSON(r, http.MethodPost, "/api/v1/subscriptions", map[string]any{
-		"customer_id": custID, "device_id": 1, "bandwidth_profile_id": bpID,
+		"customer_id": custID, "device_id": 1, "ppp_profile_id": ppID,
 		"service_type": "pppoe", "mikrotik_username": "x", "mikrotik_password": "x",
 	})
 
@@ -260,10 +383,10 @@ func TestSubscriptions_PatchStatus_Active_SetsActivatedAt(t *testing.T) {
 }
 
 func TestSubscriptions_PatchStatus_Terminated_SetsTerminatedAt(t *testing.T) {
-	r, subS, custS, bwS := setupSubEngine(t)
-	custID, bpID := seedCustomerAndProfile(t, custS, bwS)
+	r, subS, custS, pppS := setupSubEngine(t)
+	custID, ppID := seedCustomerAndProfile(t, custS, pppS)
 	doJSON(r, http.MethodPost, "/api/v1/subscriptions", map[string]any{
-		"customer_id": custID, "device_id": 1, "bandwidth_profile_id": bpID,
+		"customer_id": custID, "device_id": 1, "ppp_profile_id": ppID,
 		"service_type": "pppoe", "mikrotik_username": "x", "mikrotik_password": "x",
 	})
 
@@ -277,10 +400,10 @@ func TestSubscriptions_PatchStatus_Terminated_SetsTerminatedAt(t *testing.T) {
 }
 
 func TestSubscriptions_PatchStatus_InvalidValue_400(t *testing.T) {
-	r, _, custS, bwS := setupSubEngine(t)
-	custID, bpID := seedCustomerAndProfile(t, custS, bwS)
+	r, _, custS, pppS := setupSubEngine(t)
+	custID, ppID := seedCustomerAndProfile(t, custS, pppS)
 	doJSON(r, http.MethodPost, "/api/v1/subscriptions", map[string]any{
-		"customer_id": custID, "device_id": 1, "bandwidth_profile_id": bpID,
+		"customer_id": custID, "device_id": 1, "ppp_profile_id": ppID,
 		"service_type": "pppoe", "mikrotik_username": "x", "mikrotik_password": "x",
 	})
 
@@ -292,10 +415,10 @@ func TestSubscriptions_PatchStatus_InvalidValue_400(t *testing.T) {
 }
 
 func TestSubscriptions_Update_PartialFields(t *testing.T) {
-	r, subS, custS, bwS := setupSubEngine(t)
-	custID, bpID := seedCustomerAndProfile(t, custS, bwS)
+	r, subS, custS, pppS := setupSubEngine(t)
+	custID, ppID := seedCustomerAndProfile(t, custS, pppS)
 	doJSON(r, http.MethodPost, "/api/v1/subscriptions", map[string]any{
-		"customer_id": custID, "device_id": 1, "bandwidth_profile_id": bpID,
+		"customer_id": custID, "device_id": 1, "ppp_profile_id": ppID,
 		"service_type": "pppoe", "mikrotik_username": "u1", "mikrotik_password": "p1",
 		"notes": "first",
 	})
@@ -311,10 +434,10 @@ func TestSubscriptions_Update_PartialFields(t *testing.T) {
 }
 
 func TestSubscriptions_Delete(t *testing.T) {
-	r, subS, custS, bwS := setupSubEngine(t)
-	custID, bpID := seedCustomerAndProfile(t, custS, bwS)
+	r, subS, custS, pppS := setupSubEngine(t)
+	custID, ppID := seedCustomerAndProfile(t, custS, pppS)
 	doJSON(r, http.MethodPost, "/api/v1/subscriptions", map[string]any{
-		"customer_id": custID, "device_id": 1, "bandwidth_profile_id": bpID,
+		"customer_id": custID, "device_id": 1, "ppp_profile_id": ppID,
 		"service_type": "pppoe", "mikrotik_username": "u1", "mikrotik_password": "p1",
 	})
 
@@ -328,10 +451,10 @@ func TestSubscriptions_Delete(t *testing.T) {
 }
 
 func TestSubscriptions_Reconcile_DeviceOffline_503(t *testing.T) {
-	r, _, custS, bwS := setupSubEngine(t)
-	custID, bpID := seedCustomerAndProfile(t, custS, bwS)
+	r, _, custS, pppS := setupSubEngine(t)
+	custID, ppID := seedCustomerAndProfile(t, custS, pppS)
 	doJSON(r, http.MethodPost, "/api/v1/subscriptions", map[string]any{
-		"customer_id": custID, "device_id": 1, "bandwidth_profile_id": bpID,
+		"customer_id": custID, "device_id": 1, "ppp_profile_id": ppID,
 		"service_type": "pppoe", "mikrotik_username": "u1", "mikrotik_password": "p1",
 	})
 
@@ -340,18 +463,17 @@ func TestSubscriptions_Reconcile_DeviceOffline_503(t *testing.T) {
 }
 
 func TestSubscriptions_List_FilterByCustomer(t *testing.T) {
-	r, _, custS, bwS := setupSubEngine(t)
-	custID, bpID := seedCustomerAndProfile(t, custS, bwS)
-	// Tambah customer kedua + subscription kedua untuk customer berbeda.
+	r, _, custS, pppS := setupSubEngine(t)
+	custID, ppID := seedCustomerAndProfile(t, custS, pppS)
 	cust2 := &model.Customer{FullName: "Bu Ani", Phone: "08222", Status: "aktif"}
 	require.NoError(t, custS.Create(context.Background(), cust2))
 
 	doJSON(r, http.MethodPost, "/api/v1/subscriptions", map[string]any{
-		"customer_id": custID, "device_id": 1, "bandwidth_profile_id": bpID,
+		"customer_id": custID, "device_id": 1, "ppp_profile_id": ppID,
 		"service_type": "pppoe", "mikrotik_username": "u1", "mikrotik_password": "p",
 	})
 	doJSON(r, http.MethodPost, "/api/v1/subscriptions", map[string]any{
-		"customer_id": cust2.ID, "device_id": 1, "bandwidth_profile_id": bpID,
+		"customer_id": cust2.ID, "device_id": 1, "ppp_profile_id": ppID,
 		"service_type": "pppoe", "mikrotik_username": "u2", "mikrotik_password": "p",
 	})
 

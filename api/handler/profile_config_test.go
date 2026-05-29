@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -12,24 +11,26 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/api/dto"
-	"github.com/quiqxiq/roslib-mikhmon/api/handler"
-	"github.com/quiqxiq/roslib-mikhmon/store"
-	"github.com/quiqxiq/roslib-mikhmon/store/model"
+	"github.com/quiqxiq/rosmon/api/dto"
+	"github.com/quiqxiq/rosmon/api/handler"
+	"github.com/quiqxiq/rosmon/store"
+	"github.com/quiqxiq/rosmon/store/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// fakeProfileConfigStore — in-memory implementasi untuk handler test.
+// fakeProfileConfigStore — in-memory HotspotProfileStore stub untuk handler test.
 type fakeProfileConfigStore struct {
 	mu     sync.Mutex
-	byKey  map[string]*model.HotspotProfileConfig
+	byKey  map[string]*model.HotspotProfile
+	byID   map[uint]*model.HotspotProfile
 	nextID uint
 }
 
 func newFakeProfileConfigStore() *fakeProfileConfigStore {
 	return &fakeProfileConfigStore{
-		byKey:  make(map[string]*model.HotspotProfileConfig),
+		byKey:  make(map[string]*model.HotspotProfile),
+		byID:   make(map[uint]*model.HotspotProfile),
 		nextID: 1,
 	}
 }
@@ -38,88 +39,112 @@ func keyOf(deviceID uint, name string) string {
 	return string(rune(deviceID)) + ":" + name
 }
 
-func (f *fakeProfileConfigStore) Get(ctx context.Context, deviceID uint, profileName string) (model.HotspotProfileConfig, error) {
-	cfg, err := f.GetByName(ctx, deviceID, profileName)
-	if errors.Is(err, store.ErrProfileConfigNotFound) {
-		// Match existing fallback: return default {ExpiryMode: "rem"}.
-		return model.HotspotProfileConfig{
-			DeviceID: deviceID, ProfileName: profileName, ExpiryMode: "rem",
-		}, nil
-	}
-	return cfg, err
-}
-
-func (f *fakeProfileConfigStore) GetByName(ctx context.Context, deviceID uint, profileName string) (model.HotspotProfileConfig, error) {
+func (f *fakeProfileConfigStore) ListByDevice(ctx context.Context, deviceID uint, filter store.HotspotProfileListFilter) ([]model.HotspotProfile, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if cfg, ok := f.byKey[keyOf(deviceID, profileName)]; ok {
-		return *cfg, nil
+	out := make([]model.HotspotProfile, 0)
+	for _, p := range f.byKey {
+		if p.DeviceID != deviceID {
+			continue
+		}
+		if filter.Role != "" && p.Role != filter.Role {
+			continue
+		}
+		if filter.OnlyActive && !p.Active {
+			continue
+		}
+		out = append(out, *p)
 	}
-	return model.HotspotProfileConfig{}, store.ErrProfileConfigNotFound
+	return out, nil
 }
 
-func (f *fakeProfileConfigStore) Upsert(ctx context.Context, cfg *model.HotspotProfileConfig) error {
+func (f *fakeProfileConfigStore) Get(ctx context.Context, id uint) (model.HotspotProfile, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	k := keyOf(cfg.DeviceID, cfg.ProfileName)
-	if existing, ok := f.byKey[k]; ok {
-		cfg.ID = existing.ID
-		cfg.CreatedAt = existing.CreatedAt
-	} else {
-		cfg.ID = f.nextID
-		f.nextID++
-		cfg.CreatedAt = time.Now()
+	if p, ok := f.byID[id]; ok {
+		return *p, nil
 	}
-	cfg.UpdatedAt = time.Now()
-	cp := *cfg
-	f.byKey[k] = &cp
+	return model.HotspotProfile{}, store.ErrHotspotProfileNotFound
+}
+
+func (f *fakeProfileConfigStore) GetByName(ctx context.Context, deviceID uint, name string) (model.HotspotProfile, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if p, ok := f.byKey[keyOf(deviceID, name)]; ok {
+		return *p, nil
+	}
+	return model.HotspotProfile{}, store.ErrHotspotProfileNotFound
+}
+
+func (f *fakeProfileConfigStore) Create(ctx context.Context, p *model.HotspotProfile) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	p.ID = f.nextID
+	f.nextID++
+	p.CreatedAt = time.Now()
+	p.UpdatedAt = time.Now()
+	cp := *p
+	f.byKey[keyOf(p.DeviceID, p.Name)] = &cp
+	f.byID[cp.ID] = &cp
 	return nil
 }
 
-func (f *fakeProfileConfigStore) UpsertResult(ctx context.Context, cfg *model.HotspotProfileConfig) (bool, error) {
-	f.mu.Lock()
-	k := keyOf(cfg.DeviceID, cfg.ProfileName)
-	_, exists := f.byKey[k]
-	f.mu.Unlock()
-	if err := f.Upsert(ctx, cfg); err != nil {
-		return false, err
-	}
-	return !exists, nil
-}
-
-func (f *fakeProfileConfigStore) ListByDevice(ctx context.Context, deviceID uint) ([]model.HotspotProfileConfig, error) {
+func (f *fakeProfileConfigStore) Update(ctx context.Context, p *model.HotspotProfile) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	out := make([]model.HotspotProfileConfig, 0)
-	for _, cfg := range f.byKey {
-		if cfg.DeviceID == deviceID {
-			out = append(out, *cfg)
-		}
+	k := keyOf(p.DeviceID, p.Name)
+	if _, ok := f.byKey[k]; !ok {
+		return store.ErrHotspotProfileNotFound
 	}
-	return out, nil
+	p.UpdatedAt = time.Now()
+	cp := *p
+	f.byKey[k] = &cp
+	f.byID[cp.ID] = &cp
+	return nil
 }
 
 func (f *fakeProfileConfigStore) Delete(ctx context.Context, id uint) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	for k, cfg := range f.byKey {
-		if cfg.ID == id {
-			delete(f.byKey, k)
-			return nil
-		}
+	p, ok := f.byID[id]
+	if !ok {
+		return store.ErrHotspotProfileNotFound
 	}
-	return store.ErrProfileConfigNotFound
+	delete(f.byKey, keyOf(p.DeviceID, p.Name))
+	delete(f.byID, id)
+	return nil
 }
 
-func (f *fakeProfileConfigStore) DeleteByName(ctx context.Context, deviceID uint, profileName string) error {
+func (f *fakeProfileConfigStore) Upsert(ctx context.Context, p *model.HotspotProfile) (bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	k := keyOf(deviceID, profileName)
-	if _, ok := f.byKey[k]; !ok {
-		return store.ErrProfileConfigNotFound
+	k := keyOf(p.DeviceID, p.Name)
+	if existing, ok := f.byKey[k]; ok {
+		p.ID = existing.ID
+		p.CreatedAt = existing.CreatedAt
+		// Preserve operator fields like the real store.
+		p.Role = existing.Role
+		p.PriceMonthly = existing.PriceMonthly
+		p.ExpiryMode = existing.ExpiryMode
+		p.Validity = existing.Validity
+		p.Price = existing.Price
+		p.SellPrice = existing.SellPrice
+		p.LockMAC = existing.LockMAC
+		p.Description = existing.Description
+		p.UpdatedAt = time.Now()
+		cp := *p
+		f.byKey[k] = &cp
+		f.byID[cp.ID] = &cp
+		return false, nil
 	}
-	delete(f.byKey, k)
-	return nil
+	p.ID = f.nextID
+	f.nextID++
+	p.CreatedAt = time.Now()
+	p.UpdatedAt = time.Now()
+	cp := *p
+	f.byKey[k] = &cp
+	f.byID[cp.ID] = &cp
+	return true, nil
 }
 
 // setupProfileConfigEngine bangun Gin engine untuk handler test.
@@ -135,6 +160,9 @@ func setupProfileConfigEngine(t *testing.T) (*gin.Engine, *fakeProfileConfigStor
 	handler.NewProfileConfig(fake, nil, "", nil).Register(devGroup)
 	return r, fake
 }
+
+// Compile-time interface check.
+var _ store.HotspotProfileStore = (*fakeProfileConfigStore)(nil)
 
 func TestProfileConfig_upsert_creates(t *testing.T) {
 	r, fake := setupProfileConfigEngine(t)
@@ -244,8 +272,8 @@ func TestProfileConfig_get_notFound(t *testing.T) {
 func TestProfileConfig_get_existing(t *testing.T) {
 	r, fake := setupProfileConfigEngine(t)
 	// Seed
-	_, err := fake.UpsertResult(context.Background(), &model.HotspotProfileConfig{
-		DeviceID: 5, ProfileName: "premium",
+	_, err := fake.Upsert(context.Background(), &model.HotspotProfile{
+		DeviceID: 5, Name: "premium", Role: "voucher",
 		ExpiryMode: "remc", Validity: "30d", Price: 50000, SellPrice: 75000,
 	})
 	require.NoError(t, err)
@@ -268,14 +296,14 @@ func TestProfileConfig_get_existing(t *testing.T) {
 func TestProfileConfig_list(t *testing.T) {
 	r, fake := setupProfileConfigEngine(t)
 	for _, name := range []string{"default", "vip", "premium"} {
-		_, err := fake.UpsertResult(context.Background(), &model.HotspotProfileConfig{
-			DeviceID: 3, ProfileName: name, ExpiryMode: "rem", Validity: "7d",
+		_, err := fake.Upsert(context.Background(), &model.HotspotProfile{
+			DeviceID: 3, Name: name, Role: "voucher", ExpiryMode: "rem", Validity: "7d",
 		})
 		require.NoError(t, err)
 	}
 	// Device lain → tidak ter-list
-	_, err := fake.UpsertResult(context.Background(), &model.HotspotProfileConfig{
-		DeviceID: 99, ProfileName: "other", ExpiryMode: "rem", Validity: "7d",
+	_, err := fake.Upsert(context.Background(), &model.HotspotProfile{
+		DeviceID: 99, Name: "other", Role: "voucher", ExpiryMode: "rem", Validity: "7d",
 	})
 	require.NoError(t, err)
 
@@ -296,8 +324,8 @@ func TestProfileConfig_list(t *testing.T) {
 
 func TestProfileConfig_delete(t *testing.T) {
 	r, fake := setupProfileConfigEngine(t)
-	_, err := fake.UpsertResult(context.Background(), &model.HotspotProfileConfig{
-		DeviceID: 1, ProfileName: "default", ExpiryMode: "rem", Validity: "7d",
+	_, err := fake.Upsert(context.Background(), &model.HotspotProfile{
+		DeviceID: 1, Name: "default", Role: "voucher", ExpiryMode: "rem", Validity: "7d",
 	})
 	require.NoError(t, err)
 

@@ -1,8 +1,8 @@
 package dto
 
 import (
-	"github.com/quiqxiq/roslib-mikhmon/domain"
-	"github.com/quiqxiq/roslib-mikhmon/mikrotik/hotspot"
+	"github.com/quiqxiq/rosmon/domain"
+	"github.com/quiqxiq/rosmon/mikrotik/hotspot"
 )
 
 // ── HotspotUser ──────────────────────────────────────────────────────
@@ -148,7 +148,7 @@ type BulkResult struct {
 
 // ── HotspotProfile ───────────────────────────────────────────────────
 
-type HotspotProfileResponse struct {
+type RouterHotspotProfileResponse struct {
 	ID                string `json:"id"`
 	Name              string `json:"name"`
 	AddressPool       string `json:"address_pool,omitempty"`
@@ -166,8 +166,8 @@ type HotspotProfileResponse struct {
 	TransparentProxy  bool   `json:"transparent_proxy"`
 }
 
-func FromDomainProfile(p domain.HotspotProfile) HotspotProfileResponse {
-	return HotspotProfileResponse{
+func FromDomainProfile(p domain.HotspotProfile) RouterHotspotProfileResponse {
+	return RouterHotspotProfileResponse{
 		ID:                p.ID,
 		Name:              p.Name,
 		AddressPool:       p.AddressPool,
@@ -186,15 +186,15 @@ func FromDomainProfile(p domain.HotspotProfile) HotspotProfileResponse {
 	}
 }
 
-func FromDomainProfiles(ps []domain.HotspotProfile) []HotspotProfileResponse {
-	out := make([]HotspotProfileResponse, len(ps))
+func FromDomainProfiles(ps []domain.HotspotProfile) []RouterHotspotProfileResponse {
+	out := make([]RouterHotspotProfileResponse, len(ps))
 	for i, p := range ps {
 		out[i] = FromDomainProfile(p)
 	}
 	return out
 }
 
-type HotspotProfileCreateRequest struct {
+type RouterHotspotProfileCreateRequest struct {
 	Name              string `json:"name"                          binding:"required,min=1,max=128"`
 	AddressPool       string `json:"address_pool,omitempty"`
 	RateLimit         string `json:"rate_limit,omitempty"`
@@ -204,7 +204,7 @@ type HotspotProfileCreateRequest struct {
 	ParentQueue       string `json:"parent_queue,omitempty"`
 }
 
-func (r HotspotProfileCreateRequest) ToArgs() hotspot.ProfileAddArgs {
+func (r RouterHotspotProfileCreateRequest) ToArgs() hotspot.ProfileAddArgs {
 	return hotspot.ProfileAddArgs{
 		Name:              r.Name,
 		AddressPool:       r.AddressPool,
@@ -216,7 +216,7 @@ func (r HotspotProfileCreateRequest) ToArgs() hotspot.ProfileAddArgs {
 	}
 }
 
-type HotspotProfileUpdateRequest struct {
+type RouterHotspotProfileUpdateRequest struct {
 	Name              string  `json:"name,omitempty"`
 	AddressPool       string  `json:"address_pool,omitempty"`
 	RateLimit         string  `json:"rate_limit,omitempty"`
@@ -226,7 +226,7 @@ type HotspotProfileUpdateRequest struct {
 	ParentQueue       string  `json:"parent_queue,omitempty"`
 }
 
-func (r HotspotProfileUpdateRequest) ToArgs(id string) hotspot.ProfileSetArgs {
+func (r RouterHotspotProfileUpdateRequest) ToArgs(id string) hotspot.ProfileSetArgs {
 	return hotspot.ProfileSetArgs{
 		ID:                id,
 		Name:              r.Name,
@@ -239,8 +239,8 @@ func (r HotspotProfileUpdateRequest) ToArgs(id string) hotspot.ProfileSetArgs {
 	}
 }
 
-// HotspotProfileDeleteRequest opsional body untuk cascade scheduler cleanup.
-type HotspotProfileDeleteRequest struct {
+// RouterHotspotProfileDeleteRequest opsional body untuk cascade scheduler cleanup.
+type RouterHotspotProfileDeleteRequest struct {
 	Name string `json:"name,omitempty"`
 }
 

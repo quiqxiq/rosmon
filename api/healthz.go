@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/quiqxiq/roslib-mikhmon/api/dto"
+	"github.com/quiqxiq/rosmon/api/dto"
 )
 
 // HealthStatus adalah payload response /healthz.

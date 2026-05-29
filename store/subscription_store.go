@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/quiqxiq/roslib-mikhmon/store/model"
+	"github.com/quiqxiq/rosmon/store/model"
 	"gorm.io/gorm"
 )
 
@@ -30,6 +30,10 @@ type SubscriptionStore interface {
 	Create(ctx context.Context, s *model.Subscription) error
 	Update(ctx context.Context, s *model.Subscription) error
 	UpdateStatus(ctx context.Context, id uint, status string, activatedAt, terminatedAt *time.Time) error
+	UpdateSyncStatus(ctx context.Context, id uint, syncStatus, syncNotes string) error
+	// ListPendingSync returns rows where sync_status != 'synced', up to limit,
+	// using FOR UPDATE SKIP LOCKED to avoid double-processing by concurrent workers.
+	ListPendingSync(ctx context.Context, limit int) ([]model.Subscription, error)
 	Delete(ctx context.Context, id uint) error
 }
 
@@ -149,6 +153,34 @@ func (s *gormSubscriptionStore) UpdateStatus(ctx context.Context, id uint, statu
 		return ErrSubscriptionNotFound
 	}
 	return nil
+}
+
+func (s *gormSubscriptionStore) UpdateSyncStatus(ctx context.Context, id uint, syncStatus, syncNotes string) error {
+	res := s.db.WithContext(ctx).Model(&model.Subscription{}).Where("id = ?", id).Updates(map[string]any{
+		"sync_status": syncStatus,
+		"sync_notes":  syncNotes,
+		"updated_at":  time.Now(),
+	})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrSubscriptionNotFound
+	}
+	return nil
+}
+
+func (s *gormSubscriptionStore) ListPendingSync(ctx context.Context, limit int) ([]model.Subscription, error) {
+	var out []model.Subscription
+	err := s.db.WithContext(ctx).
+		Where("sync_status != ?", "synced").
+		Set("gorm:query_option", "FOR UPDATE SKIP LOCKED").
+		Limit(limit).
+		Find(&out).Error
+	if err != nil {
+		return nil, err
+	}
+	return decryptSubscriptions(out)
 }
 
 func (s *gormSubscriptionStore) Delete(ctx context.Context, id uint) error {

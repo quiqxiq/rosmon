@@ -2,7 +2,7 @@ package ppp
 
 import (
 	"github.com/quiqxiq/roslib"
-	"github.com/quiqxiq/roslib-mikhmon/domain"
+	"github.com/quiqxiq/rosmon/domain"
 )
 
 // SecretEvent → /ppp/secret/print follow event (analisis §1.12).
