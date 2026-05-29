@@ -22,19 +22,15 @@ import {
 // at the switcher tells the user which router is reachable right now.
 const statusDotClass: Record<RouterPublicView['status'], string> = {
   connected: 'bg-emerald-500',
+  connecting: 'bg-blue-500',
   unknown: 'bg-zinc-400',
   disconnected: 'bg-amber-500',
   error: 'bg-red-500',
 }
 
 function statusLabel(r: RouterPublicView): string {
-  // ip:port — Status. Backend's default api_port is 8728; show only when
-  // it deviates so the common case stays compact.
-  const addr = r.api_port && r.api_port !== 8728
-    ? `${r.ip_address}:${r.api_port}`
-    : r.ip_address
   const status = r.status.charAt(0).toUpperCase() + r.status.slice(1)
-  return `${addr} — ${status}`
+  return `${r.address} — ${status}`
 }
 
 export function RouterSwitcher() {
@@ -139,7 +135,7 @@ export function RouterSwitcher() {
               </div>
               <div className='grid flex-1 text-start text-sm leading-tight'>
                 <span className='truncate font-semibold'>
-                  {active?.name ?? 'Select router'}
+                  {active?.display_name ?? 'Select router'}
                 </span>
                 <span className='truncate text-xs text-muted-foreground'>
                   {active ? statusLabel(active) : 'No router selected'}
@@ -167,7 +163,7 @@ export function RouterSwitcher() {
                   <Server className='size-4 shrink-0' />
                 </div>
                 <div className='flex flex-1 items-center gap-2'>
-                  <span className='flex-1 truncate'>{r.name}</span>
+                  <span className='flex-1 truncate'>{r.display_name}</span>
                   <span
                     className={`size-2 rounded-full ${statusDotClass[r.status]}`}
                     aria-label={r.status}

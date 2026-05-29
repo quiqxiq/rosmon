@@ -23,7 +23,7 @@ export function RoutersDeleteDialog() {
     if (!selectedRouter) return
     deleteMut.mutate(selectedRouter.id, {
       onSuccess: () => {
-        toast.success(`Router '${selectedRouter.name}' deleted`)
+        toast.success(`Router '${selectedRouter.display_name}' deleted`)
         close()
       },
       onError: (err) => {
@@ -36,7 +36,7 @@ export function RoutersDeleteDialog() {
     <AlertDialog open={isOpen} onOpenChange={(o) => !o && close()}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete &lsquo;{selectedRouter?.name}&rsquo;?</AlertDialogTitle>
+          <AlertDialogTitle>Delete &lsquo;{selectedRouter?.display_name}&rsquo;?</AlertDialogTitle>
           <AlertDialogDescription>
             This will soft-delete the router. Voucher sales associated with this router will be
             orphaned. This action cannot be undone.

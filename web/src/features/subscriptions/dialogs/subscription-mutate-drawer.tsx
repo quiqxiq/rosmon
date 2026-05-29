@@ -229,7 +229,7 @@ function Form({
             <SelectContent>
               {(routersQuery.data ?? []).map((r) => (
                 <SelectItem key={r.id} value={String(r.id)}>
-                  {r.name}
+                  {r.display_name}
                 </SelectItem>
               ))}
             </SelectContent>

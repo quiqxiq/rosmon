@@ -16,6 +16,26 @@ export interface AuthUser {
   role: UserRole
 }
 
+// Decode the user identity from a JWT access token so route guards have the
+// role available synchronously after a page reload (the store is in-memory;
+// only the token is persisted). Backend access tokens carry uid/usr/rol.
+function decodeUserFromToken(token: string): AuthUser | null {
+  try {
+    const payload = token.split('.')[1]
+    if (!payload) return null
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+    const claims = JSON.parse(json) as {
+      uid?: number
+      usr?: string
+      rol?: UserRole
+    }
+    if (!claims.usr || !claims.rol) return null
+    return { id: claims.uid ?? 0, username: claims.usr, role: claims.rol }
+  } catch {
+    return null
+  }
+}
+
 interface AuthState {
   auth: {
     user: AuthUser | null
@@ -36,7 +56,7 @@ export const useAuthStore = create<AuthState>()((set) => {
   const storedRefresh = localStorage.getItem(REFRESH_TOKEN_KEY) ?? ''
   return {
     auth: {
-      user: null,
+      user: initToken ? decodeUserFromToken(initToken) : null,
       setUser: (user) =>
         set((state) => ({ ...state, auth: { ...state.auth, user } })),
       refreshToken: storedRefresh,

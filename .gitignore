@@ -12,8 +12,7 @@ coverage.out
 /server
 /rosmon
 
-# Legacy (pre-migration PHP app)
-mikhmonv3/
-
 # AI session tools (internal planning files, not for public repo)
 .sisyphus/
+# mikhmon/
+# billing-rtrw/

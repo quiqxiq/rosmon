@@ -13,18 +13,24 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { parseAPIError } from '@/lib/api/errors'
 import { useCreateRouter, useUpdateRouter } from '../api/queries'
 import type { CreateRouterRequest, UpdateRouterRequest } from '../api/schema'
 import { useRoutersDialogStore } from '../store/routers-dialog-store'
 
 type Draft = {
-  name: string
-  ip_address: string
-  api_port: string
-  api_username: string
+  display_name: string
+  address: string
+  username: string
   password: string
-  notes: string
+  use_tls: 'true' | 'false'
 }
 
 export function RoutersMutateDialog() {
@@ -57,67 +63,70 @@ function RoutersMutateForm({ mode, onClose }: FormProps) {
   const [draft, setDraft] = useState<Draft>(() => {
     if (mode === 'edit' && selectedRouter) {
       return {
-        name: selectedRouter.name,
-        ip_address: selectedRouter.ip_address,
-        api_port: String(selectedRouter.api_port),
-        api_username: selectedRouter.api_username,
+        display_name: selectedRouter.display_name,
+        address: selectedRouter.address,
+        username: selectedRouter.username,
         password: '',
-        notes: selectedRouter.notes ?? '',
+        use_tls: selectedRouter.use_tls ? 'true' : 'false',
       }
     }
     return {
-      name: '',
-      ip_address: '',
-      api_port: '8728',
-      api_username: '',
+      display_name: '',
+      address: '',
+      username: 'admin',
       password: '',
-      notes: '',
+      use_tls: 'false',
     }
   })
 
   const isPending = createMut.isPending || updateMut.isPending
 
-  const set = (key: keyof Draft) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setDraft((d) => ({ ...d, [key]: e.target.value }))
+  const set =
+    (key: keyof Draft) =>
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      setDraft((d) => ({ ...d, [key]: e.target.value }))
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    const port = parseInt(draft.api_port, 10)
-    if (!draft.name.trim()) return toast.error('Name is required')
-    if (!draft.ip_address.trim()) return toast.error('IP address is required')
-    if (isNaN(port) || port < 1 || port > 65535) return toast.error('API port must be 1–65535')
-    if (!draft.api_username.trim()) return toast.error('Username is required')
+    if (!draft.display_name.trim()) return toast.error('Name is required')
+    if (!draft.address.trim())
+      return toast.error('Address is required (host:port)')
+    if (!draft.username.trim()) return toast.error('Username is required')
 
     if (mode === 'create') {
       if (!draft.password) return toast.error('Password is required')
       const body: CreateRouterRequest = {
-        name: draft.name.trim(),
-        ip_address: draft.ip_address.trim(),
-        api_port: port,
-        api_username: draft.api_username.trim(),
+        display_name: draft.display_name.trim(),
+        address: draft.address.trim(),
+        username: draft.username.trim(),
         password: draft.password,
-        notes: draft.notes.trim() || undefined,
+        use_tls: draft.use_tls === 'true',
       }
       createMut.mutate(body, {
         onSuccess: () => {
-          toast.success(`Router '${body.name}' added`)
+          toast.success(`Router '${body.display_name}' added`)
           onClose()
         },
-        onError: (err) => toast.error('Failed to add router', { description: err.message }),
+        onError: (err) =>
+          toast.error('Failed to add router', {
+            description: parseAPIError(err),
+          }),
       })
       return
     }
 
     if (!selectedRouter) return
     const body: UpdateRouterRequest = {}
-    if (draft.name.trim() !== selectedRouter.name) body.name = draft.name.trim()
-    if (draft.ip_address.trim() !== selectedRouter.ip_address) body.ip_address = draft.ip_address.trim()
-    if (port !== selectedRouter.api_port) body.api_port = port
-    if (draft.api_username.trim() !== selectedRouter.api_username) body.api_username = draft.api_username.trim()
+    if (draft.display_name.trim() !== selectedRouter.display_name)
+      body.display_name = draft.display_name.trim()
+    if (draft.address.trim() !== selectedRouter.address)
+      body.address = draft.address.trim()
+    if (draft.username.trim() !== selectedRouter.username)
+      body.username = draft.username.trim()
     if (draft.password) body.password = draft.password
-    const notes = draft.notes.trim() || undefined
-    if (notes !== (selectedRouter.notes ?? undefined)) body.notes = notes
+    if ((draft.use_tls === 'true') !== Boolean(selectedRouter.use_tls))
+      body.use_tls = draft.use_tls === 'true'
 
     if (Object.keys(body).length === 0) {
       toast.info('No changes to save')
@@ -129,10 +138,13 @@ function RoutersMutateForm({ mode, onClose }: FormProps) {
       { id: selectedRouter.id, body },
       {
         onSuccess: () => {
-          toast.success(`Router '${selectedRouter.name}' updated`)
+          toast.success(`Router '${selectedRouter.display_name}' updated`)
           onClose()
         },
-        onError: (err) => toast.error('Failed to update router', { description: err.message }),
+        onError: (err) =>
+          toast.error('Failed to update router', {
+            description: parseAPIError(err),
+          }),
       },
     )
   }
@@ -142,11 +154,13 @@ function RoutersMutateForm({ mode, onClose }: FormProps) {
       <form onSubmit={handleSubmit} className='space-y-4'>
         <DialogHeader>
           <DialogTitle>
-            {mode === 'create' ? 'Add Router' : `Edit '${selectedRouter?.name}'`}
+            {mode === 'create'
+              ? 'Add Router'
+              : `Edit '${selectedRouter?.display_name}'`}
           </DialogTitle>
           <DialogDescription>
             {mode === 'create'
-              ? 'Add a new MikroTik router. The connection will be tested before saving.'
+              ? 'Add a new MikroTik router. The connection is tested before saving.'
               : 'Update router details. Leave password blank to keep the current one.'}
           </DialogDescription>
         </DialogHeader>
@@ -159,51 +173,34 @@ function RoutersMutateForm({ mode, onClose }: FormProps) {
               autoFocus
               autoComplete='off'
               placeholder='Office Router'
-              value={draft.name}
-              onChange={set('name')}
+              value={draft.display_name}
+              onChange={set('display_name')}
               disabled={isPending}
-              maxLength={100}
+              maxLength={128}
             />
           </div>
 
-          <div className='grid grid-cols-[1fr_auto] gap-2'>
-            <div className='space-y-1.5'>
-              <Label htmlFor='router-ip'>IP Address</Label>
-              <Input
-                id='router-ip'
-                autoComplete='off'
-                placeholder='192.168.1.1'
-                value={draft.ip_address}
-                onChange={set('ip_address')}
-                disabled={isPending}
-                maxLength={255}
-              />
-            </div>
-            <div className='space-y-1.5'>
-              <Label htmlFor='router-port'>API Port</Label>
-              <Input
-                id='router-port'
-                type='number'
-                min={1}
-                max={65535}
-                className='w-24'
-                value={draft.api_port}
-                onChange={set('api_port')}
-                disabled={isPending}
-              />
-            </div>
+          <div className='space-y-1.5'>
+            <Label htmlFor='router-address'>Address (host:port)</Label>
+            <Input
+              id='router-address'
+              autoComplete='off'
+              placeholder='192.168.1.1:8728'
+              value={draft.address}
+              onChange={set('address')}
+              disabled={isPending}
+            />
           </div>
 
           <div className='space-y-1.5'>
-            <Label htmlFor='router-username'>API Username</Label>
+            <Label htmlFor='router-username'>Username</Label>
             <Input
               id='router-username'
               autoComplete='off'
               placeholder='admin'
-              value={draft.api_username}
-              onChange={set('api_username')}
+              value={draft.username}
+              onChange={set('username')}
               disabled={isPending}
-              maxLength={64}
             />
           </div>
 
@@ -211,7 +208,9 @@ function RoutersMutateForm({ mode, onClose }: FormProps) {
             <Label htmlFor='router-password'>
               Password
               {mode === 'edit' && (
-                <span className='ml-1 text-[11px] text-muted-foreground'>(optional — blank to keep)</span>
+                <span className='ml-1 text-[11px] text-muted-foreground'>
+                  (optional — blank to keep)
+                </span>
               )}
             </Label>
             <Input
@@ -222,25 +221,25 @@ function RoutersMutateForm({ mode, onClose }: FormProps) {
               value={draft.password}
               onChange={set('password')}
               disabled={isPending}
-              maxLength={128}
             />
           </div>
 
           <div className='space-y-1.5'>
-            <Label htmlFor='router-notes'>
-              Notes
-              <span className='ml-1 text-[11px] text-muted-foreground'>(optional)</span>
-            </Label>
-            <Textarea
-              id='router-notes'
-              className='resize-none'
-              placeholder='Location, purpose, etc.'
-              value={draft.notes}
-              onChange={set('notes')}
-              disabled={isPending}
-              maxLength={500}
-              rows={2}
-            />
+            <Label htmlFor='router-tls'>Use TLS</Label>
+            <Select
+              value={draft.use_tls}
+              onValueChange={(v) =>
+                setDraft((d) => ({ ...d, use_tls: v as 'true' | 'false' }))
+              }
+            >
+              <SelectTrigger id='router-tls'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='false'>No (api 8728)</SelectItem>
+                <SelectItem value='true'>Yes (api-ssl 8729)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

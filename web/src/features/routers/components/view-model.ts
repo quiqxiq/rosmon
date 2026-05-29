@@ -1,7 +1,7 @@
 import type { RouterPublicView } from '../api/schema'
 import { routerStatusConfig, type RouterViewModel } from '../data/data'
 
-function formatRelativeTime(dateStr: string | null): string {
+function formatRelativeTime(dateStr: string | null | undefined): string {
   if (!dateStr) return 'Never'
 
   const now = Date.now()
@@ -27,13 +27,11 @@ function formatRelativeTime(dateStr: string | null): string {
 export function toRouterViewModel(router: RouterPublicView): RouterViewModel {
   return {
     id: router.id,
-    name: router.name,
-    ip_address: router.ip_address,
-    api_port: router.api_port,
-    api_username: router.api_username,
+    name: router.display_name,
+    address: router.address,
+    username: router.username,
     status: router.status,
     statusLabel: routerStatusConfig[router.status]?.label ?? 'Unknown',
-    lastSeenAt: formatRelativeTime(router.last_seen_at),
-    notes: router.notes,
+    lastSeenAt: formatRelativeTime(router.last_seen),
   }
 }

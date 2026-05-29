@@ -1,74 +1,51 @@
 import { z } from 'zod'
 
-// Source: internal/services/router_service.go#/RouterPublicView.
-// Note: backend strips `password` and `webhook_token` before sending,
-// and does NOT include `created_at` / `updated_at` in the public view.
-
+// Source: api/dto/device.go#/DeviceResponse. The backend strips the password
+// before sending. `address` is the combined host:port (e.g. 192.168.1.1:8728).
 export const RouterStatusSchema = z.enum([
-  'unknown',
   'connected',
+  'connecting',
   'disconnected',
   'error',
+  'unknown',
 ])
 export type RouterStatus = z.infer<typeof RouterStatusSchema>
 
 export const RouterPublicViewSchema = z.object({
   id: z.number().int(),
-  name: z.string(),
-  ip_address: z.string(),
-  api_port: z.number().int(),
-  api_username: z.string(),
-  status: RouterStatusSchema,
-  last_seen_at: z.string().nullable(),
-  notes: z.string().nullable(),
+  display_name: z.string(),
+  address: z.string(),
+  username: z.string(),
+  use_tls: z.boolean().optional(),
+  status: RouterStatusSchema.catch('unknown'),
+  last_seen: z.string().nullable().optional(),
+  last_error: z.string().optional(),
+  expiry_check_interval: z.string().optional(),
+  time_zone: z.string().optional(),
+  active: z.boolean().optional(),
+  created_at: z.string().optional(),
 })
 export type RouterPublicView = z.infer<typeof RouterPublicViewSchema>
 
-// POST /routers body — see services.CreateRouterRequest. Password is
-// required on create and never returned on read; treat as write-only.
+// POST /devices body — api/dto/device.go#/DeviceCreateRequest.
 export const CreateRouterRequestSchema = z.object({
-  name: z.string().min(1).max(100),
-  ip_address: z.string().min(1).max(255),
-  api_port: z.number().int().min(1).max(65535).optional(),
-  api_username: z.string().min(1).max(64),
-  password: z.string().min(1).max(128),
-  notes: z.string().max(500).optional(),
+  display_name: z.string().min(1).max(128),
+  address: z.string().min(1),
+  username: z.string().min(1),
+  password: z.string().min(1),
+  use_tls: z.boolean().optional(),
+  expiry_check_interval: z.string().optional(),
 })
 export type CreateRouterRequest = z.infer<typeof CreateRouterRequestSchema>
 
-// PUT /routers/:id body — partial update. Backend re-tests the connection
-// when any of ip_address / api_port / api_username / password change, so
-// passing a wrong password fails the request server-side.
+// PUT /devices/:id body — partial update. Backend re-tests the connection
+// when address/username/password change.
 export const UpdateRouterRequestSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
-  ip_address: z.string().min(1).max(255).optional(),
-  api_port: z.number().int().min(1).max(65535).optional(),
-  api_username: z.string().min(1).max(64).optional(),
-  password: z.string().min(1).max(128).optional(),
-  notes: z.string().max(500).optional(),
+  display_name: z.string().min(1).max(128).optional(),
+  address: z.string().min(1).optional(),
+  username: z.string().min(1).optional(),
+  password: z.string().min(1).optional(),
+  use_tls: z.boolean().optional(),
+  active: z.boolean().optional(),
 })
 export type UpdateRouterRequest = z.infer<typeof UpdateRouterRequestSchema>
-
-// POST /routers/:id/test body. Backend allows testing arbitrary creds —
-// the path id is required by the router-ownership middleware but the
-// stored credentials are NOT used.
-export const TestConnectionRequestSchema = z.object({
-  ip_address: z.string().min(1),
-  api_port: z.number().int().optional(),
-  api_username: z.string().min(1),
-  password: z.string().min(1),
-})
-export type TestConnectionRequest = z.infer<typeof TestConnectionRequestSchema>
-
-// Source: internal/services/router_service.go#/ConnectionTestResult.
-// `latency_ms` is the dial round-trip; `routeros_version` / `board_model`
-// / `identity` come from `/system/identity/print` after the dial succeeds.
-export const ConnectionTestResultSchema = z.object({
-  connected: z.boolean(),
-  latency_ms: z.number().int(),
-  routeros_version: z.string(),
-  board_model: z.string(),
-  identity: z.string(),
-  error: z.string().optional(),
-})
-export type ConnectionTestResult = z.infer<typeof ConnectionTestResultSchema>
