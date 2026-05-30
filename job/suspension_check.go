@@ -6,28 +6,43 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/quiqxiq/rosmon/service/notification"
 	"github.com/quiqxiq/rosmon/store"
 	"github.com/sirupsen/logrus"
 )
 
-// SuspensionCheckJob berjalan harian 09:00. Tiga langkah:
-//  1. Mark overdue: invoice issued yang sudah lewat due_date.
-//  2. Isolir: subscription active yang punya invoice overdue >= isolir_after_days.
-//  3. Hard suspend: subscription active/isolir yang punya invoice overdue >= hard_suspend_after_days.
+// SuspensionCheckJob berjalan harian 09:00. Langkah:
+//  0. Reminder H-2: invoice issued yang jatuh tempo dalam 2 hari → invoice_reminder.
+//  1. Mark overdue: invoice issued yang sudah lewat due_date → invoice_overdue.
+//  2. Isolir: subscription active dengan invoice overdue >= isolir_after_days → service_isolir.
+//  3. Hard suspend: subscription dengan invoice overdue >= hard_suspend_after_days → service_suspended.
 //
 // Perubahan status hanya ke DB. Outbox goroutine yang mengeksekusi ke MikroTik.
+// Notifikasi best-effort lewat service/notification.
 type SuspensionCheckJob struct {
 	SubStore     store.SubscriptionStore
+	CustStore    store.CustomerStore
 	InvStore     store.InvoiceStore
 	SettingStore store.SettingStore
+	Notification *notification.Service
 	Log          *logrus.Logger
 }
 
-func NewSuspensionCheckJob(sub store.SubscriptionStore, inv store.InvoiceStore, settings store.SettingStore, log *logrus.Logger) *SuspensionCheckJob {
+func NewSuspensionCheckJob(
+	sub store.SubscriptionStore,
+	cust store.CustomerStore,
+	inv store.InvoiceStore,
+	settings store.SettingStore,
+	notif *notification.Service,
+	log *logrus.Logger,
+) *SuspensionCheckJob {
 	if log == nil {
 		log = logrus.New()
 	}
-	return &SuspensionCheckJob{SubStore: sub, InvStore: inv, SettingStore: settings, Log: log}
+	return &SuspensionCheckJob{
+		SubStore: sub, CustStore: cust, InvStore: inv,
+		SettingStore: settings, Notification: notif, Log: log,
+	}
 }
 
 func (j *SuspensionCheckJob) Run(ctx context.Context) error {
@@ -35,6 +50,9 @@ func (j *SuspensionCheckJob) Run(ctx context.Context) error {
 
 	isolirAfter := j.settingInt(ctx, "billing.isolir_after_days", 3)
 	hardSuspendAfter := j.settingInt(ctx, "billing.hard_suspend_after_days", 14)
+
+	// Step 0: Reminder H-2 (best-effort).
+	j.sendReminders(ctx, now)
 
 	// Step 1: Mark overdue — invoices with due_date < today and status=issued.
 	overdueInvoices, err := j.InvStore.ListOverdue(ctx, now)
@@ -46,10 +64,16 @@ func (j *SuspensionCheckJob) Run(ctx context.Context) error {
 	suspendCandidates := map[uint]bool{} // subscription_id → should suspend
 
 	for _, inv := range overdueInvoices {
-		// Mark invoice overdue.
+		// Mark invoice overdue + notifikasi.
 		if inv.Status == "issued" {
 			if err := j.InvStore.UpdateStatus(ctx, inv.ID, "overdue", nil); err != nil {
 				j.Log.WithError(err).WithField("invoice_id", inv.ID).Warn("suspension_check: mark overdue failed")
+			} else {
+				notifyCustomer(ctx, j.Notification, j.CustStore, j.SettingStore, inv.CustomerID, "invoice_overdue", map[string]string{
+					"invoice_number": inv.InvoiceNumber,
+					"amount":         formatRupiah(inv.Amount),
+					"due_date":       inv.DueDate.Format("02 Jan 2006"),
+				})
 			}
 		}
 
@@ -78,6 +102,7 @@ func (j *SuspensionCheckJob) Run(ctx context.Context) error {
 		if err := j.SubStore.UpdateSyncStatus(ctx, subID, "pending_profile_change", "auto-isolir: overdue invoice"); err != nil {
 			j.Log.WithError(err).WithField("subscription_id", subID).Warn("suspension_check: set sync_status failed")
 		}
+		notifyCustomer(ctx, j.Notification, j.CustStore, j.SettingStore, sub.CustomerID, "service_isolir", nil)
 		j.Log.WithField("subscription_id", subID).Info("suspension_check: isolir applied")
 	}
 
@@ -97,15 +122,42 @@ func (j *SuspensionCheckJob) Run(ctx context.Context) error {
 		if err := j.SubStore.UpdateSyncStatus(ctx, subID, "pending_disable", "auto-suspend: overdue invoice"); err != nil {
 			j.Log.WithError(err).WithField("subscription_id", subID).Warn("suspension_check: set sync_status failed")
 		}
+		notifyCustomer(ctx, j.Notification, j.CustStore, j.SettingStore, sub.CustomerID, "service_suspended", nil)
 		j.Log.WithField("subscription_id", subID).Info("suspension_check: suspended applied")
 	}
 
 	j.Log.WithFields(logrus.Fields{
-		"overdue":  len(overdueInvoices),
-		"isolir":   len(isolirCandidates),
-		"suspend":  len(suspendCandidates),
+		"overdue": len(overdueInvoices),
+		"isolir":  len(isolirCandidates),
+		"suspend": len(suspendCandidates),
 	}).Info("suspension_check: done")
 	return nil
+}
+
+// sendReminders mengirim invoice_reminder untuk invoice issued yang jatuh
+// tempo H-2.
+func (j *SuspensionCheckJob) sendReminders(ctx context.Context, now time.Time) {
+	if j.Notification == nil {
+		return
+	}
+	target := now.AddDate(0, 0, 2)
+	invs, err := j.InvStore.ListDueForBilling(ctx, target)
+	if err != nil {
+		j.Log.WithError(err).Warn("suspension_check: list reminders failed")
+		return
+	}
+	for _, inv := range invs {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		notifyCustomer(ctx, j.Notification, j.CustStore, j.SettingStore, inv.CustomerID, "invoice_reminder", map[string]string{
+			"invoice_number": inv.InvoiceNumber,
+			"amount":         formatRupiah(inv.Amount),
+			"due_date":       inv.DueDate.Format("02 Jan 2006"),
+		})
+	}
 }
 
 func (j *SuspensionCheckJob) settingInt(ctx context.Context, key string, def int) int {

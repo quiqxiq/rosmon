@@ -1,19 +1,33 @@
 # rosmon
 
-Reimplementasi RouterOS command & script milik [mikhmonv3](https://github.com/laksa19/mikhmonv3) di atas library [`roslib`](../). REST API + SSE service untuk hotspot voucher management — multi-router, JWT auth, expiry service otomatis, dan laporan penjualan.
+**rosmon** adalah sistem manajemen ISP / RT-RW Net berbasis MikroTik — satu binary Go (REST API + SSE + background jobs) di atas library [`roslib`](../), plus dashboard React (`web/`). Mengelola pelanggan, langganan PPPoE & hotspot, penagihan + isolir otomatis, notifikasi WhatsApp, dan registrasi pemasangan. Multi-router, JWT auth, metrics InfluxDB.
+
+> Visi & rencana pengembangan: **[goal.md](goal.md)** · **[roadmap.md](roadmap.md)**.
+> Berawal dari reimplementasi RouterOS command & script milik [mikhmonv3](https://github.com/laksa19/mikhmonv3), kini berkembang jadi platform manajemen ISP.
 
 ## Status
 
+**MikroTik / infra layer** (fondasi):
+
 | Layer | Status | Test |
 |---|---|---|
-| `domain/` | ✅ | unit |
-| `internal/rosfmt/` | ✅ | unit |
-| `internal/tcpmock/` | ✅ | self-test |
+| `domain/`, `internal/rosfmt/`, `internal/tcpmock/` | ✅ | unit / self-test |
 | `mikrotik/` (system, hotspot, ppp, network, syslog) | ✅ | integration (live router) |
 | `scripts/` (onlogin, onevent, transaction, quickprint) | ✅ | unit (golden file) |
 | `workflows/` (cascade) | ✅ | integration |
-| `api/` (gin REST + SSE + JWT auth + webhook + rate limit) | ✅ | live smoke |
-| `cmd/server/` (entry point, multi-router, expiry service, metrics) | ✅ | manual |
+| `api/` (gin REST + SSE + JWT auth + webhook + rate limit) | ✅ | unit + live smoke |
+| `cmd/server/` (entry point, multi-router, expiry, metrics) | ✅ | manual |
+
+**Business layer** (manajemen ISP):
+
+| Area | Status | Test |
+|---|---|---|
+| `store/` (GORM model + store: customer, subscription, invoice, payment, registration, audit, dst) | ✅ | unit + integration (testcontainers PG) |
+| `service/billing` (generate invoice), `service/notification` (+ whatsapp), `service/audit` | ✅ | unit + integration |
+| `job/` (outbox sync, billing_cron 07:00, suspension_check 09:00, notif_retry 5m) | ✅ | integration |
+| Notifikasi **WhatsApp** (whatsmeow embedded, login via QR) | ✅ | manual |
+| Registrasi pemasangan (publik + admin) | ✅ | unit + integration |
+| Customer portal · payment gateway · landing page | ⬜ | (roadmap Fase 3–5) |
 
 Refactor besar (Mei 2026): paket `mikrotik/` di-thin-out — sekarang langsung di atas `*roslib.Device` (bukan `CommandRunner` boundary). Akibatnya muncul method khusus per resource untuk:
 
@@ -23,21 +37,36 @@ Refactor besar (Mei 2026): paket `mikrotik/` di-thin-out — sekarang langsung d
 
 Mock `fake.Runner` dihapus — sub-paket terlalu tipis untuk unit-test (logic ada di `domain/` dan `scripts/` yang sudah pure). Test bergeser ke integration test (build tag `integration`).
 
+## Business Layer (Manajemen ISP)
+
+Di atas layer MikroTik, rosmon menambahkan bisnis ISP penuh:
+
+- **Pelanggan & langganan** — CRUD customer + subscription PPPoE/hotspot dengan lifecycle `pending_install → active → isolir → suspended → terminated`. Mutasi yang menyentuh router pakai **DB-first + outbox**: tulis DB dulu, sync ke MikroTik di background (`job/outbox.go`, `FOR UPDATE SKIP LOCKED`) — tetap konsisten walau router offline.
+- **Penagihan otomatis** — `job/billing_cron` (07:00) generate invoice anniversary per subscription (idempotent), `job/suspension_check` (09:00) tandai overdue → isolir → hard-suspend sesuai ambang di `system_settings`. Pembayaran manual (transfer/cash) + konfirmasi admin.
+- **Notifikasi WhatsApp** — embedded **whatsmeow** (tanpa gateway HTTP eksternal), login via QR oleh admin (`GET /api/v1/whatsapp/qr`). Template pesan dapat diedit (`message_templates`), tiap kiriman tercatat (`notification_logs`) + retry (`job/notif_retry`). Semua notifikasi lewat `service/notification` saja.
+- **Registrasi pemasangan** — calon pelanggan submit dari form publik (`POST /api/public/registrations`) → antrian admin (approve/reject/assign) → operator complete-install → subscription + invoice pertama + notifikasi otomatis.
+- **Audit log** — tiap aksi ubah-status entitas utama dicatat di `audit_logs`.
+
+Tiga zone route auth: **publik** (registrasi), **staff JWT** (admin > operator > viewer), dan **customer** (portal — roadmap Fase 3). Inventory endpoint + OpenAPI: [docs/API.md](docs/API.md); spec interaktif di `/docs`.
+
 ## Quickstart
 
 ```bash
 go build ./...
-go test ./...                            # unit (domain + scripts + helpers)
-go test -tags=integration ./test/...     # ke router asli (butuh .env)
+go test ./...                            # unit (cepat, tanpa Docker)
 
-# Jalankan HTTP server (gin REST + SSE)
+# Infra dev: PostgreSQL + InfluxDB
+docker compose -f docker/docker-compose.yml up -d
+
+# Integration test (butuh Docker/Podman — spin up Postgres ephemeral via testcontainers)
+make test-integration-full               # DB + business layer (tags: integration dbtest)
+# Pakai Podman? prefix: TESTCONTAINERS_RYUK_DISABLED=true
+
+# Jalankan HTTP server (gin REST + SSE + background jobs)
 cp .env.example .env
-# Edit .env — minimal:
-#   DB_DSN=postgres://...
-#   HTTP_BIND=0.0.0.0:8080
-#   GO_SERVICE_URL=http://<ip-server>:8080  # wajib untuk selling record via webhook
+# Edit .env — minimal: DB_*, HTTP_BIND, GO_SERVICE_URL (selling webhook)
 go run ./cmd/server
-# → http://0.0.0.0:8080/healthz, /api/v1/..., /docs
+# → http://0.0.0.0:8080/healthz, /api/v1/..., /docs (Scalar UI)
 ```
 
 Endpoint inventory + format SSE: lihat [docs/API.md](docs/API.md).

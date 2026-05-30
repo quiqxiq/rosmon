@@ -136,6 +136,20 @@ tags:
       via `/tool/fetch`. **TIDAK pakai JWT** — router tidak bisa pegang
       token. **MVP**: tidak ada IP whitelist atau shared secret. Pakai
       firewall rule supaya hanya reachable dari router.
+  - name: Notifications
+    description: |
+      Template pesan & jejak notifikasi WhatsApp (admin). Template di-seed
+      saat migrate; admin hanya boleh edit body/name/active.
+  - name: WhatsApp
+    description: |
+      Setup & status gateway WhatsApp embedded (whatsmeow). Login via QR oleh
+      admin; sesi disimpan persisten di Postgres.
+  - name: Audit
+    description: Jejak aksi yang mengubah status entitas utama (admin, read-only).
+  - name: Registrations
+    description: |
+      Alur registrasi pemasangan: submit publik → antrian admin (approve/reject/
+      assign) → operator complete-install (subscription + invoice pertama).
 paths:
   /healthz:
     get:
@@ -3598,6 +3612,568 @@ paths:
                   jan/05/2026,10:30:21,vc-a1b2c3d4,default,10000,12000,168h,AA:BB:CC:DD:EE:FF,10.0.0.5,login
         '404':
           $ref: '#/components/responses/ErrorNotFound'
+  /audit-logs:
+    get:
+      tags:
+        - Audit
+      summary: List audit log (admin)
+      description: |
+        Jejak aksi yang mengubah status entitas utama. Read-only, admin saja.
+        Filter opsional: `?entity_type=Subscription&entity_id=42&action=isolir&user_id=1&limit=100`.
+      parameters:
+        - name: entity_type
+          in: query
+          schema:
+            type: string
+          description: Filter tipe entitas
+        - name: entity_id
+          in: query
+          schema:
+            type: integer
+          description: Filter ID entitas
+        - name: action
+          in: query
+          schema:
+            type: string
+          description: Filter nama aksi
+        - name: user_id
+          in: query
+          schema:
+            type: integer
+          description: Filter user pelaku
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 500
+      responses:
+        '200':
+          description: List audit log
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AuditLogResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+  /message-templates:
+    get:
+      tags:
+        - Notifications
+      summary: List template pesan (admin)
+      responses:
+        '200':
+          description: List template
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/MessageTemplateResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+  /message-templates/{slug}:
+    parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Slug template (immutable)
+    get:
+      tags:
+        - Notifications
+      summary: Detail template (admin)
+      responses:
+        '200':
+          description: Template
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/MessageTemplateResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
+    put:
+      tags:
+        - Notifications
+      summary: Update template (admin)
+      description: Sparse update. Slug tidak bisa diubah.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageTemplateUpdateRequest'
+      responses:
+        '200':
+          description: Template terupdate
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/MessageTemplateResponse'
+        '400':
+          $ref: '#/components/responses/ErrorValidation'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
+  /notifications:
+    get:
+      tags:
+        - Notifications
+      summary: List jejak notifikasi (admin)
+      description: |
+        Read-only, admin saja. Filter: `?status=failed&template_slug=invoice_issued&customer_id=12&limit=100`.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - pending
+              - sent
+              - failed
+              - skipped
+        - name: template_slug
+          in: query
+          schema:
+            type: string
+        - name: customer_id
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 500
+      responses:
+        '200':
+          description: List jejak notifikasi
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/NotificationLogResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+  /whatsapp/status:
+    get:
+      tags:
+        - WhatsApp
+      summary: Status koneksi gateway WhatsApp (admin)
+      responses:
+        '200':
+          description: Status koneksi
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/WhatsAppStatusResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '503':
+          $ref: '#/components/responses/ErrorServiceUnavailable'
+  /whatsapp/qr:
+    get:
+      tags:
+        - WhatsApp
+      summary: Mulai/lanjut pairing & ambil QR (admin)
+      description: |
+        Memulai pairing (kalau belum) dan mengembalikan QR code terkini untuk
+        di-scan dari aplikasi WhatsApp admin. 409 kalau sudah terhubung.
+      responses:
+        '200':
+          description: QR code
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/WhatsAppQRResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '409':
+          $ref: '#/components/responses/ErrorConflict'
+        '503':
+          $ref: '#/components/responses/ErrorServiceUnavailable'
+  /whatsapp/logout:
+    post:
+      tags:
+        - WhatsApp
+      summary: Logout / unlink device WhatsApp (admin)
+      responses:
+        '200':
+          description: Sesi diputus
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/WhatsAppStatusResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '503':
+          $ref: '#/components/responses/ErrorServiceUnavailable'
+  /whatsapp/test:
+    post:
+      tags:
+        - WhatsApp
+      summary: Kirim pesan uji (admin)
+      description: Kirim pesan teks langsung ke nomor (bypass template).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WhatsAppTestRequest'
+      responses:
+        '200':
+          description: Pesan terkirim
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          provider_response:
+                            type: string
+                            example: 3EB0...
+        '400':
+          $ref: '#/components/responses/ErrorValidation'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '500':
+          $ref: '#/components/responses/ErrorInternal'
+        '503':
+          $ref: '#/components/responses/ErrorServiceUnavailable'
+  /public/registrations:
+    post:
+      tags:
+        - Registrations
+      summary: Submit registrasi pemasangan (publik)
+      description: |
+        Endpoint publik (TANPA auth) untuk calon pelanggan mengajukan pemasangan
+        dari landing page. Rate-limited per IP. Memicu notifikasi WhatsApp ke
+        admin (kalau `notification.admin_phone` diisi & WA aktif).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationCreateRequest'
+      responses:
+        '201':
+          description: Registrasi tercatat (status pending)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RegistrationResponse'
+        '400':
+          $ref: '#/components/responses/ErrorValidation'
+        '429':
+          $ref: '#/components/responses/ErrorRateLimit'
+  /registrations:
+    get:
+      tags:
+        - Registrations
+      summary: List registrasi (staff admin+operator)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - pending
+              - approved
+              - rejected
+              - cancelled
+      responses:
+        '200':
+          description: List registrasi
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RegistrationResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+  /registrations/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags:
+        - Registrations
+      summary: Detail registrasi (staff)
+      responses:
+        '200':
+          description: Registrasi
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RegistrationResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
+  /registrations/{id}/approve:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    post:
+      tags:
+        - Registrations
+      summary: Setujui registrasi (staff)
+      description: Membuat/menautkan Customer + notifikasi `registration_approved` (berisi jadwal).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationApproveRequest'
+      responses:
+        '200':
+          description: Registrasi disetujui
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RegistrationResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
+        '409':
+          $ref: '#/components/responses/ErrorConflict'
+  /registrations/{id}/reject:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    post:
+      tags:
+        - Registrations
+      summary: Tolak registrasi (staff)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationRejectRequest'
+      responses:
+        '200':
+          description: Registrasi ditolak
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RegistrationResponse'
+        '400':
+          $ref: '#/components/responses/ErrorValidation'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
+        '409':
+          $ref: '#/components/responses/ErrorConflict'
+  /registrations/{id}/assign:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    put:
+      tags:
+        - Registrations
+      summary: Tugaskan operator + jadwal (staff)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationAssignRequest'
+      responses:
+        '200':
+          description: Registrasi diperbarui
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RegistrationResponse'
+        '400':
+          $ref: '#/components/responses/ErrorValidation'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
+  /registrations/{id}/complete-install:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    post:
+      tags:
+        - Registrations
+      summary: Selesaikan instalasi → buat subscription + invoice pertama (operator)
+      description: |
+        Membuat Subscription aktif (provisioning ke router lewat outbox,
+        `sync_status=pending_create`), generate invoice pertama, dan notifikasi
+        `installation_complete` (berisi username + password). Registrasi harus
+        sudah `approved` dan punya `customer_id`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationCompleteInstallRequest'
+      responses:
+        '201':
+          description: Subscription + invoice pertama
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          subscription:
+                            type: object
+                            description: SubscriptionResponse
+                          invoice:
+                            type: object
+                            description: InvoiceResponse (opsional)
+        '400':
+          $ref: '#/components/responses/ErrorValidation'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
+        '409':
+          $ref: '#/components/responses/ErrorConflict'
 components:
   securitySchemes:
     bearerAuth:
@@ -6181,6 +6757,406 @@ components:
         lock_mac:
           type: boolean
           default: false
+    AuditLogResponse:
+      type: object
+      description: |
+        Satu entry audit log — jejak aksi yang mengubah status entitas utama
+        (subscription/invoice/payment/customer). `user_id` null = aksi sistem
+        (cron/webhook). `old_values`/`new_values` adalah snapshot JSON (string).
+      required:
+        - id
+        - action
+        - entity_type
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 91
+        user_id:
+          type: integer
+          format: int64
+          nullable: true
+          example: 1
+        action:
+          type: string
+          example: isolir
+        entity_type:
+          type: string
+          example: Subscription
+        entity_id:
+          type: integer
+          format: int64
+          nullable: true
+          example: 42
+        old_values:
+          type: string
+          example: '{"status":"active"}'
+        new_values:
+          type: string
+          example: '{"status":"isolir"}'
+        ip_address:
+          type: string
+          example: 10.0.0.5
+        notes:
+          type: string
+          example: ''
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-05-30T09:00:00+07:00'
+    MessageTemplateResponse:
+      type: object
+      description: |
+        Template pesan notifikasi. `body` memakai sintaks text/template
+        (`{{.FieldName}}`). `variables` adalah JSON array nama variabel untuk
+        dokumentasi UI.
+      required:
+        - id
+        - slug
+        - name
+        - body
+        - active
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 5
+        slug:
+          type: string
+          example: invoice_issued
+        name:
+          type: string
+          example: Tagihan Terbit
+        body:
+          type: string
+          example: Halo {{.customer_name}}, tagihan {{.invoice_number}} sebesar Rp {{.amount}}.
+        variables:
+          type: string
+          example: '["customer_name","invoice_number","amount"]'
+        active:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-05-01T00:00:00+07:00'
+        updated_at:
+          type: string
+          format: date-time
+          example: '2026-05-20T10:00:00+07:00'
+    MessageTemplateUpdateRequest:
+      type: object
+      description: |
+        Update template (sparse). Slug immutable — tidak bisa diubah. Field yang
+        tidak disertakan tidak diubah.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Tagihan Terbit
+        body:
+          type: string
+          minLength: 1
+          example: Halo {{.customer_name}}, tagihan baru.
+        variables:
+          type: string
+          example: '["customer_name"]'
+        active:
+          type: boolean
+          example: true
+    NotificationLogResponse:
+      type: object
+      description: |
+        Jejak pengiriman notifikasi. Status: `pending` | `sent` | `failed` |
+        `skipped`. `next_retry_at` di-isi saat `failed` (untuk job notif_retry).
+      required:
+        - id
+        - template_slug
+        - recipient_phone
+        - message_body
+        - status
+        - retry_count
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 230
+        customer_id:
+          type: integer
+          format: int64
+          nullable: true
+          example: 12
+        template_slug:
+          type: string
+          example: invoice_issued
+        recipient_phone:
+          type: string
+          example: '081234567890'
+        message_body:
+          type: string
+          example: Halo Budi, tagihan INV-2026-05-0001...
+        status:
+          type: string
+          enum:
+            - pending
+            - sent
+            - failed
+            - skipped
+          example: sent
+        provider:
+          type: string
+          example: whatsmeow
+        retry_count:
+          type: integer
+          example: 0
+        sent_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: '2026-05-30T07:00:05+07:00'
+        next_retry_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-05-30T07:00:00+07:00'
+    WhatsAppStatusResponse:
+      type: object
+      required:
+        - connected
+      properties:
+        connected:
+          type: boolean
+          example: true
+        jid:
+          type: string
+          example: 628123456789:1@s.whatsapp.net
+    WhatsAppQRResponse:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          description: Data QR mentah. Frontend yang merender jadi gambar QR.
+          example: 2@abcdef...
+    WhatsAppTestRequest:
+      type: object
+      required:
+        - phone
+        - message
+      properties:
+        phone:
+          type: string
+          minLength: 3
+          maxLength: 20
+          example: '081234567890'
+        message:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          example: Tes notifikasi Rosmon
+    RegistrationResponse:
+      type: object
+      description: |
+        Pengajuan pemasangan dari calon pelanggan. Status:
+        `pending` | `approved` | `rejected` | `cancelled`.
+      required:
+        - id
+        - full_name
+        - phone
+        - address
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 12
+        full_name:
+          type: string
+          example: Pak Budi
+        phone:
+          type: string
+          example: '081234567890'
+        address:
+          type: string
+          example: Jl. Mawar No. 1
+        area:
+          type: string
+          example: RT01/RW02
+        notes:
+          type: string
+        ppp_profile_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: Paket yang diminta (hint)
+        device_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: Router/area yang diminta (hint)
+        status:
+          type: string
+          enum:
+            - pending
+            - approved
+            - rejected
+            - cancelled
+          example: pending
+        rejection_reason:
+          type: string
+        reviewed_by:
+          type: integer
+          format: int64
+          nullable: true
+        reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+        assigned_to:
+          type: integer
+          format: int64
+          nullable: true
+          description: Operator yang ditugaskan
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Jadwal pemasangan
+        installed_at:
+          type: string
+          format: date-time
+          nullable: true
+        customer_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: Di-set saat approve/install
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    RegistrationCreateRequest:
+      type: object
+      required:
+        - full_name
+        - phone
+        - address
+      properties:
+        full_name:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: Pak Budi
+        phone:
+          type: string
+          minLength: 3
+          maxLength: 20
+          example: '081234567890'
+        address:
+          type: string
+          minLength: 3
+          maxLength: 2000
+          example: Jl. Mawar No. 1
+        area:
+          type: string
+          maxLength: 100
+          example: RT01/RW02
+        notes:
+          type: string
+          maxLength: 2000
+        ppp_profile_id:
+          type: integer
+          format: int64
+          description: Paket yang diminta (opsional)
+        device_id:
+          type: integer
+          format: int64
+          description: Router/area yang diminta (opsional)
+    RegistrationApproveRequest:
+      type: object
+      description: Jadwal pemasangan opsional.
+      properties:
+        scheduled_at:
+          type: string
+          format: date-time
+          example: '2026-06-01T09:00:00+07:00'
+    RegistrationRejectRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          example: Area belum tercover jaringan
+    RegistrationAssignRequest:
+      type: object
+      required:
+        - assigned_to
+      properties:
+        assigned_to:
+          type: integer
+          format: int64
+          example: 3
+          description: User ID operator
+        scheduled_at:
+          type: string
+          format: date-time
+    RegistrationCompleteInstallRequest:
+      type: object
+      description: Detail provisioning final yang diisi operator saat instalasi selesai.
+      required:
+        - device_id
+        - service_type
+        - mikrotik_username
+        - mikrotik_password
+      properties:
+        device_id:
+          type: integer
+          format: int64
+          example: 1
+        service_type:
+          type: string
+          enum:
+            - pppoe
+            - hotspot
+          example: pppoe
+        ppp_profile_id:
+          type: integer
+          format: int64
+          description: Wajib untuk pppoe
+        hotspot_profile_id:
+          type: integer
+          format: int64
+          description: Wajib untuk hotspot
+        mikrotik_username:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: budi-001
+        mikrotik_password:
+          type: string
+          minLength: 1
+          maxLength: 200
+        billing_day:
+          type: integer
+          minimum: 1
+          maximum: 28
     ProfileConfigSyncResponse:
       type: object
       description: |

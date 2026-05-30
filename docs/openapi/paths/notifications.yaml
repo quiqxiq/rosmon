@@ -1,0 +1,120 @@
+/audit-logs:
+  get:
+    tags: [Audit]
+    summary: List audit log (admin)
+    description: |
+      Jejak aksi yang mengubah status entitas utama. Read-only, admin saja.
+      Filter opsional: `?entity_type=Subscription&entity_id=42&action=isolir&user_id=1&limit=100`.
+    parameters:
+      - { name: entity_type, in: query, schema: { type: string }, description: Filter tipe entitas }
+      - { name: entity_id, in: query, schema: { type: integer }, description: Filter ID entitas }
+      - { name: action, in: query, schema: { type: string }, description: Filter nama aksi }
+      - { name: user_id, in: query, schema: { type: integer }, description: Filter user pelaku }
+      - { name: limit, in: query, schema: { type: integer, default: 100, maximum: 500 } }
+    responses:
+      '200':
+        description: List audit log
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items: { $ref: '../schemas/notification.yaml#/AuditLogResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+
+/message-templates:
+  get:
+    tags: [Notifications]
+    summary: List template pesan (admin)
+    responses:
+      '200':
+        description: List template
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items: { $ref: '../schemas/notification.yaml#/MessageTemplateResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+
+/message-templates/{slug}:
+  parameters:
+    - { name: slug, in: path, required: true, schema: { type: string }, description: Slug template (immutable) }
+  get:
+    tags: [Notifications]
+    summary: Detail template (admin)
+    responses:
+      '200':
+        description: Template
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/notification.yaml#/MessageTemplateResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+      '404': { $ref: '../components/responses.yaml#/ErrorNotFound' }
+  put:
+    tags: [Notifications]
+    summary: Update template (admin)
+    description: Sparse update. Slug tidak bisa diubah.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/notification.yaml#/MessageTemplateUpdateRequest' }
+    responses:
+      '200':
+        description: Template terupdate
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/notification.yaml#/MessageTemplateResponse' }
+      '400': { $ref: '../components/responses.yaml#/ErrorValidation' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+      '404': { $ref: '../components/responses.yaml#/ErrorNotFound' }
+
+/notifications:
+  get:
+    tags: [Notifications]
+    summary: List jejak notifikasi (admin)
+    description: |
+      Read-only, admin saja. Filter: `?status=failed&template_slug=invoice_issued&customer_id=12&limit=100`.
+    parameters:
+      - { name: status, in: query, schema: { type: string, enum: [pending, sent, failed, skipped] } }
+      - { name: template_slug, in: query, schema: { type: string } }
+      - { name: customer_id, in: query, schema: { type: integer } }
+      - { name: limit, in: query, schema: { type: integer, default: 100, maximum: 500 } }
+    responses:
+      '200':
+        description: List jejak notifikasi
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items: { $ref: '../schemas/notification.yaml#/NotificationLogResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }

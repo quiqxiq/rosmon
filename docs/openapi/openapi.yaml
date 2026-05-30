@@ -138,6 +138,20 @@ tags:
       via `/tool/fetch`. **TIDAK pakai JWT** — router tidak bisa pegang
       token. **MVP**: tidak ada IP whitelist atau shared secret. Pakai
       firewall rule supaya hanya reachable dari router.
+  - name: Notifications
+    description: |
+      Template pesan & jejak notifikasi WhatsApp (admin). Template di-seed
+      saat migrate; admin hanya boleh edit body/name/active.
+  - name: WhatsApp
+    description: |
+      Setup & status gateway WhatsApp embedded (whatsmeow). Login via QR oleh
+      admin; sesi disimpan persisten di Postgres.
+  - name: Audit
+    description: Jejak aksi yang mengubah status entitas utama (admin, read-only).
+  - name: Registrations
+    description: |
+      Alur registrasi pemasangan: submit publik → antrian admin (approve/reject/
+      assign) → operator complete-install (subscription + invoice pertama).
 
 security:
   - bearerAuth: []
@@ -367,6 +381,42 @@ paths:
   /devices/{device_id}/reports/selling.csv:
     $ref: './paths/reports.yaml#/~1devices~1{device_id}~1reports~1selling.csv'
 
+  # Notifications & Audit (Fase 0+1) — top-level, admin only.
+  /audit-logs:
+    $ref: './paths/notifications.yaml#/~1audit-logs'
+  /message-templates:
+    $ref: './paths/notifications.yaml#/~1message-templates'
+  /message-templates/{slug}:
+    $ref: './paths/notifications.yaml#/~1message-templates~1{slug}'
+  /notifications:
+    $ref: './paths/notifications.yaml#/~1notifications'
+
+  # WhatsApp gateway setup (Fase 1) — admin only.
+  /whatsapp/status:
+    $ref: './paths/whatsapp.yaml#/~1whatsapp~1status'
+  /whatsapp/qr:
+    $ref: './paths/whatsapp.yaml#/~1whatsapp~1qr'
+  /whatsapp/logout:
+    $ref: './paths/whatsapp.yaml#/~1whatsapp~1logout'
+  /whatsapp/test:
+    $ref: './paths/whatsapp.yaml#/~1whatsapp~1test'
+
+  # Registrasi pemasangan (Fase 2). /public/registrations = tanpa auth.
+  /public/registrations:
+    $ref: './paths/registrations.yaml#/~1public~1registrations'
+  /registrations:
+    $ref: './paths/registrations.yaml#/~1registrations'
+  /registrations/{id}:
+    $ref: './paths/registrations.yaml#/~1registrations~1{id}'
+  /registrations/{id}/approve:
+    $ref: './paths/registrations.yaml#/~1registrations~1{id}~1approve'
+  /registrations/{id}/reject:
+    $ref: './paths/registrations.yaml#/~1registrations~1{id}~1reject'
+  /registrations/{id}/assign:
+    $ref: './paths/registrations.yaml#/~1registrations~1{id}~1assign'
+  /registrations/{id}/complete-install:
+    $ref: './paths/registrations.yaml#/~1registrations~1{id}~1complete-install'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -495,6 +545,23 @@ components:
     # Profile Config (Phase 3)
     ProfileConfigResponse:        { $ref: './schemas/profile-config.yaml#/ProfileConfigResponse' }
     ProfileConfigUpsertRequest:   { $ref: './schemas/profile-config.yaml#/ProfileConfigUpsertRequest' }
+
+    # Notifications, Audit & WhatsApp (Fase 0+1)
+    AuditLogResponse:             { $ref: './schemas/notification.yaml#/AuditLogResponse' }
+    MessageTemplateResponse:      { $ref: './schemas/notification.yaml#/MessageTemplateResponse' }
+    MessageTemplateUpdateRequest: { $ref: './schemas/notification.yaml#/MessageTemplateUpdateRequest' }
+    NotificationLogResponse:      { $ref: './schemas/notification.yaml#/NotificationLogResponse' }
+    WhatsAppStatusResponse:       { $ref: './schemas/notification.yaml#/WhatsAppStatusResponse' }
+    WhatsAppQRResponse:           { $ref: './schemas/notification.yaml#/WhatsAppQRResponse' }
+    WhatsAppTestRequest:          { $ref: './schemas/notification.yaml#/WhatsAppTestRequest' }
+
+    # Registrasi (Fase 2)
+    RegistrationResponse:               { $ref: './schemas/registration.yaml#/RegistrationResponse' }
+    RegistrationCreateRequest:          { $ref: './schemas/registration.yaml#/RegistrationCreateRequest' }
+    RegistrationApproveRequest:         { $ref: './schemas/registration.yaml#/RegistrationApproveRequest' }
+    RegistrationRejectRequest:          { $ref: './schemas/registration.yaml#/RegistrationRejectRequest' }
+    RegistrationAssignRequest:          { $ref: './schemas/registration.yaml#/RegistrationAssignRequest' }
+    RegistrationCompleteInstallRequest: { $ref: './schemas/registration.yaml#/RegistrationCompleteInstallRequest' }
 
   parameters:
     DeviceIdPath:      { $ref: './components/parameters.yaml#/DeviceIdPath' }

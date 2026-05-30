@@ -8,7 +8,10 @@ import (
 	"github.com/quiqxiq/rosmon/internal/config"
 	"github.com/quiqxiq/rosmon/internal/ratelimit"
 	"github.com/quiqxiq/rosmon/service/auth"
+	"github.com/quiqxiq/rosmon/service/billing"
 	"github.com/quiqxiq/rosmon/service/devmgr"
+	"github.com/quiqxiq/rosmon/service/notification"
+	"github.com/quiqxiq/rosmon/service/notification/whatsapp"
 	"github.com/quiqxiq/rosmon/store"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
@@ -32,6 +35,18 @@ type Deps struct {
 	SequenceStore     store.SequenceStore
 	InvoiceStore      store.InvoiceStore
 	PaymentStore      store.PaymentStore
+	AuditLogStore     store.AuditLogStore
+	TemplateStore     store.TemplateStore
+	NotificationStore store.NotificationLogStore
+
+	// WhatsApp gateway manager (embedded whatsmeow). Nil → endpoint
+	// /whatsapp/* mengembalikan 503 dan notifikasi di-skip/failed.
+	WhatsApp *whatsapp.Manager
+
+	// Registration flow (Fase 2). Nil → endpoint registrasi tidak di-mount.
+	RegistrationStore   store.RegistrationStore
+	NotificationService *notification.Service
+	BillingService      *billing.Service
 
 	// Auth (Phase 2). Nil → routes /auth/* tidak di-mount dan
 	// proteksi route lain di-skip. Production wajib set.

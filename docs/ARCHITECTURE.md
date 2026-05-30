@@ -78,3 +78,36 @@ Setiap exported function punya doc comment yang menyebut section, mis.
 ```
 
 Lihat [COMMANDS.md](COMMANDS.md), [SCRIPTS.md](SCRIPTS.md), [WORKFLOWS.md](WORKFLOWS.md) untuk peta lengkap.
+
+## Business Layer (Manajemen ISP)
+
+Di atas wrapper MikroTik, rosmon punya lapisan bisnis dengan pemisahan ketat:
+
+| Layer | Package | Tanggung jawab |
+|---|---|---|
+| Model + Store | `store/`, `store/model/` | Akses DB (GORM). Interface + impl `gorm*`. **Tanpa** business logic. |
+| Service | `service/` | Logika bisnis: `auth`, `billing`, `notification` (+ `whatsapp`), `audit`, `expiry`, `metrics`, `devmgr`. **Tanpa** dependency HTTP. |
+| Job | `job/` | Background: `outbox` (sync DB→router tiap 10s), `billing_cron` (07:00), `suspension_check` (09:00), `notif_retry` (5m). Idempotent. |
+| HTTP | `api/handler/`, `api/dto/` | Handler tipis + DTO. Tiga zone auth (lihat bawah). |
+
+### Prinsip kunci
+
+- **MikroTik = source of truth operasional.** DB menyimpan *intended state*. Join key tunggal: `MikrotikUsername`.
+- **DB-first + outbox.** Mutasi subscription: tulis DB (`sync_status = pending_*`) → kembalikan HTTP response → `job/outbox` sync ke router di background (`FOR UPDATE SKIP LOCKED`). Tetap konsisten walau router offline.
+- **Notifikasi hanya via `service/notification`.** `Sender` pluggable (interface) — implementasi `whatsapp.Manager` (whatsmeow embedded, sesi di Postgres). Log + retry wajib.
+- **Audit wajib** untuk aksi ubah-status (helper `service/audit`).
+- **Konfigurasi dinamis** dari tabel `system_settings`, bukan konstanta hardcoded.
+
+### Zone auth
+
+| Zone | Middleware | Endpoint |
+|---|---|---|
+| Publik | (none) + IP rate-limit | `POST /public/registrations`, webhook on-login |
+| Staff | `RequireAuth` + `RequireRole` | `/api/v1/*` — admin > operator > viewer |
+| Customer | `RequireCustomerAuth` *(roadmap Fase 3)* | `/api/customer/*` |
+
+### Dependency injection
+
+`cmd/server/main.go` mem-build semua store + service + job, lalu inject ke `api.Deps` (nil-guarded — fitur opsional di-skip kalau dep nil). Tanpa framework DI.
+
+Desain lengkap & roadmap: [../goal.md](../goal.md), [../roadmap.md](../roadmap.md), [../system-design.md](../system-design.md).

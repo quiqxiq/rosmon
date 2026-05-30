@@ -23,19 +23,22 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	roslibcfg "github.com/quiqxiq/roslib/config"
+	roslibinflux "github.com/quiqxiq/roslib/metrics/influx"
 	"github.com/quiqxiq/rosmon/api"
 	"github.com/quiqxiq/rosmon/api/sse"
 	"github.com/quiqxiq/rosmon/internal/config"
 	"github.com/quiqxiq/rosmon/internal/ratelimit"
 	"github.com/quiqxiq/rosmon/job"
 	"github.com/quiqxiq/rosmon/service/auth"
+	"github.com/quiqxiq/rosmon/service/billing"
 	"github.com/quiqxiq/rosmon/service/devmgr"
 	"github.com/quiqxiq/rosmon/service/expiry"
 	"github.com/quiqxiq/rosmon/service/metrics"
+	"github.com/quiqxiq/rosmon/service/notification"
+	"github.com/quiqxiq/rosmon/service/notification/whatsapp"
 	"github.com/quiqxiq/rosmon/store"
 	"github.com/quiqxiq/rosmon/store/model"
-	roslibcfg "github.com/quiqxiq/roslib/config"
-	roslibinflux "github.com/quiqxiq/roslib/metrics/influx"
 	"github.com/sirupsen/logrus"
 )
 
@@ -114,6 +117,10 @@ func main() {
 	sequenceStore := store.NewSequenceStore(db)
 	invoiceStore := store.NewInvoiceStore(db)
 	paymentStore := store.NewPaymentStore(db)
+	auditLogStore := store.NewAuditLogStore(db)
+	templateStore := store.NewTemplateStore(db)
+	notificationStore := store.NewNotificationLogStore(db)
+	registrationStore := store.NewRegistrationStore(db)
 
 	// ── Auth Service ──────────────────────────────────────────────────────
 	authSigner := auth.NewSigner(authCfg.JWTSecret, authCfg.AccessTTL, authCfg.RefreshTTL)
@@ -137,16 +144,51 @@ func main() {
 		log.WithError(err).Fatal("start expiry service")
 	}
 
+	// ── Notification service + WhatsApp (whatsmeow embedded) ──────────────
+	// Sesi WhatsApp disimpan persisten di Postgres (sqlstore). Kalau gagal
+	// start, server tetap jalan — notifikasi di-skip/failed & bisa di-retry.
+	notifCfg := config.LoadNotificationFromEnv()
+	var waManager *whatsapp.Manager
+	if sqlDB, errDB := db.DB(); errDB != nil {
+		log.WithError(errDB).Warn("notification: gagal ambil *sql.DB — WhatsApp dinonaktifkan")
+	} else {
+		waManager = whatsapp.New(whatsapp.Deps{DB: sqlDB, CountryCode: notifCfg.WACountryCode, Log: log})
+		if err := waManager.Start(rootCtx); err != nil {
+			log.WithError(err).Warn("notification: whatsapp manager start gagal (lanjut tanpa WA)")
+		}
+	}
+	var notifSender notification.Sender
+	if waManager != nil {
+		notifSender = waManager
+	}
+	notifSvc := notification.New(notification.Deps{
+		Sender:    notifSender,
+		Templates: templateStore,
+		Logs:      notificationStore,
+		Settings:  settingStore,
+		Log:       log,
+	})
+
 	// ── Background Jobs ──────────────────────────────────────────────────
 	outboxJob := job.NewOutboxJob(subscriptionStore, pppProfileStore, hotspotProfileStore, settingStore, devMgr, log)
 	outboxJob.Start(rootCtx)
 	log.Info("outbox job started")
 
-	billingCron := job.NewBillingCronJob(subscriptionStore, pppProfileStore, hotspotProfileStore, invoiceStore, sequenceStore, settingStore, log)
+	billingSvc := billing.New(billing.Deps{
+		Invoices:  invoiceStore,
+		Sequences: sequenceStore,
+		PPP:       pppProfileStore,
+		Hotspot:   hotspotProfileStore,
+	})
+	billingCron := job.NewBillingCronJob(subscriptionStore, customerStore, settingStore, billingSvc, notifSvc, log)
 	startDailyJob(rootCtx, 7, 0, "billing_cron", billingCron.Run, log)
 
-	suspCheck := job.NewSuspensionCheckJob(subscriptionStore, invoiceStore, settingStore, log)
+	suspCheck := job.NewSuspensionCheckJob(subscriptionStore, customerStore, invoiceStore, settingStore, notifSvc, log)
 	startDailyJob(rootCtx, 9, 0, "suspension_check", suspCheck.Run, log)
+
+	notifRetry := job.NewNotifRetryJob(notifSvc, log)
+	notifRetry.Start(rootCtx)
+	log.Info("notif_retry job started")
 
 	// ── InfluxDB3 + Metrics Service ───────────────────────────────────────
 	influxCfg := roslibcfg.InfluxConfig{
@@ -221,15 +263,23 @@ func main() {
 		SequenceStore:     sequenceStore,
 		InvoiceStore:      invoiceStore,
 		PaymentStore:      paymentStore,
-		AuthService:       authSvc,
-		AuthSigner:        authSigner,
-		UserLimiter:       userLim,
-		IPLimiter:         ipLim,
-		HeavyLimiter:      heavyLim,
-		DevMgr:            devMgr,
-		Hub:               hub,
-		InfluxReader:      influxReader,
-		GoServiceURL:      goServiceURL,
+		AuditLogStore:     auditLogStore,
+		TemplateStore:     templateStore,
+		NotificationStore: notificationStore,
+		WhatsApp:          waManager,
+
+		RegistrationStore:   registrationStore,
+		NotificationService: notifSvc,
+		BillingService:      billingSvc,
+		AuthService:         authSvc,
+		AuthSigner:          authSigner,
+		UserLimiter:         userLim,
+		IPLimiter:           ipLim,
+		HeavyLimiter:        heavyLim,
+		DevMgr:              devMgr,
+		Hub:                 hub,
+		InfluxReader:        influxReader,
+		GoServiceURL:        goServiceURL,
 	}
 
 	handler := api.NewServer(deps)

@@ -413,6 +413,9 @@ Dari `go.mod` yang sudah ada, semua ini **sudah tersedia**:
 **Yang perlu ditambah untuk business layer:**
 ```
 github.com/robfig/cron/v3    → job scheduler
+go.mau.fi/whatsmeow          → WhatsApp embedded (notifikasi + login QR)
+                               sesi disimpan di Postgres via store/sqlstore;
+                               diakses HANYA lewat service/notification/whatsapp
 ```
 
 **Tidak perlu ditambahkan:**

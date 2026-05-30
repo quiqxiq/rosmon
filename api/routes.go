@@ -216,10 +216,61 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		}
 		handler.NewPayments(deps.PaymentStore, deps.InvoiceStore, deps.SubscriptionStore, deps.Logger).Register(bizAuth)
 	}
+
+	// Audit logs, message templates, notification logs, WhatsApp setup —
+	// admin only. Read-only (audit/notifications) + template editing + WA setup.
+	if deps.AuditLogStore != nil || deps.TemplateStore != nil || deps.NotificationStore != nil || deps.WhatsApp != nil {
+		adminBiz := g.Group("")
+		for _, mw := range authChain {
+			adminBiz.Use(mw)
+		}
+		if deps.AuthSigner != nil {
+			adminBiz.Use(middleware.RequireRole(roleAdmin))
+		}
+		if deps.AuditLogStore != nil {
+			handler.NewAuditLogs(deps.AuditLogStore).Register(adminBiz)
+		}
+		if deps.TemplateStore != nil {
+			handler.NewMessageTemplates(deps.TemplateStore).Register(adminBiz)
+		}
+		if deps.NotificationStore != nil {
+			handler.NewNotifications(deps.NotificationStore).Register(adminBiz)
+		}
+		if deps.WhatsApp != nil {
+			handler.NewWhatsApp(deps.WhatsApp).Register(adminBiz)
+		}
+	}
+
+	// Registration flow (Fase 2): submit publik + manajemen staff.
+	if deps.RegistrationStore != nil {
+		regHandler := handler.NewRegistrations(
+			deps.RegistrationStore, deps.CustomerStore, deps.SubscriptionStore,
+			deps.BillingService, deps.NotificationService, deps.SettingStore,
+			deps.AuditLogStore, deps.Logger,
+		)
+		// Zone publik (tanpa auth) — IP rate-limited.
+		pub := g.Group("")
+		if deps.IPLimiter != nil {
+			pub.Use(middleware.RequirePerIPRate(deps.IPLimiter))
+		}
+		regHandler.RegisterPublic(pub)
+		// Zone staff — admin + operator.
+		staff := g.Group("")
+		for _, mw := range authChain {
+			staff.Use(mw)
+		}
+		if deps.AuthSigner != nil {
+			staff.Use(middleware.RequireRole(roleAdmin, roleOperator))
+		}
+		regHandler.RegisterStaff(staff)
+	}
 }
 
-// roleAdmin shortcut konstanta (avoid import cycle ke service/auth).
-var roleAdmin = auth.RoleAdmin
+// roleAdmin / roleOperator shortcut konstanta (avoid import cycle ke service/auth).
+var (
+	roleAdmin    = auth.RoleAdmin
+	roleOperator = auth.RoleOperator
+)
 
 // RegisterDocs mounts OpenAPI spec + interactive docs UI (Scalar).
 // Register sebagai group di root router (bukan di /api/v1).

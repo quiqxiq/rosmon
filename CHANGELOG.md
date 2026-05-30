@@ -22,6 +22,35 @@ device encryption ditunda ke fase 5 (separate plan).
 
 ### Added
 
+- **Registrasi Pemasangan (Fase 2)** — alur calon pelanggan → aktivasi:
+  - Model & store `customer_registrations` (status pending/approved/rejected/cancelled +
+    petugas + jadwal); seed setting `notification.admin_phone`.
+  - Zone route **publik** pertama: `POST /api/public/registrations` (tanpa auth, IP rate-limited)
+    → notifikasi `registration_received` ke admin.
+  - Endpoint staff (admin+operator): `GET /registrations`, `GET /registrations/:id`,
+    `POST /registrations/:id/{approve,reject,complete-install}`, `PUT /registrations/:id/assign`.
+    `approve` membuat/menautkan Customer; `complete-install` membuat Subscription aktif
+    (provisioning via outbox `pending_create`) + **invoice pertama** + notifikasi
+    `installation_complete`. Semua aksi ubah-status dicatat di `audit_logs`.
+  - `service/billing` — logika generate invoice diekstrak dari `billing_cron` agar dipakai
+    ulang oleh registrasi & cron (DRY).
+  - Integration test: `subscription_flow` (Customer + Subscription lifecycle current-API,
+    tcpmock) menggantikan `business_layer_test` yang usang (fitur BandwidthProfile sudah dihapus);
+    `expiry_workflow_test` di-port ke model HotspotProfile terbaru; `registration_flow` baru.
+- **Notifikasi & WhatsApp (Fase 0+1)** — fondasi notifikasi + gateway WhatsApp embedded:
+  - Model & store baru: `audit_logs`, `message_templates` (13 template default ter-seed),
+    `notification_logs` (dengan jejak retry). Semua di-AutoMigrate.
+  - `service/notification` — satu-satunya jalur kirim notifikasi (render `text/template`,
+    tulis log, kirim via `Sender`). `NoopSender` untuk dev/test.
+  - `service/notification/whatsapp` — klien **whatsmeow** embedded, sesi persisten di
+    Postgres; login via QR oleh admin. Mengimplementasikan `Sender`.
+  - Job `notif_retry` (tiap 5 menit) + reminder H-2 di `suspension_check`.
+  - `billing_cron` → `invoice_issued`; `suspension_check` → `invoice_overdue`/`service_isolir`/
+    `service_suspended`/`invoice_reminder` (best-effort, async).
+  - `service/audit` — helper `audit.Log()` non-fatal untuk jejak ubah-status.
+  - Endpoint admin baru: `GET /audit-logs`, `GET/PUT /message-templates`,
+    `GET /notifications`, `GET /whatsapp/{status,qr}`, `POST /whatsapp/{logout,test}`.
+    OpenAPI di-update + bundle.
 - **`DeviceResponse.time_zone`** — field IANA timezone router (mis. `"Asia/Jakarta"`).
   Di-fetch otomatis dari `/system/clock` saat devmgr connect, di-persist ke DB,
   dan di-expose di API response. Dipakai expiry service untuk parsing timestamp
@@ -71,6 +100,10 @@ device encryption ditunda ke fase 5 (separate plan).
 
 ### Changed
 
+- **Hapus setting WhatsApp obsolet** (`notification.wa_api_url`, `notification.wa_sender`)
+  dari seed `store/migrate.go` — peninggalan gateway **go-wa HTTP eksternal**. Dengan
+  **whatsmeow embedded** tidak ada URL/sender eksternal; pengirim = akun yang login via QR.
+  Tidak ada kode yang membaca keduanya. Setting yang tersisa: `wa_enabled`, `admin_phone`.
 - **`expiry.ParseExpiry`** — tambah parameter `loc *time.Location`. Fallback ke
   `time.UTC` kalau nil. Pakai `time.ParseInLocation` supaya timestamp comment
   di-interpretasikan dalam timezone router, bukan UTC.
@@ -146,6 +179,10 @@ device encryption ditunda ke fase 5 (separate plan).
 
 ### Documentation
 
+- **README + `docs/API.md` + `docs/ARCHITECTURE.md`** — dokumentasi business layer
+  (manajemen ISP): customers/subscriptions/billing/registrasi/notifikasi WhatsApp,
+  tiga zone auth, endpoint inventory, quickstart docker-compose + integration test
+  (`make test-integration-full`, catatan Podman/Ryuk). Tautan ke `goal.md`/`roadmap.md`.
 - `docs/API.md` — voucher generator, reports, healthz dependency
   format, CORS default change, DEVICE_TLS_INSECURE env.
 - `docs/openapi/*` — IP Pool CRUD paths, new SSE stream paths, dan
