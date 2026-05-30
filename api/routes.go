@@ -264,6 +264,15 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		}
 		regHandler.RegisterStaff(staff)
 	}
+
+	// Public packages (Fase 2): paket layanan untuk form pendaftaran publik.
+	if deps.PPPProfileStore != nil || deps.HotspotStore != nil {
+		pkgPub := g.Group("")
+		if deps.IPLimiter != nil {
+			pkgPub.Use(middleware.RequirePerIPRate(deps.IPLimiter))
+		}
+		handler.NewPublicPackages(deps.PPPProfileStore, deps.HotspotStore).RegisterPublic(pkgPub)
+	}
 }
 
 // roleAdmin / roleOperator shortcut konstanta (avoid import cycle ke service/auth).

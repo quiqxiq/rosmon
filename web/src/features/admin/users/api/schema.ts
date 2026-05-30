@@ -1,14 +1,12 @@
 import { z } from 'zod'
 
-// Source: internal/models/user.go + internal/api/handlers/user_handler.go.
-// NOT related to features/users/data/schema.ts — that's the demo shadcn-
-// admin CRUD (cashier/manager roles etc.) and remains untouched per Phase
-// 3 "Coexist" decision.
+// Source: store/model/user.go + service/auth (RBAC 3-role hierarki
+// admin > operator > viewer). NOT related to features/users/data/schema.ts
+// — that's the demo shadcn-admin CRUD (cashier/manager roles etc.).
 //
-// Backend enforces `role IN ('admin','staff')` with a DB constraint, so
-// these two literals are authoritative.
+// Backend (service/auth/errors.go ValidRoles) hanya menerima ketiga role ini.
 
-export const AdminUserRoleSchema = z.enum(['admin', 'staff'])
+export const AdminUserRoleSchema = z.enum(['admin', 'operator', 'viewer'])
 export type AdminUserRole = z.infer<typeof AdminUserRoleSchema>
 
 export const AdminUserSchema = z.object({

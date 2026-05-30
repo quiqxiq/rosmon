@@ -82,7 +82,7 @@ function AdminUserForm({ mode, target, onClose }: FormProps) {
         active: target.active,
       }
     }
-    return { username: '', password: '', role: 'staff', active: true }
+    return { username: '', password: '', role: 'operator', active: true }
   })
 
   const isPending = createMut.isPending || updateMut.isPending
@@ -221,7 +221,8 @@ function AdminUserForm({ mode, target, onClose }: FormProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value='admin'>Admin — full access</SelectItem>
-                <SelectItem value='staff'>Staff — limited access</SelectItem>
+                <SelectItem value='operator'>Operator — manage & assign</SelectItem>
+                <SelectItem value='viewer'>Viewer — read-only</SelectItem>
               </SelectContent>
             </Select>
           </div>

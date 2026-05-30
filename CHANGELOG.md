@@ -22,6 +22,16 @@ device encryption ditunda ke fase 5 (separate plan).
 
 ### Added
 
+- **Paket publik & form pendaftaran (Fase 2 lanjutan)** — agar landing page punya paket nyata:
+  - Flag `is_public` pada `PPPProfile` + `HotspotProfile` (di-preserve saat sync router); store
+    `ListPublic` (ppp aktif; hotspot aktif role `permanent`).
+  - Endpoint publik baru `GET /api/public/packages` (tanpa auth, IP rate-limited) → paket
+    `is_public` (id, service_type, name, price, rate_limit, description, device_id) untuk form
+    pendaftaran. Handler `api/handler/packages.go` (+unit test).
+  - `RegistrationCreateRequest` + model registrasi diperluas: `service_type` (pppoe|hotspot) +
+    `hotspot_profile_id` — pilihan layanan & paket dari publik tersimpan sebagai hint operator.
+  - DTO/handler profil DB (ppp/hotspot) menerima & mengembalikan `is_public`.
+  - OpenAPI: `paths/packages.yaml`, `schemas/package.yaml`, field registrasi baru (bundled).
 - **Registrasi Pemasangan (Fase 2)** — alur calon pelanggan → aktivasi:
   - Model & store `customer_registrations` (status pending/approved/rejected/cancelled +
     petugas + jadwal); seed setting `notification.admin_phone`.

@@ -1,0 +1,23 @@
+/public/packages:
+  get:
+    tags: [Registrations]
+    summary: List paket publik (tanpa auth)
+    description: |
+      Endpoint publik (TANPA auth, rate-limited per IP) untuk landing page.
+      Mengembalikan paket PPPoE + Hotspot (permanent) yang ditandai `is_public`
+      dan aktif. Calon pelanggan memilih salah satu saat mendaftar.
+    security: []
+    responses:
+      '200':
+        description: Daftar paket publik
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items: { $ref: '../schemas/package.yaml#/PublicPackageResponse' }
+      '429': { $ref: '../components/responses.yaml#/ErrorRateLimit' }

@@ -401,7 +401,9 @@ paths:
   /whatsapp/test:
     $ref: './paths/whatsapp.yaml#/~1whatsapp~1test'
 
-  # Registrasi pemasangan (Fase 2). /public/registrations = tanpa auth.
+  # Registrasi pemasangan (Fase 2). /public/* = tanpa auth.
+  /public/packages:
+    $ref: './paths/packages.yaml#/~1public~1packages'
   /public/registrations:
     $ref: './paths/registrations.yaml#/~1public~1registrations'
   /registrations:

@@ -16,6 +16,7 @@ export const PPPDbProfileSchema = z.object({
   price_monthly: z.number(),
   description: z.string(),
   active: z.boolean(),
+  is_public: z.boolean().optional().default(false),
   created_at: z.string(),
   updated_at: z.string(),
 })
@@ -32,6 +33,7 @@ export type PPPDbProfileCreateInput = {
   price_monthly?: number
   description?: string
   active?: boolean
+  is_public?: boolean
 }
 
 export type PPPDbProfileUpdateInput = {
@@ -44,6 +46,7 @@ export type PPPDbProfileUpdateInput = {
   price_monthly?: number
   description?: string
   active?: boolean
+  is_public?: boolean
 }
 
 // POST/PUT return { profile, warning? } — the warning surfaces a

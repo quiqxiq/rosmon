@@ -10,8 +10,8 @@ type Transaction struct {
 	Device   MikrotikDevice `gorm:"foreignKey:DeviceID"`
 
 	SaleDate  string `gorm:"index;size:12"` // "jan/02/2006"
-	SaleTime  string `gorm:"size:8"`         // "15:04:05"
-	SaleMonth string `gorm:"index;size:8"`   // "jan2025" — untuk filter laporan bulanan
+	SaleTime  string `gorm:"size:8"`        // "15:04:05"
+	SaleMonth string `gorm:"index;size:8"`  // "jan2025" — untuk filter laporan bulanan
 
 	Username  string `gorm:"index;not null;size:128"`
 	Price     int

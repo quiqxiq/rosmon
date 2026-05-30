@@ -77,14 +77,16 @@ func (h *Registrations) SubmitPublic(c *gin.Context) {
 		return
 	}
 	reg := &model.CustomerRegistration{
-		FullName:     req.FullName,
-		Phone:        req.Phone,
-		Address:      req.Address,
-		Area:         req.Area,
-		Notes:        req.Notes,
-		PPPProfileID: req.PPPProfileID,
-		DeviceID:     req.DeviceID,
-		Status:       "pending",
+		FullName:         req.FullName,
+		Phone:            req.Phone,
+		Address:          req.Address,
+		Area:             req.Area,
+		Notes:            req.Notes,
+		ServiceType:      req.ServiceType,
+		PPPProfileID:     req.PPPProfileID,
+		HotspotProfileID: req.HotspotProfileID,
+		DeviceID:         req.DeviceID,
+		Status:           "pending",
 	}
 	if err := h.Store.Create(c.Request.Context(), reg); err != nil {
 		WriteErr(c, err)

@@ -17,7 +17,7 @@ type MikrotikDevice struct {
 	UseTLS      bool   `gorm:"default:false"`
 
 	// Status koneksi — diupdate oleh DeviceManager
-	Status    string     `gorm:"default:'disconnected';size:32"` // connected | disconnected | error
+	Status    string `gorm:"default:'disconnected';size:32"` // connected | disconnected | error
 	LastSeen  *time.Time
 	LastError string `gorm:"size:512"`
 

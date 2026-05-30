@@ -28,6 +28,10 @@ type PPPProfile struct {
 	Description  string `gorm:"type:text"`
 	Active       bool   `gorm:"not null;default:true"`
 
+	// IsPublic menandai paket ditawarkan di form pendaftaran publik
+	// (GET /public/packages). Default false — operator menandai manual.
+	IsPublic bool `gorm:"not null;default:false;index"`
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`

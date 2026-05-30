@@ -22,6 +22,7 @@ export const HotspotDbProfileSchema = z.object({
   lock_mac: z.boolean().optional(),
   description: z.string(),
   active: z.boolean(),
+  is_public: z.boolean().optional().default(false),
   created_at: z.string(),
   updated_at: z.string(),
 })
@@ -43,6 +44,7 @@ export type HotspotDbProfileCreateInput = {
   lock_mac?: boolean
   description?: string
   active?: boolean
+  is_public?: boolean
 }
 
 export type HotspotDbProfileUpdateInput = Omit<

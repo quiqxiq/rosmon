@@ -161,6 +161,18 @@ func newFakePPPStore() *fakePPPProfileStore {
 	return &fakePPPProfileStore{rows: map[uint]model.PPPProfile{}}
 }
 
+func (f *fakePPPProfileStore) ListPublic(ctx context.Context) ([]model.PPPProfile, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []model.PPPProfile
+	for _, p := range f.rows {
+		if p.IsPublic && p.Active {
+			out = append(out, p)
+		}
+	}
+	return out, nil
+}
+
 func (f *fakePPPProfileStore) ListByDevice(ctx context.Context, deviceID uint) ([]model.PPPProfile, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

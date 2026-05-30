@@ -66,6 +66,9 @@ func (f *fakePPPStore) Get(_ context.Context, id uint) (model.PPPProfile, error)
 func (f *fakePPPStore) ListByDevice(context.Context, uint) ([]model.PPPProfile, error) {
 	return nil, nil
 }
+func (f *fakePPPStore) ListPublic(context.Context) ([]model.PPPProfile, error) {
+	return nil, nil
+}
 func (f *fakePPPStore) GetByName(context.Context, uint, string) (model.PPPProfile, error) {
 	return model.PPPProfile{}, store.ErrPPPProfileNotFound
 }
@@ -86,6 +89,9 @@ func (f *fakeHotspotStore) Get(_ context.Context, id uint) (model.HotspotProfile
 	return p, nil
 }
 func (f *fakeHotspotStore) ListByDevice(context.Context, uint, store.HotspotProfileListFilter) ([]model.HotspotProfile, error) {
+	return nil, nil
+}
+func (f *fakeHotspotStore) ListPublic(context.Context) ([]model.HotspotProfile, error) {
 	return nil, nil
 }
 func (f *fakeHotspotStore) GetByName(context.Context, uint, string) (model.HotspotProfile, error) {

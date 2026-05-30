@@ -102,6 +102,10 @@ func (h *PPPProfiles) Create(c *gin.Context) {
 	if req.Active != nil {
 		active = *req.Active
 	}
+	isPublic := false
+	if req.IsPublic != nil {
+		isPublic = *req.IsPublic
+	}
 	p := &model.PPPProfile{
 		DeviceID:       deviceID,
 		Name:           req.Name,
@@ -114,6 +118,7 @@ func (h *PPPProfiles) Create(c *gin.Context) {
 		PriceMonthly:   req.PriceMonthly,
 		Description:    req.Description,
 		Active:         active,
+		IsPublic:       isPublic,
 	}
 	if err := h.Store.Create(c.Request.Context(), p); err != nil {
 		WriteErr(c, err)
@@ -184,6 +189,9 @@ func (h *PPPProfiles) Update(c *gin.Context) {
 	}
 	if req.Active != nil {
 		p.Active = *req.Active
+	}
+	if req.IsPublic != nil {
+		p.IsPublic = *req.IsPublic
 	}
 	if err := h.Store.Update(c.Request.Context(), &p); err != nil {
 		WriteErr(c, err)

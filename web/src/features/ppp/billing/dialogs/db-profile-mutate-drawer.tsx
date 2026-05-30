@@ -5,6 +5,7 @@ import { useActiveRouterId } from '@/stores/active-router-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -44,6 +45,7 @@ type Draft = {
   parent_queue: string
   description: string
   active: 'true' | 'false'
+  is_public: boolean
 }
 
 function emptyDraft(): Draft {
@@ -58,6 +60,7 @@ function emptyDraft(): Draft {
     parent_queue: '',
     description: '',
     active: 'true',
+    is_public: false,
   }
 }
 
@@ -73,6 +76,7 @@ function draftFromTarget(t: PPPDbProfile): Draft {
     parent_queue: t.parent_queue ?? '',
     description: t.description ?? '',
     active: t.active ? 'true' : 'false',
+    is_public: t.is_public ?? false,
   }
 }
 
@@ -133,6 +137,7 @@ function DbProfileForm({ mode, target, onClose }: DbProfileFormProps) {
       description: draft.description.trim(),
       price_monthly: parsePrice(),
       active: draft.active === 'true',
+      is_public: draft.is_public,
     }
 
     if (mode === 'add') {
@@ -279,6 +284,18 @@ function DbProfileForm({ mode, target, onClose }: DbProfileFormProps) {
             </SelectContent>
           </Select>
         </Field>
+        <div className='flex items-center justify-between rounded-md border px-3 py-2'>
+          <div>
+            <Label className='text-sm font-medium'>Public package</Label>
+            <p className='text-xs text-muted-foreground'>
+              Show on the public registration page.
+            </p>
+          </div>
+          <Switch
+            checked={draft.is_public}
+            onCheckedChange={(v) => update('is_public', v)}
+          />
+        </div>
       </form>
 
       <SheetFooter className='border-t'>

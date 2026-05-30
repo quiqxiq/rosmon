@@ -103,6 +103,32 @@ func TestRegistrations_SubmitPublic_OK(t *testing.T) {
 	require.Len(t, list, 1)
 }
 
+func TestRegistrations_SubmitPublic_PersistsPackageChoice(t *testing.T) {
+	r, regS, _, _ := setupRegEngine(t)
+	w := doJSON(r, http.MethodPost, "/api/v1/public/registrations", map[string]any{
+		"full_name": "Bu Sari", "phone": "0822333", "address": "Jl. Melati 9", "area": "RT02",
+		"service_type": "hotspot", "hotspot_profile_id": 7, "device_id": 1,
+	})
+	require.Equal(t, http.StatusCreated, w.Code, "body: %s", w.Body.String())
+	assert.Contains(t, w.Body.String(), `"service_type":"hotspot"`)
+
+	got, err := regS.Get(context.Background(), 1)
+	require.NoError(t, err)
+	assert.Equal(t, "hotspot", got.ServiceType)
+	require.NotNil(t, got.HotspotProfileID)
+	assert.EqualValues(t, 7, *got.HotspotProfileID)
+	assert.Nil(t, got.PPPProfileID)
+}
+
+func TestRegistrations_SubmitPublic_InvalidServiceType_400(t *testing.T) {
+	r, _, _, _ := setupRegEngine(t)
+	w := doJSON(r, http.MethodPost, "/api/v1/public/registrations", map[string]any{
+		"full_name": "X Y", "phone": "0811", "address": "Jl. Z", "service_type": "fiber",
+	})
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "VALIDATION")
+}
+
 func TestRegistrations_SubmitPublic_MissingRequired_400(t *testing.T) {
 	r, _, _, _ := setupRegEngine(t)
 	w := doJSON(r, http.MethodPost, "/api/v1/public/registrations", map[string]any{"phone": "0811"})

@@ -164,4 +164,20 @@ export const qk = {
   reportSellingToday: (rid: number) => ['report', 'selling', 'today', rid] as const,
   reportSellingSummary: (rid: number, filters?: QKFilters) =>
     ['report', 'selling', 'summary', rid, filters ?? {}] as const,
+
+  // ────────────────────────── communications (Fase 0/1, admin) ──────────────────────────
+  messageTemplates: () => ['message-templates'] as const,
+  messageTemplate: (slug: string) => ['message-templates', slug] as const,
+  auditLogs: (filters?: QKFilters) => ['audit-logs', filters ?? {}] as const,
+  notificationsLog: (filters?: QKFilters) => ['notifications', filters ?? {}] as const,
+  whatsappStatus: () => ['whatsapp', 'status'] as const,
+  whatsappQR: () => ['whatsapp', 'qr'] as const,
+
+  // ────────────────────────── registrations (Fase 2, staff) ──────────────────────────
+  registrations: (filters?: QKFilters) => ['registrations', filters ?? {}] as const,
+  registration: (id: number) => ['registrations', id] as const,
+
+  // ────────────────────────── public packages (Fase 2, landing) ──────────────────────────
+  publicPackages: (serviceType?: string) =>
+    ['public-packages', serviceType ?? 'all'] as const,
 } as const

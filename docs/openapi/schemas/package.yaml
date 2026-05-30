@@ -1,0 +1,15 @@
+PublicPackageResponse:
+  type: object
+  description: |
+    Paket layanan yang ditawarkan ke publik (ditandai `is_public` pada profil
+    PPP/Hotspot). Hanya field non-sensitif. Dipakai oleh form pendaftaran di
+    landing page (GET /public/packages).
+  required: [id, service_type, name, price, device_id]
+  properties:
+    id:           { type: integer, format: int64, example: 1 }
+    service_type: { type: string, enum: [pppoe, hotspot], example: "pppoe" }
+    name:         { type: string, example: "Home 10 Mbps" }
+    price:        { type: integer, format: int64, description: Harga bulanan, example: 150000 }
+    rate_limit:   { type: string, example: "10M/10M" }
+    description:  { type: string, example: "Cocok untuk rumah 1-3 perangkat" }
+    device_id:    { type: integer, format: int64, example: 1 }

@@ -22,6 +22,9 @@ type HotspotProfileListFilter struct {
 
 type HotspotProfileStore interface {
 	ListByDevice(ctx context.Context, deviceID uint, f HotspotProfileListFilter) ([]model.HotspotProfile, error)
+	// ListPublic mengembalikan paket 'permanent' aktif yang ditandai publik
+	// (lintas device), untuk form pendaftaran publik. Diurut by name.
+	ListPublic(ctx context.Context) ([]model.HotspotProfile, error)
 	Get(ctx context.Context, id uint) (model.HotspotProfile, error)
 	GetByName(ctx context.Context, deviceID uint, name string) (model.HotspotProfile, error)
 	Create(ctx context.Context, p *model.HotspotProfile) error
@@ -47,6 +50,14 @@ func (s *gormHotspotProfileStore) ListByDevice(ctx context.Context, deviceID uin
 	}
 	var out []model.HotspotProfile
 	err := q.Find(&out).Error
+	return out, err
+}
+
+func (s *gormHotspotProfileStore) ListPublic(ctx context.Context) ([]model.HotspotProfile, error) {
+	var out []model.HotspotProfile
+	err := s.db.WithContext(ctx).
+		Where("is_public = ? AND active = ? AND role = ?", true, true, "permanent").
+		Order("name").Find(&out).Error
 	return out, err
 }
 
@@ -126,6 +137,7 @@ func (s *gormHotspotProfileStore) Upsert(ctx context.Context, p *model.HotspotPr
 			p.SellPrice = existing.SellPrice
 			p.LockMAC = existing.LockMAC
 			p.Description = existing.Description
+			p.IsPublic = existing.IsPublic
 		}
 		return tx.Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "device_id"}, {Name: "name"}},

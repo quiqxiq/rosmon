@@ -24,6 +24,7 @@ type HotspotProfileResponse struct {
 	LockMAC           bool      `json:"lock_mac,omitempty"`
 	Description       string    `json:"description"`
 	Active            bool      `json:"active"`
+	IsPublic          bool      `json:"is_public"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
 }
@@ -44,6 +45,7 @@ type HotspotProfileCreateRequest struct {
 	LockMAC           bool   `json:"lock_mac"`
 	Description       string `json:"description"   binding:"max=2000"`
 	Active            *bool  `json:"active"`
+	IsPublic          *bool  `json:"is_public"`
 }
 
 type HotspotProfileUpdateRequest struct {
@@ -61,6 +63,7 @@ type HotspotProfileUpdateRequest struct {
 	LockMAC           *bool   `json:"lock_mac"`
 	Description       *string `json:"description"   binding:"omitempty,max=2000"`
 	Active            *bool   `json:"active"`
+	IsPublic          *bool   `json:"is_public"`
 }
 
 type HotspotProfileWriteResponse struct {
@@ -93,6 +96,7 @@ func FromModelHotspotProfile(p model.HotspotProfile) HotspotProfileResponse {
 		LockMAC:           p.LockMAC,
 		Description:       p.Description,
 		Active:            p.Active,
+		IsPublic:          p.IsPublic,
 		CreatedAt:         p.CreatedAt,
 		UpdatedAt:         p.UpdatedAt,
 	}

@@ -4,9 +4,9 @@ import { getCookie, setCookie, removeCookie } from '@/lib/cookies'
 const ACCESS_TOKEN = 'roskit-access-token'
 const REFRESH_TOKEN_KEY = 'roskit-refresh-token'
 
-// Match internal/models/user.go#/UserRole — backend is single-tenant
-// and only supports two roles.
-export type UserRole = 'admin' | 'staff'
+// Match service/auth/errors.go — backend RBAC has 3 roles in a hierarchy:
+// admin > operator > viewer. The JWT access token carries `rol`.
+export type UserRole = 'admin' | 'operator' | 'viewer'
 
 // Match internal/services/auth_service.go#/UserView — the shape returned
 // by /auth/me and embedded in /auth/login responses.

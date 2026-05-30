@@ -11,7 +11,9 @@ RegistrationResponse:
     address:          { type: string, example: "Jl. Mawar No. 1" }
     area:             { type: string, example: "RT01/RW02" }
     notes:            { type: string }
-    ppp_profile_id:   { type: integer, format: int64, nullable: true, description: Paket yang diminta (hint) }
+    service_type:     { type: string, enum: [pppoe, hotspot], description: Layanan yang dipilih (hint) }
+    ppp_profile_id:   { type: integer, format: int64, nullable: true, description: Paket pppoe yang diminta (hint) }
+    hotspot_profile_id: { type: integer, format: int64, nullable: true, description: Paket hotspot yang diminta (hint) }
     device_id:        { type: integer, format: int64, nullable: true, description: Router/area yang diminta (hint) }
     status:
       type: string
@@ -36,7 +38,9 @@ RegistrationCreateRequest:
     address:        { type: string, minLength: 3, maxLength: 2000, example: "Jl. Mawar No. 1" }
     area:           { type: string, maxLength: 100, example: "RT01/RW02" }
     notes:          { type: string, maxLength: 2000 }
-    ppp_profile_id: { type: integer, format: int64, description: Paket yang diminta (opsional) }
+    service_type:   { type: string, enum: [pppoe, hotspot], description: Layanan yang dipilih (opsional) }
+    ppp_profile_id: { type: integer, format: int64, description: Paket pppoe yang dipilih (opsional) }
+    hotspot_profile_id: { type: integer, format: int64, description: Paket hotspot yang dipilih (opsional) }
     device_id:      { type: integer, format: int64, description: Router/area yang diminta (opsional) }
 
 RegistrationApproveRequest:

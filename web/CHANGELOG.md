@@ -1,3 +1,29 @@
+## Unreleased
+
+### Feat
+
+- **business layer Fase 0/1/2 UI** — frontend untuk fitur yang sebelumnya backend-only:
+  - **Message Templates** (`/admin/message-templates`) — list + edit drawer (body, variabel, aktif).
+  - **Audit Logs** (`/admin/audit-logs`) — viewer read-only + detail (old/new values JSON), faceted
+    filter action/entity.
+  - **Notifications** (`/admin/notifications`) — log kiriman WhatsApp + status/retry + detail pesan.
+  - **WhatsApp** (`/admin/whatsapp`) — status koneksi (poll), pairing **QR** (`qrcode.react`),
+    logout, test message, + toggle `notification.wa_enabled` & `admin_phone` (via key-value
+    `/settings`).
+  - **Registrations** (`/registrations`, admin+operator) — antrian approval: approve/reject/assign
+    + drawer complete-install (device, layanan, paket, kredensial MikroTik, billing day).
+  - **Landing publik** (`/register`, tanpa auth) — form pendaftaran dengan **paket asli** dari
+    `GET /public/packages`, pilih PPPoE/Hotspot.
+  - Toggle **"Public package"** pada form billing-profile PPP & Hotspot (`is_public`).
+- Sidebar: grup **Communications** (WhatsApp, Message Templates, Notifications) + item
+  **Registrations** & **Audit Logs**.
+
+### Fix
+
+- **role model** disesuaikan ke RBAC backend `admin | operator | viewer` (sebelumnya stale
+  `admin | staff`) di auth-store, schema auth, dan form admin-users; guard route `/registrations`
+  mengizinkan admin+operator.
+
 ## v2.2.1 (2025-11-06)
 
 ### Fix

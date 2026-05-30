@@ -5,6 +5,7 @@ import { useActiveRouterId } from '@/stores/active-router-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -49,6 +50,7 @@ type Draft = {
   price: string
   sell_price: string
   lock_mac: 'true' | 'false'
+  is_public: boolean
 }
 
 function emptyDraft(): Draft {
@@ -68,6 +70,7 @@ function emptyDraft(): Draft {
     price: '',
     sell_price: '',
     lock_mac: 'false',
+    is_public: false,
   }
 }
 
@@ -88,6 +91,7 @@ function draftFromTarget(p: HotspotDbProfile): Draft {
     price: p.price ? String(p.price) : '',
     sell_price: p.sell_price ? String(p.sell_price) : '',
     lock_mac: p.lock_mac ? 'true' : 'false',
+    is_public: p.is_public ?? false,
   }
 }
 
@@ -158,7 +162,7 @@ function Form({
     }
     const billing =
       draft.role === 'permanent'
-        ? { price_monthly: num(draft.price_monthly) }
+        ? { price_monthly: num(draft.price_monthly), is_public: draft.is_public }
         : {
             expiry_mode: draft.expiry_mode,
             validity: draft.validity.trim(),
@@ -255,15 +259,29 @@ function Form({
         </Field>
 
         {role === 'permanent' ? (
-          <Field label='Price / month (IDR)'>
-            <Input
-              type='number'
-              min='0'
-              value={draft.price_monthly}
-              onChange={(e) => update('price_monthly', e.target.value)}
-              placeholder='100000'
-            />
-          </Field>
+          <>
+            <Field label='Price / month (IDR)'>
+              <Input
+                type='number'
+                min='0'
+                value={draft.price_monthly}
+                onChange={(e) => update('price_monthly', e.target.value)}
+                placeholder='100000'
+              />
+            </Field>
+            <div className='flex items-center justify-between rounded-md border px-3 py-2'>
+              <div>
+                <Label className='text-sm font-medium'>Public package</Label>
+                <p className='text-xs text-muted-foreground'>
+                  Show on the public registration page.
+                </p>
+              </div>
+              <Switch
+                checked={draft.is_public}
+                onCheckedChange={(v) => update('is_public', v)}
+              />
+            </div>
+          </>
         ) : (
           <>
             <Field label='Expiry Mode'>

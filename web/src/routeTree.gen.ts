@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as publicRegisterRouteImport } from './routes/(public)/register'
 import { Route as errors503RouteImport } from './routes/(errors)/503'
 import { Route as errors500RouteImport } from './routes/(errors)/500'
 import { Route as errors404RouteImport } from './routes/(errors)/404'
@@ -21,6 +22,7 @@ import { Route as authSignInRouteImport } from './routes/(auth)/sign-in'
 import { Route as authOtpRouteImport } from './routes/(auth)/otp'
 import { Route as authForgotPasswordRouteImport } from './routes/(auth)/forgot-password'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
+import { Route as AuthenticatedRegistrationsRouteRouteImport } from './routes/_authenticated/registrations/route'
 import { Route as AuthenticatedAdminRouteRouteImport } from './routes/_authenticated/admin/route'
 import { Route as AuthenticatedVoucherIndexRouteImport } from './routes/_authenticated/voucher/index'
 import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authenticated/users/index'
@@ -29,6 +31,7 @@ import { Route as AuthenticatedSystemIndexRouteImport } from './routes/_authenti
 import { Route as AuthenticatedSubscriptionsIndexRouteImport } from './routes/_authenticated/subscriptions/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedReportsIndexRouteImport } from './routes/_authenticated/reports/index'
+import { Route as AuthenticatedRegistrationsIndexRouteImport } from './routes/_authenticated/registrations/index'
 import { Route as AuthenticatedNetworkIndexRouteImport } from './routes/_authenticated/network/index'
 import { Route as AuthenticatedLogIndexRouteImport } from './routes/_authenticated/log/index'
 import { Route as AuthenticatedHotspotIndexRouteImport } from './routes/_authenticated/hotspot/index'
@@ -53,9 +56,13 @@ import { Route as AuthenticatedHotspotHostsRouteImport } from './routes/_authent
 import { Route as AuthenticatedHotspotBillingRouteImport } from './routes/_authenticated/hotspot/billing'
 import { Route as AuthenticatedHotspotActiveRouteImport } from './routes/_authenticated/hotspot/active'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
+import { Route as AuthenticatedAdminWhatsappIndexRouteImport } from './routes/_authenticated/admin/whatsapp/index'
 import { Route as AuthenticatedAdminUsersIndexRouteImport } from './routes/_authenticated/admin/users/index'
 import { Route as AuthenticatedAdminSettingsIndexRouteImport } from './routes/_authenticated/admin/settings/index'
 import { Route as AuthenticatedAdminRoutersIndexRouteImport } from './routes/_authenticated/admin/routers/index'
+import { Route as AuthenticatedAdminNotificationsIndexRouteImport } from './routes/_authenticated/admin/notifications/index'
+import { Route as AuthenticatedAdminMessageTemplatesIndexRouteImport } from './routes/_authenticated/admin/message-templates/index'
+import { Route as AuthenticatedAdminAuditLogsIndexRouteImport } from './routes/_authenticated/admin/audit-logs/index'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -65,6 +72,11 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const publicRegisterRoute = publicRegisterRouteImport.update({
+  id: '/(public)/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const errors503Route = errors503RouteImport.update({
   id: '/(errors)/503',
@@ -117,6 +129,12 @@ const AuthenticatedSettingsRouteRoute =
     path: '/settings',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedRegistrationsRouteRoute =
+  AuthenticatedRegistrationsRouteRouteImport.update({
+    id: '/registrations',
+    path: '/registrations',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAdminRouteRoute = AuthenticatedAdminRouteRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -162,6 +180,12 @@ const AuthenticatedReportsIndexRoute =
     id: '/reports/',
     path: '/reports/',
     getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedRegistrationsIndexRoute =
+  AuthenticatedRegistrationsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedRegistrationsRouteRoute,
   } as any)
 const AuthenticatedNetworkIndexRoute =
   AuthenticatedNetworkIndexRouteImport.update({
@@ -303,6 +327,12 @@ const AuthenticatedErrorsErrorRoute =
     path: '/errors/$error',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAdminWhatsappIndexRoute =
+  AuthenticatedAdminWhatsappIndexRouteImport.update({
+    id: '/whatsapp/',
+    path: '/whatsapp/',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
 const AuthenticatedAdminUsersIndexRoute =
   AuthenticatedAdminUsersIndexRouteImport.update({
     id: '/users/',
@@ -321,10 +351,29 @@ const AuthenticatedAdminRoutersIndexRoute =
     path: '/routers/',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
+const AuthenticatedAdminNotificationsIndexRoute =
+  AuthenticatedAdminNotificationsIndexRouteImport.update({
+    id: '/notifications/',
+    path: '/notifications/',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
+const AuthenticatedAdminMessageTemplatesIndexRoute =
+  AuthenticatedAdminMessageTemplatesIndexRouteImport.update({
+    id: '/message-templates/',
+    path: '/message-templates/',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
+const AuthenticatedAdminAuditLogsIndexRoute =
+  AuthenticatedAdminAuditLogsIndexRouteImport.update({
+    id: '/audit-logs/',
+    path: '/audit-logs/',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/admin': typeof AuthenticatedAdminRouteRouteWithChildren
+  '/registrations': typeof AuthenticatedRegistrationsRouteRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/forgot-password': typeof authForgotPasswordRoute
   '/otp': typeof authOtpRoute
@@ -335,6 +384,7 @@ export interface FileRoutesByFullPath {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
+  '/register': typeof publicRegisterRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/hotspot/active': typeof AuthenticatedHotspotActiveRoute
   '/hotspot/billing': typeof AuthenticatedHotspotBillingRoute
@@ -359,6 +409,7 @@ export interface FileRoutesByFullPath {
   '/hotspot/': typeof AuthenticatedHotspotIndexRoute
   '/log/': typeof AuthenticatedLogIndexRoute
   '/network/': typeof AuthenticatedNetworkIndexRoute
+  '/registrations/': typeof AuthenticatedRegistrationsIndexRoute
   '/reports/': typeof AuthenticatedReportsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/subscriptions/': typeof AuthenticatedSubscriptionsIndexRoute
@@ -366,9 +417,13 @@ export interface FileRoutesByFullPath {
   '/traffic/': typeof AuthenticatedTrafficIndexRoute
   '/users/': typeof AuthenticatedUsersIndexRoute
   '/voucher/': typeof AuthenticatedVoucherIndexRoute
+  '/admin/audit-logs/': typeof AuthenticatedAdminAuditLogsIndexRoute
+  '/admin/message-templates/': typeof AuthenticatedAdminMessageTemplatesIndexRoute
+  '/admin/notifications/': typeof AuthenticatedAdminNotificationsIndexRoute
   '/admin/routers/': typeof AuthenticatedAdminRoutersIndexRoute
   '/admin/settings/': typeof AuthenticatedAdminSettingsIndexRoute
   '/admin/users/': typeof AuthenticatedAdminUsersIndexRoute
+  '/admin/whatsapp/': typeof AuthenticatedAdminWhatsappIndexRoute
 }
 export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminRouteRouteWithChildren
@@ -381,6 +436,7 @@ export interface FileRoutesByTo {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
+  '/register': typeof publicRegisterRoute
   '/': typeof AuthenticatedIndexRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/hotspot/active': typeof AuthenticatedHotspotActiveRoute
@@ -406,6 +462,7 @@ export interface FileRoutesByTo {
   '/hotspot': typeof AuthenticatedHotspotIndexRoute
   '/log': typeof AuthenticatedLogIndexRoute
   '/network': typeof AuthenticatedNetworkIndexRoute
+  '/registrations': typeof AuthenticatedRegistrationsIndexRoute
   '/reports': typeof AuthenticatedReportsIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/subscriptions': typeof AuthenticatedSubscriptionsIndexRoute
@@ -413,14 +470,19 @@ export interface FileRoutesByTo {
   '/traffic': typeof AuthenticatedTrafficIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
   '/voucher': typeof AuthenticatedVoucherIndexRoute
+  '/admin/audit-logs': typeof AuthenticatedAdminAuditLogsIndexRoute
+  '/admin/message-templates': typeof AuthenticatedAdminMessageTemplatesIndexRoute
+  '/admin/notifications': typeof AuthenticatedAdminNotificationsIndexRoute
   '/admin/routers': typeof AuthenticatedAdminRoutersIndexRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsIndexRoute
   '/admin/users': typeof AuthenticatedAdminUsersIndexRoute
+  '/admin/whatsapp': typeof AuthenticatedAdminWhatsappIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/_authenticated/admin': typeof AuthenticatedAdminRouteRouteWithChildren
+  '/_authenticated/registrations': typeof AuthenticatedRegistrationsRouteRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/(auth)/forgot-password': typeof authForgotPasswordRoute
   '/(auth)/otp': typeof authOtpRoute
@@ -431,6 +493,7 @@ export interface FileRoutesById {
   '/(errors)/404': typeof errors404Route
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
+  '/(public)/register': typeof publicRegisterRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/_authenticated/hotspot/active': typeof AuthenticatedHotspotActiveRoute
@@ -456,6 +519,7 @@ export interface FileRoutesById {
   '/_authenticated/hotspot/': typeof AuthenticatedHotspotIndexRoute
   '/_authenticated/log/': typeof AuthenticatedLogIndexRoute
   '/_authenticated/network/': typeof AuthenticatedNetworkIndexRoute
+  '/_authenticated/registrations/': typeof AuthenticatedRegistrationsIndexRoute
   '/_authenticated/reports/': typeof AuthenticatedReportsIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/subscriptions/': typeof AuthenticatedSubscriptionsIndexRoute
@@ -463,15 +527,20 @@ export interface FileRoutesById {
   '/_authenticated/traffic/': typeof AuthenticatedTrafficIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
   '/_authenticated/voucher/': typeof AuthenticatedVoucherIndexRoute
+  '/_authenticated/admin/audit-logs/': typeof AuthenticatedAdminAuditLogsIndexRoute
+  '/_authenticated/admin/message-templates/': typeof AuthenticatedAdminMessageTemplatesIndexRoute
+  '/_authenticated/admin/notifications/': typeof AuthenticatedAdminNotificationsIndexRoute
   '/_authenticated/admin/routers/': typeof AuthenticatedAdminRoutersIndexRoute
   '/_authenticated/admin/settings/': typeof AuthenticatedAdminSettingsIndexRoute
   '/_authenticated/admin/users/': typeof AuthenticatedAdminUsersIndexRoute
+  '/_authenticated/admin/whatsapp/': typeof AuthenticatedAdminWhatsappIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/admin'
+    | '/registrations'
     | '/settings'
     | '/forgot-password'
     | '/otp'
@@ -482,6 +551,7 @@ export interface FileRouteTypes {
     | '/404'
     | '/500'
     | '/503'
+    | '/register'
     | '/errors/$error'
     | '/hotspot/active'
     | '/hotspot/billing'
@@ -506,6 +576,7 @@ export interface FileRouteTypes {
     | '/hotspot/'
     | '/log/'
     | '/network/'
+    | '/registrations/'
     | '/reports/'
     | '/settings/'
     | '/subscriptions/'
@@ -513,9 +584,13 @@ export interface FileRouteTypes {
     | '/traffic/'
     | '/users/'
     | '/voucher/'
+    | '/admin/audit-logs/'
+    | '/admin/message-templates/'
+    | '/admin/notifications/'
     | '/admin/routers/'
     | '/admin/settings/'
     | '/admin/users/'
+    | '/admin/whatsapp/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/admin'
@@ -528,6 +603,7 @@ export interface FileRouteTypes {
     | '/404'
     | '/500'
     | '/503'
+    | '/register'
     | '/'
     | '/errors/$error'
     | '/hotspot/active'
@@ -553,6 +629,7 @@ export interface FileRouteTypes {
     | '/hotspot'
     | '/log'
     | '/network'
+    | '/registrations'
     | '/reports'
     | '/settings'
     | '/subscriptions'
@@ -560,13 +637,18 @@ export interface FileRouteTypes {
     | '/traffic'
     | '/users'
     | '/voucher'
+    | '/admin/audit-logs'
+    | '/admin/message-templates'
+    | '/admin/notifications'
     | '/admin/routers'
     | '/admin/settings'
     | '/admin/users'
+    | '/admin/whatsapp'
   id:
     | '__root__'
     | '/_authenticated'
     | '/_authenticated/admin'
+    | '/_authenticated/registrations'
     | '/_authenticated/settings'
     | '/(auth)/forgot-password'
     | '/(auth)/otp'
@@ -577,6 +659,7 @@ export interface FileRouteTypes {
     | '/(errors)/404'
     | '/(errors)/500'
     | '/(errors)/503'
+    | '/(public)/register'
     | '/_authenticated/'
     | '/_authenticated/errors/$error'
     | '/_authenticated/hotspot/active'
@@ -602,6 +685,7 @@ export interface FileRouteTypes {
     | '/_authenticated/hotspot/'
     | '/_authenticated/log/'
     | '/_authenticated/network/'
+    | '/_authenticated/registrations/'
     | '/_authenticated/reports/'
     | '/_authenticated/settings/'
     | '/_authenticated/subscriptions/'
@@ -609,9 +693,13 @@ export interface FileRouteTypes {
     | '/_authenticated/traffic/'
     | '/_authenticated/users/'
     | '/_authenticated/voucher/'
+    | '/_authenticated/admin/audit-logs/'
+    | '/_authenticated/admin/message-templates/'
+    | '/_authenticated/admin/notifications/'
     | '/_authenticated/admin/routers/'
     | '/_authenticated/admin/settings/'
     | '/_authenticated/admin/users/'
+    | '/_authenticated/admin/whatsapp/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -625,6 +713,7 @@ export interface RootRouteChildren {
   errors404Route: typeof errors404Route
   errors500Route: typeof errors500Route
   errors503Route: typeof errors503Route
+  publicRegisterRoute: typeof publicRegisterRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -642,6 +731,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/(public)/register': {
+      id: '/(public)/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof publicRegisterRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/(errors)/503': {
       id: '/(errors)/503'
@@ -713,6 +809,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/registrations': {
+      id: '/_authenticated/registrations'
+      path: '/registrations'
+      fullPath: '/registrations'
+      preLoaderRoute: typeof AuthenticatedRegistrationsRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin': {
       id: '/_authenticated/admin'
       path: '/admin'
@@ -768,6 +871,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/reports/'
       preLoaderRoute: typeof AuthenticatedReportsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/registrations/': {
+      id: '/_authenticated/registrations/'
+      path: '/'
+      fullPath: '/registrations/'
+      preLoaderRoute: typeof AuthenticatedRegistrationsIndexRouteImport
+      parentRoute: typeof AuthenticatedRegistrationsRouteRoute
     }
     '/_authenticated/network/': {
       id: '/_authenticated/network/'
@@ -937,6 +1047,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedErrorsErrorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/whatsapp/': {
+      id: '/_authenticated/admin/whatsapp/'
+      path: '/whatsapp'
+      fullPath: '/admin/whatsapp/'
+      preLoaderRoute: typeof AuthenticatedAdminWhatsappIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
     '/_authenticated/admin/users/': {
       id: '/_authenticated/admin/users/'
       path: '/users'
@@ -958,25 +1075,71 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRoutersIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/_authenticated/admin/notifications/': {
+      id: '/_authenticated/admin/notifications/'
+      path: '/notifications'
+      fullPath: '/admin/notifications/'
+      preLoaderRoute: typeof AuthenticatedAdminNotificationsIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/admin/message-templates/': {
+      id: '/_authenticated/admin/message-templates/'
+      path: '/message-templates'
+      fullPath: '/admin/message-templates/'
+      preLoaderRoute: typeof AuthenticatedAdminMessageTemplatesIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/admin/audit-logs/': {
+      id: '/_authenticated/admin/audit-logs/'
+      path: '/audit-logs'
+      fullPath: '/admin/audit-logs/'
+      preLoaderRoute: typeof AuthenticatedAdminAuditLogsIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
   }
 }
 
 interface AuthenticatedAdminRouteRouteChildren {
+  AuthenticatedAdminAuditLogsIndexRoute: typeof AuthenticatedAdminAuditLogsIndexRoute
+  AuthenticatedAdminMessageTemplatesIndexRoute: typeof AuthenticatedAdminMessageTemplatesIndexRoute
+  AuthenticatedAdminNotificationsIndexRoute: typeof AuthenticatedAdminNotificationsIndexRoute
   AuthenticatedAdminRoutersIndexRoute: typeof AuthenticatedAdminRoutersIndexRoute
   AuthenticatedAdminSettingsIndexRoute: typeof AuthenticatedAdminSettingsIndexRoute
   AuthenticatedAdminUsersIndexRoute: typeof AuthenticatedAdminUsersIndexRoute
+  AuthenticatedAdminWhatsappIndexRoute: typeof AuthenticatedAdminWhatsappIndexRoute
 }
 
 const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren =
   {
+    AuthenticatedAdminAuditLogsIndexRoute:
+      AuthenticatedAdminAuditLogsIndexRoute,
+    AuthenticatedAdminMessageTemplatesIndexRoute:
+      AuthenticatedAdminMessageTemplatesIndexRoute,
+    AuthenticatedAdminNotificationsIndexRoute:
+      AuthenticatedAdminNotificationsIndexRoute,
     AuthenticatedAdminRoutersIndexRoute: AuthenticatedAdminRoutersIndexRoute,
     AuthenticatedAdminSettingsIndexRoute: AuthenticatedAdminSettingsIndexRoute,
     AuthenticatedAdminUsersIndexRoute: AuthenticatedAdminUsersIndexRoute,
+    AuthenticatedAdminWhatsappIndexRoute: AuthenticatedAdminWhatsappIndexRoute,
   }
 
 const AuthenticatedAdminRouteRouteWithChildren =
   AuthenticatedAdminRouteRoute._addFileChildren(
     AuthenticatedAdminRouteRouteChildren,
+  )
+
+interface AuthenticatedRegistrationsRouteRouteChildren {
+  AuthenticatedRegistrationsIndexRoute: typeof AuthenticatedRegistrationsIndexRoute
+}
+
+const AuthenticatedRegistrationsRouteRouteChildren: AuthenticatedRegistrationsRouteRouteChildren =
+  {
+    AuthenticatedRegistrationsIndexRoute: AuthenticatedRegistrationsIndexRoute,
+  }
+
+const AuthenticatedRegistrationsRouteRouteWithChildren =
+  AuthenticatedRegistrationsRouteRoute._addFileChildren(
+    AuthenticatedRegistrationsRouteRouteChildren,
   )
 
 interface AuthenticatedSettingsRouteRouteChildren {
@@ -1004,6 +1167,7 @@ const AuthenticatedSettingsRouteRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRouteRoute: typeof AuthenticatedAdminRouteRouteWithChildren
+  AuthenticatedRegistrationsRouteRoute: typeof AuthenticatedRegistrationsRouteRouteWithChildren
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
@@ -1036,6 +1200,8 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRouteRoute: AuthenticatedAdminRouteRouteWithChildren,
+  AuthenticatedRegistrationsRouteRoute:
+    AuthenticatedRegistrationsRouteRouteWithChildren,
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,
@@ -1080,6 +1246,7 @@ const rootRouteChildren: RootRouteChildren = {
   errors404Route: errors404Route,
   errors500Route: errors500Route,
   errors503Route: errors503Route,
+  publicRegisterRoute: publicRegisterRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

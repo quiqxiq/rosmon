@@ -157,6 +157,7 @@ func (h *HotspotProfiles) Create(c *gin.Context) {
 		LockMAC:           req.LockMAC,
 		Description:       req.Description,
 		Active:            active,
+		IsPublic:          req.IsPublic != nil && *req.IsPublic,
 	}
 	if err := h.Store.Create(c.Request.Context(), p); err != nil {
 		WriteErr(c, err)
@@ -247,6 +248,9 @@ func (h *HotspotProfiles) Update(c *gin.Context) {
 	}
 	if req.Active != nil {
 		p.Active = *req.Active
+	}
+	if req.IsPublic != nil {
+		p.IsPublic = *req.IsPublic
 	}
 	if err := h.Store.Update(c.Request.Context(), &p); err != nil {
 		WriteErr(c, err)
