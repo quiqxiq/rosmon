@@ -61,6 +61,7 @@ func (s *Service) GenerateForSubscription(ctx context.Context, sub model.Subscri
 		DueDate:        dueDate,
 		Status:         "issued",
 		IssuedAt:       &issuedAt,
+		PaymentCode:    store.NewPaymentCode(),
 	}
 	item := model.InvoiceItem{
 		Description: fmt.Sprintf("Langganan %s periode %s – %s",

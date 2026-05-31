@@ -180,7 +180,19 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		for _, mw := range authChain {
 			bizScope.Use(mw)
 		}
-		handler.NewCustomers(deps.CustomerStore).Register(bizScope)
+		ch := handler.NewCustomers(deps.CustomerStore)
+		ch.PortalAuth = deps.PortalAuth
+		ch.Audit = deps.AuditLogStore
+		ch.Register(bizScope)
+		// set-portal-password = admin+operator.
+		adminOp := g.Group("")
+		for _, mw := range authChain {
+			adminOp.Use(mw)
+		}
+		if deps.AuthSigner != nil {
+			adminOp.Use(middleware.RequireRole(roleAdmin, roleOperator))
+		}
+		ch.RegisterAdmin(adminOp)
 	}
 	if deps.SubscriptionStore != nil && deps.CustomerStore != nil {
 		subScope := g.Group("")
@@ -214,7 +226,9 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		for _, mw := range authChain {
 			bizAuth.Use(mw)
 		}
-		handler.NewPayments(deps.PaymentStore, deps.InvoiceStore, deps.SubscriptionStore, deps.Logger).Register(bizAuth)
+		handler.NewPayments(deps.PaymentStore, deps.InvoiceStore, deps.SubscriptionStore,
+			deps.CustomerStore, deps.NotificationService, deps.AuditLogStore, deps.SettingStore,
+			deps.Logger).Register(bizAuth)
 	}
 
 	// Audit logs, message templates, notification logs, WhatsApp setup —
@@ -272,6 +286,24 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 			pkgPub.Use(middleware.RequirePerIPRate(deps.IPLimiter))
 		}
 		handler.NewPublicPackages(deps.PPPProfileStore, deps.HotspotStore).RegisterPublic(pkgPub)
+	}
+
+	// Customer Portal (Fase 3) — scope JWT terpisah dari staff.
+	if deps.PortalAuth != nil && deps.AuthSigner != nil {
+		// Login publik (IP rate-limited).
+		custPub := g.Group("")
+		if deps.IPLimiter != nil {
+			custPub.Use(middleware.RequirePerIPRate(deps.IPLimiter))
+		}
+		handler.NewCustomerAuth(deps.PortalAuth, deps.AuthSigner).RegisterPublic(custPub)
+
+		// Endpoint portal (butuh customer access token).
+		custScope := g.Group("")
+		custScope.Use(middleware.RequireCustomerAuth(deps.AuthSigner))
+		handler.NewCustomerPortal(
+			deps.PortalAuth, deps.CustomerStore, deps.SubscriptionStore,
+			deps.InvoiceStore, deps.PaymentStore,
+		).Register(custScope)
 	}
 }
 

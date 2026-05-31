@@ -150,6 +150,12 @@ tags:
     description: |
       Alur registrasi pemasangan: submit publik → antrian admin (approve/reject/
       assign) → operator complete-install (subscription + invoice pertama).
+  - name: Customer Portal
+    description: |
+      Self-service pelanggan (Fase 3). Login nomor HP + password (scope JWT
+      terpisah dari staff). Lihat profil, langganan, tagihan (berkode unik/QR),
+      dan riwayat pembayaran. Settle-by-code (`/payments/collect`) = aksi
+      petugas/staff saat menerima tunai → pembayaran instan + layanan pulih.
 paths:
   /healthz:
     get:
@@ -4200,6 +4206,302 @@ paths:
           $ref: '#/components/responses/ErrorNotFound'
         '409':
           $ref: '#/components/responses/ErrorConflict'
+  /customer/login:
+    post:
+      tags:
+        - Customer Portal
+      summary: Login pelanggan (nomor HP + password)
+      description: |
+        Endpoint publik (tanpa auth, IP rate-limited). Menerbitkan customer access
+        token (scope terpisah dari staff). Pelanggan harus sudah di-onboard admin
+        (`POST /customers/{id}/portal-password`).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerLoginRequest'
+      responses:
+        '200':
+          description: Login berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CustomerLoginResponse'
+        '400':
+          $ref: '#/components/responses/ErrorValidation'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '429':
+          $ref: '#/components/responses/ErrorRateLimit'
+  /customer/me:
+    get:
+      tags:
+        - Customer Portal
+      summary: Profil pelanggan (customer token)
+      responses:
+        '200':
+          description: Profil
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CustomerMeResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+  /customer/subscriptions:
+    get:
+      tags:
+        - Customer Portal
+      summary: Langganan milik pelanggan
+      responses:
+        '200':
+          description: List langganan
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PortalSubscriptionResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+  /customer/subscriptions/{id}/status:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags:
+        - Customer Portal
+      summary: Status langganan (DB)
+      responses:
+        '200':
+          description: Status langganan
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PortalSubscriptionResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
+  /customer/invoices:
+    get:
+      tags:
+        - Customer Portal
+      summary: Tagihan milik pelanggan (berkode unik/QR)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - issued
+              - paid
+              - overdue
+              - cancelled
+      responses:
+        '200':
+          description: List tagihan
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PortalInvoiceResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+  /customer/invoices/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags:
+        - Customer Portal
+      summary: Detail tagihan (milik sendiri)
+      responses:
+        '200':
+          description: Tagihan
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PortalInvoiceResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
+  /customer/payments:
+    get:
+      tags:
+        - Customer Portal
+      summary: Riwayat pembayaran milik pelanggan
+      responses:
+        '200':
+          description: List pembayaran
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PortalPaymentResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+  /customer/change-password:
+    post:
+      tags:
+        - Customer Portal
+      summary: Ganti password sendiri
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password diperbarui
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: password updated
+        '400':
+          $ref: '#/components/responses/ErrorValidation'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+  /payments/collect:
+    post:
+      tags:
+        - Customer Portal
+      summary: Settle invoice via kode unik/QR (petugas/staff)
+      description: |
+        Petugas scan QR atau input kode unik invoice saat menerima tunai →
+        catat pembayaran `cash` berstatus `confirmed` instan, tandai invoice
+        `paid`, dan pulihkan layanan (outbox). Idempoten (scan ganda → 409).
+        Butuh staff token (admin/operator).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentCollectRequest'
+      responses:
+        '201':
+          description: Pembayaran tercatat + invoice lunas
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          payment:
+                            $ref: '#/components/schemas/PortalPaymentResponse'
+                          invoice:
+                            $ref: '#/components/schemas/PortalInvoiceResponse'
+        '400':
+          $ref: '#/components/responses/ErrorValidation'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
+        '409':
+          $ref: '#/components/responses/ErrorConflict'
+  /customers/{id}/portal-password:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    post:
+      tags:
+        - Customer Portal
+      summary: Set/reset password portal pelanggan (admin/operator)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPortalPasswordRequest'
+      responses:
+        '200':
+          description: Password portal di-set
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: portal password set
+        '400':
+          $ref: '#/components/responses/ErrorValidation'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
 components:
   securitySchemes:
     bearerAuth:
@@ -7204,6 +7506,211 @@ components:
           type: integer
           minimum: 1
           maximum: 28
+    CustomerLoginRequest:
+      type: object
+      required:
+        - phone
+        - password
+      properties:
+        phone:
+          type: string
+          minLength: 3
+          maxLength: 20
+          example: '081234567890'
+        password:
+          type: string
+          minLength: 1
+          maxLength: 128
+    CustomerLoginResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+        - customer
+      properties:
+        access_token:
+          type: string
+          description: JWT customer access token (scope terpisah)
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+          description: TTL detik
+          example: 86400
+        customer:
+          $ref: '#/components/schemas/CustomerMeResponse'
+    CustomerMeResponse:
+      type: object
+      required:
+        - id
+        - full_name
+        - phone
+        - status
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 12
+        full_name:
+          type: string
+          example: Pak Budi
+        phone:
+          type: string
+          example: '081234567890'
+        address:
+          type: string
+        area:
+          type: string
+        status:
+          type: string
+          enum:
+            - aktif
+            - nonaktif
+    ChangePasswordRequest:
+      type: object
+      required:
+        - old_password
+        - new_password
+      properties:
+        old_password:
+          type: string
+          minLength: 1
+          maxLength: 128
+        new_password:
+          type: string
+          minLength: 8
+          maxLength: 128
+    SetPortalPasswordRequest:
+      type: object
+      required:
+        - password
+      properties:
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: Password login portal pelanggan
+    PaymentCollectRequest:
+      type: object
+      description: |
+        Settle-by-code: petugas scan QR / input kode unik invoice saat menerima
+        tunai → pembayaran instan + layanan dipulihkan. method default `cash`.
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          minLength: 4
+          maxLength: 32
+          example: ABC23XYZ90
+        method:
+          type: string
+          enum:
+            - cash
+            - manual_transfer
+          default: cash
+    PortalInvoiceResponse:
+      type: object
+      description: Tagihan pelanggan. `payment_code` + `qr_content` untuk pembayaran via kode/QR.
+      properties:
+        id:
+          type: integer
+          format: int64
+        invoice_number:
+          type: string
+          example: INV-2026-05-0001
+        amount:
+          type: integer
+          format: int64
+          example: 150000
+        period_start:
+          type: string
+          format: date-time
+        period_end:
+          type: string
+          format: date-time
+        due_date:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+            - draft
+            - issued
+            - paid
+            - overdue
+            - cancelled
+        payment_code:
+          type: string
+          example: ABC23XYZ90
+          description: Kode unik (kosong bila sudah lunas)
+        qr_content:
+          type: string
+          example: rosmon-pay:ABC23XYZ90
+          description: Isi QR (render sisi-klien)
+        paid_at:
+          type: string
+          format: date-time
+          nullable: true
+    PortalPaymentResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        invoice_id:
+          type: integer
+          format: int64
+        amount:
+          type: integer
+          format: int64
+        method:
+          type: string
+          enum:
+            - cash
+            - manual_transfer
+        status:
+          type: string
+          enum:
+            - pending
+            - confirmed
+            - rejected
+        confirmed_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    PortalSubscriptionResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        service_type:
+          type: string
+          enum:
+            - pppoe
+            - hotspot
+        mikrotik_username:
+          type: string
+        status:
+          type: string
+          enum:
+            - pending_install
+            - active
+            - isolir
+            - suspended
+            - terminated
+        sync_status:
+          type: string
+        next_invoice_date:
+          type: string
+          format: date-time
+          nullable: true
     ProfileConfigSyncResponse:
       type: object
       description: |

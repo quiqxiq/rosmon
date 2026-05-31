@@ -27,7 +27,8 @@
 | `job/` (outbox sync, billing_cron 07:00, suspension_check 09:00, notif_retry 5m) | ✅ | integration |
 | Notifikasi **WhatsApp** (whatsmeow embedded, login via QR) | ✅ | manual |
 | Registrasi pemasangan (publik + admin) | ✅ | unit + integration |
-| Customer portal · payment gateway · landing page | ⬜ | (roadmap Fase 3–5) |
+| Customer portal (backend + frontend) + Landing page | ✅ | unit + integration |
+| Payment gateway (Fase 4) | ⬜ | (roadmap) |
 
 Refactor besar (Mei 2026): paket `mikrotik/` di-thin-out — sekarang langsung di atas `*roslib.Device` (bukan `CommandRunner` boundary). Akibatnya muncul method khusus per resource untuk:
 
@@ -47,7 +48,7 @@ Di atas layer MikroTik, rosmon menambahkan bisnis ISP penuh:
 - **Registrasi pemasangan** — calon pelanggan submit dari form publik (`POST /api/public/registrations`) → antrian admin (approve/reject/assign) → operator complete-install → subscription + invoice pertama + notifikasi otomatis.
 - **Audit log** — tiap aksi ubah-status entitas utama dicatat di `audit_logs`.
 
-Tiga zone route auth: **publik** (registrasi), **staff JWT** (admin > operator > viewer), dan **customer** (portal — roadmap Fase 3). Inventory endpoint + OpenAPI: [docs/API.md](docs/API.md); spec interaktif di `/docs`.
+Tiga zone route auth: **publik** (registrasi, landing page, paket), **staff JWT** (admin > operator > viewer), dan **customer** (portal pelanggan — JWT scope `customer_access` terpisah, login nomor HP + password, portal web di `web/src/features/customer-portal/`). Inventory endpoint + OpenAPI: [docs/API.md](docs/API.md); spec interaktif di `/docs`.
 
 ## Quickstart
 

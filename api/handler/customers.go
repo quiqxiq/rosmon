@@ -8,6 +8,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/quiqxiq/rosmon/api/dto"
 	"github.com/quiqxiq/rosmon/api/middleware"
+	"github.com/quiqxiq/rosmon/service/audit"
+	"github.com/quiqxiq/rosmon/service/auth"
+	"github.com/quiqxiq/rosmon/service/portal"
 	"github.com/quiqxiq/rosmon/store"
 	"github.com/quiqxiq/rosmon/store/model"
 )
@@ -16,6 +19,10 @@ import (
 // Resource ini murni DB — tidak ada interaksi dengan router MikroTik.
 type Customers struct {
 	Store store.CustomerStore
+	// PortalAuth + Audit opsional (nil-safe) — dipakai endpoint admin
+	// set-portal-password (onboarding pelanggan ke customer portal).
+	PortalAuth *portal.CustomerAuth
+	Audit      store.AuditLogStore
 }
 
 func NewCustomers(s store.CustomerStore) *Customers { return &Customers{Store: s} }
@@ -27,6 +34,52 @@ func (h *Customers) Register(g *gin.RouterGroup) {
 	r.GET("/:id", h.Get)
 	r.PUT("/:id", h.Update)
 	r.DELETE("/:id", h.Delete)
+}
+
+// RegisterAdmin memasang endpoint sensitif (admin+operator) — dipanggil dari
+// routes.go di grup ber-RequireRole.
+func (h *Customers) RegisterAdmin(g *gin.RouterGroup) {
+	g.POST("/customers/:id/portal-password", h.SetPortalPassword)
+}
+
+// SetPortalPassword — admin set/reset password login portal pelanggan.
+func (h *Customers) SetPortalPassword(c *gin.Context) {
+	if h.PortalAuth == nil {
+		c.AbortWithStatusJSON(http.StatusServiceUnavailable,
+			dto.Err("SERVICE_UNAVAILABLE", "customer portal not configured", c.Request.URL.Path))
+		return
+	}
+	id, ok := parseCustomerID(c)
+	if !ok {
+		return
+	}
+	var req dto.SetPortalPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		WriteValidationErr(c, err)
+		return
+	}
+	if err := h.PortalAuth.SetPassword(c.Request.Context(), id, req.Password); err != nil {
+		switch {
+		case errors.Is(err, store.ErrCustomerNotFound):
+			c.AbortWithStatusJSON(http.StatusNotFound,
+				dto.Err("NOT_FOUND", "customer not found", c.Request.URL.Path))
+		case errors.Is(err, auth.ErrWeakPassword):
+			c.AbortWithStatusJSON(http.StatusBadRequest,
+				dto.Err("INVALID_ARGUMENT", "password minimal 8 karakter", c.Request.URL.Path))
+		default:
+			WriteErr(c, err)
+		}
+		return
+	}
+	if h.Audit != nil {
+		var actor *uint
+		if claims, okC := middleware.ClaimsFrom(c); okC {
+			uid := claims.UserID
+			actor = &uid
+		}
+		audit.Log(c.Request.Context(), h.Audit, nil, actor, "set_portal_password", "customer", id, nil, nil)
+	}
+	WriteOK(c, gin.H{"message": "portal password set"})
 }
 
 func (h *Customers) List(c *gin.Context) {

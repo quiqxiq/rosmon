@@ -78,9 +78,9 @@ func (h *Invoices) Get(c *gin.Context) {
 // Generate — POST /invoices/generate. Manual generate invoice untuk testing/backfill.
 func (h *Invoices) Generate(c *gin.Context) {
 	var req struct {
-		SubscriptionID uint  `json:"subscription_id" binding:"required,gt=0"`
-		CustomerID     uint  `json:"customer_id"     binding:"required,gt=0"`
-		Amount         int64 `json:"amount"          binding:"required,gt=0"`
+		SubscriptionID uint   `json:"subscription_id" binding:"required,gt=0"`
+		CustomerID     uint   `json:"customer_id"     binding:"required,gt=0"`
+		Amount         int64  `json:"amount"          binding:"required,gt=0"`
 		PeriodStart    string `json:"period_start"   binding:"required"`
 		DueDays        int    `json:"due_days"        binding:"gte=0"`
 	}
@@ -123,6 +123,7 @@ func (h *Invoices) Generate(c *gin.Context) {
 		DueDate:        dueDate,
 		Status:         "issued",
 		IssuedAt:       &issuedAt,
+		PaymentCode:    store.NewPaymentCode(),
 	}
 	item := model.InvoiceItem{
 		Description: fmt.Sprintf("Langganan periode %s – %s",

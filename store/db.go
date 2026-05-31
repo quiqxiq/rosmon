@@ -24,3 +24,16 @@ func isFKViolation(err error) bool {
 	return strings.Contains(err.Error(), "23503") ||
 		strings.Contains(err.Error(), "foreign key")
 }
+
+// IsUniqueViolation returns true when err is any unique-constraint violation
+// (Postgres SQLSTATE 23505 / "duplicate key", atau SQLite "UNIQUE constraint").
+// Exported untuk caller di luar package store (mis. settle-by-code idempotency).
+func IsUniqueViolation(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "23505") ||
+		strings.Contains(msg, "duplicate key") ||
+		strings.Contains(msg, "UNIQUE constraint")
+}

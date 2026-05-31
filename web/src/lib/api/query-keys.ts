@@ -180,4 +180,12 @@ export const qk = {
   // ────────────────────────── public packages (Fase 2, landing) ──────────────────────────
   publicPackages: (serviceType?: string) =>
     ['public-packages', serviceType ?? 'all'] as const,
+
+  // ────────────────────────── customer portal (Fase 3, customer scope) ──────────────────────────
+  portalMe: () => ['portal', 'me'] as const,
+  portalSubscriptions: () => ['portal', 'subscriptions'] as const,
+  portalSubscription: (id: number) => ['portal', 'subscriptions', id] as const,
+  portalInvoices: (filters?: QKFilters) => ['portal', 'invoices', filters ?? {}] as const,
+  portalInvoice: (id: number) => ['portal', 'invoices', id] as const,
+  portalPayments: () => ['portal', 'payments'] as const,
 } as const

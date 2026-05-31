@@ -20,6 +20,8 @@ type InvoiceListFilter struct {
 type InvoiceStore interface {
 	Create(ctx context.Context, inv *model.Invoice, items []model.InvoiceItem) error
 	GetByID(ctx context.Context, id uint) (*model.Invoice, error)
+	// GetByPaymentCode mencari invoice via kode pembayaran unik (settle-by-code).
+	GetByPaymentCode(ctx context.Context, code string) (*model.Invoice, error)
 	List(ctx context.Context, f InvoiceListFilter) ([]model.Invoice, error)
 	UpdateStatus(ctx context.Context, id uint, status string, paidAt *time.Time) error
 	// ListDueForBilling returns active-status invoices with due_date == today (for billing cron).
@@ -52,6 +54,18 @@ func (s *gormInvoiceStore) Create(ctx context.Context, inv *model.Invoice, items
 func (s *gormInvoiceStore) GetByID(ctx context.Context, id uint) (*model.Invoice, error) {
 	var inv model.Invoice
 	err := s.db.WithContext(ctx).First(&inv, id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrInvoiceNotFound
+	}
+	return &inv, err
+}
+
+func (s *gormInvoiceStore) GetByPaymentCode(ctx context.Context, code string) (*model.Invoice, error) {
+	if code == "" {
+		return nil, ErrInvoiceNotFound
+	}
+	var inv model.Invoice
+	err := s.db.WithContext(ctx).Where("payment_code = ?", code).First(&inv).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrInvoiceNotFound
 	}

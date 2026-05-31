@@ -2,6 +2,27 @@
 
 ### Feat
 
+- **Customer Portal (Fase 3) + Landing Page** — portal web pelanggan & halaman publik:
+  - **Landing page** di `/` — navbar + hero + paket real dari backend + fitur + FAQ accordion +
+    form pendaftaran embedded. Admin dashboard dipindah ke `/dashboard`.
+  - **Portal auth** — `usePortalAuthStore` (Zustand, localStorage) + `portalApiClient`
+    (axios terpisah, inject customer JWT, 401 → clear + redirect `/portal/login`).
+  - **Login pelanggan** (`/portal/login`) — form nomor HP + password, error inline.
+  - **Shell portal** — layout phone-frame `max-w-[480px]` centered, safe-area bottom tab bar
+    4 tab (Beranda / Tagihan + badge / Langganan / Akun), mobile-first responsive di semua device.
+  - **Beranda** — status layanan badge, hero card tagihan belum lunas + CTA, ringkasan paket aktif.
+  - **Tagihan list** (`/portal/invoices`) — filter chips Semua/Belum Bayar/Terlambat/Lunas; kartu
+    per invoice (nomor, periode, nominal, status badge, jatuh tempo).
+  - **Tagihan detail** (`/portal/invoices/:id`) — **QR code besar** (`QRCodeSVG`) + kode
+    monospace + tombol Salin; instruksi tunjuk ke petugas; banner "Lunas" bila sudah dibayar.
+  - **Riwayat Pembayaran** (`/portal/payments`) — kartu (metode, status, nominal, tanggal).
+  - **Langganan** (`/portal/subscriptions`) — detail paket, username, billing day, warning isolir.
+  - **Akun** (`/portal/profile`) — data diri, ganti password (Sheet drawer), toggle dark mode, logout.
+  - **Tiket** (`/portal/tickets`) — mock + banner TODO (backend belum implementasi).
+  - Semua halaman: skeleton loading, empty state, error state.
+  - Semua data portal dari API real (`/customer/*`); hanya tiket yang mock.
+  - Query keys portal ditambahkan ke `lib/api/query-keys.ts`.
+
 - **business layer Fase 0/1/2 UI** — frontend untuk fitur yang sebelumnya backend-only:
   - **Message Templates** (`/admin/message-templates`) — list + edit drawer (body, variabel, aktif).
   - **Audit Logs** (`/admin/audit-logs`) — viewer read-only + detail (old/new values JSON), faceted

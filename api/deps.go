@@ -12,6 +12,7 @@ import (
 	"github.com/quiqxiq/rosmon/service/devmgr"
 	"github.com/quiqxiq/rosmon/service/notification"
 	"github.com/quiqxiq/rosmon/service/notification/whatsapp"
+	"github.com/quiqxiq/rosmon/service/portal"
 	"github.com/quiqxiq/rosmon/store"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
@@ -47,6 +48,9 @@ type Deps struct {
 	RegistrationStore   store.RegistrationStore
 	NotificationService *notification.Service
 	BillingService      *billing.Service
+
+	// Customer portal (Fase 3). Nil → zona /api/customer/* tidak di-mount.
+	PortalAuth *portal.CustomerAuth
 
 	// Auth (Phase 2). Nil → routes /auth/* tidak di-mount dan
 	// proteksi route lain di-skip. Production wajib set.

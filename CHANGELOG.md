@@ -22,6 +22,49 @@ device encryption ditunda ke fase 5 (separate plan).
 
 ### Added
 
+- **Customer Portal (Fase 3, frontend)** — portal web pelanggan + landing page publik:
+  - **Landing page** (`/`) — hero, paket real dari `GET /public/packages`, fitur, FAQ accordion,
+    form pendaftaran embedded (reuse `PublicRegister`). Navbar responsif. Admin dashboard
+    dipindah ke `/dashboard` agar root bisa jadi halaman publik.
+  - **Auth pelanggan** (`/portal/login`) — form nomor HP + password, JWT scope `customer_access`
+    disimpan di localStorage via `usePortalAuthStore` (Zustand terpisah dari admin).
+    `portalApiClient` (axios terpisah) inject token customer; 401 → clear + redirect login.
+  - **Portal shell** — layout phone-frame (`max-w-[480px] mx-auto`, `border-x md:shadow-lg`),
+    bottom tab bar sticky 4 tab (Beranda/Tagihan/Langganan/Akun) + badge tagihan belum lunas.
+  - **Beranda** (`/portal`) — status layanan (badge), hero card tagihan belum lunas, ringkasan
+    langganan, quick links.
+  - **Tagihan** (`/portal/invoices`, `/:id`) — list dengan filter chips (Semua/Belum Bayar/
+    Terlambat/Lunas); detail dengan **QR code besar** (`QRCodeSVG`) + kode monospace + tombol
+    Salin + instruksi petugas. QR/kode hanya tampil untuk tagihan unpaid.
+  - **Riwayat Pembayaran** (`/portal/payments`) — kartu per pembayaran (metode, status badge,
+    nominal, tanggal konfirmasi).
+  - **Langganan** (`/portal/subscriptions`) — detail paket, username, status (+ warning isolir),
+    tanggal tagih berikutnya, sync-status info.
+  - **Akun** (`/portal/profile`) — data diri read-only, **ganti password** (Sheet drawer),
+    toggle dark/light mode, tombol Keluar.
+  - **Tiket** (`/portal/tickets`) — mock data + banner "backend belum implementasi".
+    *(Backend endpoint tickets = roadmap Fase 4/5.)*
+  - Semua data real dari backend (endpoint `/customer/*`); skeleton loading + empty state
+    + error state di semua halaman.
+
+- **Customer Portal (Fase 3, backend) + pembayaran via kode unik/QR** — self-service pelanggan:
+  - **Scope auth terpisah**: `auth.CustomerClaims` (typ `customer_access`) + `SignCustomerAccess`/
+    `VerifyCustomerAccess` + `middleware.RequireCustomerAuth`. Token staff & customer saling tolak.
+    `Customer.portal_password_hash` baru; login nomor HP + password (`service/portal`).
+  - Endpoint `POST /api/customer/login` (publik) + zona `/api/customer/*` (customer token): `me`,
+    `subscriptions`, `subscriptions/:id/status`, `invoices` (+`:id`), `payments`, `change-password`.
+    Semua di-scope ke `CustomerID` token (anti-IDOR).
+  - **Kode unik + QR per invoice** (`Invoice.payment_code`, partial-unique + backfill invoice
+    belum-lunas; `qr_content` di-render sisi-klien). Di-generate saat invoice dibuat
+    (`service/billing` + handler generate) via `store.NewPaymentCode`.
+  - **Settle-by-code** `POST /api/v1/payments/collect {code}` (petugas/staff): catat pembayaran
+    `cash` `confirmed` instan + invoice `paid` + pulihkan layanan (outbox `pending_profile_change`/
+    `pending_enable`) + notifikasi. Idempoten via `IdempotencyKey="code:<code>"`. Logika settle
+    diekstrak jadi helper bersama dengan `Confirm`; Confirm/Collect/Reject kini menulis audit.
+  - Admin onboard: `POST /api/v1/customers/:id/portal-password` (admin+operator).
+  - OpenAPI: `paths/customer-portal.yaml`, `schemas/customer-portal.yaml`, tag **Customer Portal**.
+  - Test: jwt customer claims, `service/portal` auth, handler `payments` collect (restore/idempotent),
+    handler customer portal (scoping/anti-IDOR), + integration `customer_portal_flow` (dbtest).
 - **Paket publik & form pendaftaran (Fase 2 lanjutan)** — agar landing page punya paket nyata:
   - Flag `is_public` pada `PPPProfile` + `HotspotProfile` (di-preserve saat sync router); store
     `ListPublic` (ppp aktif; hotspot aktif role `permanent`).

@@ -152,6 +152,12 @@ tags:
     description: |
       Alur registrasi pemasangan: submit publik → antrian admin (approve/reject/
       assign) → operator complete-install (subscription + invoice pertama).
+  - name: Customer Portal
+    description: |
+      Self-service pelanggan (Fase 3). Login nomor HP + password (scope JWT
+      terpisah dari staff). Lihat profil, langganan, tagihan (berkode unik/QR),
+      dan riwayat pembayaran. Settle-by-code (`/payments/collect`) = aksi
+      petugas/staff saat menerima tunai → pembayaran instan + layanan pulih.
 
 security:
   - bearerAuth: []
@@ -419,6 +425,29 @@ paths:
   /registrations/{id}/complete-install:
     $ref: './paths/registrations.yaml#/~1registrations~1{id}~1complete-install'
 
+  # Customer Portal (Fase 3). /customer/login = tanpa auth; sisanya butuh
+  # customer access token. /payments/collect & portal-password = staff.
+  /customer/login:
+    $ref: './paths/customer-portal.yaml#/~1customer~1login'
+  /customer/me:
+    $ref: './paths/customer-portal.yaml#/~1customer~1me'
+  /customer/subscriptions:
+    $ref: './paths/customer-portal.yaml#/~1customer~1subscriptions'
+  /customer/subscriptions/{id}/status:
+    $ref: './paths/customer-portal.yaml#/~1customer~1subscriptions~1{id}~1status'
+  /customer/invoices:
+    $ref: './paths/customer-portal.yaml#/~1customer~1invoices'
+  /customer/invoices/{id}:
+    $ref: './paths/customer-portal.yaml#/~1customer~1invoices~1{id}'
+  /customer/payments:
+    $ref: './paths/customer-portal.yaml#/~1customer~1payments'
+  /customer/change-password:
+    $ref: './paths/customer-portal.yaml#/~1customer~1change-password'
+  /payments/collect:
+    $ref: './paths/customer-portal.yaml#/~1payments~1collect'
+  /customers/{id}/portal-password:
+    $ref: './paths/customer-portal.yaml#/~1customers~1{id}~1portal-password'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -564,6 +593,17 @@ components:
     RegistrationRejectRequest:          { $ref: './schemas/registration.yaml#/RegistrationRejectRequest' }
     RegistrationAssignRequest:          { $ref: './schemas/registration.yaml#/RegistrationAssignRequest' }
     RegistrationCompleteInstallRequest: { $ref: './schemas/registration.yaml#/RegistrationCompleteInstallRequest' }
+
+    # Customer Portal (Fase 3)
+    CustomerLoginRequest:     { $ref: './schemas/customer-portal.yaml#/CustomerLoginRequest' }
+    CustomerLoginResponse:    { $ref: './schemas/customer-portal.yaml#/CustomerLoginResponse' }
+    CustomerMeResponse:       { $ref: './schemas/customer-portal.yaml#/CustomerMeResponse' }
+    ChangePasswordRequest:    { $ref: './schemas/customer-portal.yaml#/ChangePasswordRequest' }
+    SetPortalPasswordRequest: { $ref: './schemas/customer-portal.yaml#/SetPortalPasswordRequest' }
+    PaymentCollectRequest:    { $ref: './schemas/customer-portal.yaml#/PaymentCollectRequest' }
+    PortalInvoiceResponse:    { $ref: './schemas/customer-portal.yaml#/PortalInvoiceResponse' }
+    PortalPaymentResponse:    { $ref: './schemas/customer-portal.yaml#/PortalPaymentResponse' }
+    PortalSubscriptionResponse: { $ref: './schemas/customer-portal.yaml#/PortalSubscriptionResponse' }
 
   parameters:
     DeviceIdPath:      { $ref: './components/parameters.yaml#/DeviceIdPath' }

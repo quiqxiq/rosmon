@@ -25,6 +25,22 @@ func httpJSON(h http.Handler, method, path string, body any) *httptest.ResponseR
 	return w
 }
 
+// httpAuth seperti httpJSON tapi dengan header Bearer token.
+func httpAuth(h http.Handler, method, path, token string, body any) *httptest.ResponseRecorder {
+	var buf bytes.Buffer
+	if body != nil {
+		_ = json.NewEncoder(&buf).Encode(body)
+	}
+	req := httptest.NewRequest(method, path, &buf)
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	return w
+}
+
 // decodeData ekstrak field "data" dari envelope {data:..., meta:...}.
 func decodeData(t *testing.T, w *httptest.ResponseRecorder, target any) {
 	t.Helper()

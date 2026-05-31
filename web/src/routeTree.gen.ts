@@ -10,7 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
-import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as PortalLoginRouteImport } from './routes/portal/login'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as publicRegisterRouteImport } from './routes/(public)/register'
 import { Route as errors503RouteImport } from './routes/(errors)/503'
 import { Route as errors500RouteImport } from './routes/(errors)/500'
@@ -21,9 +23,11 @@ import { Route as authSignIn2RouteImport } from './routes/(auth)/sign-in-2'
 import { Route as authSignInRouteImport } from './routes/(auth)/sign-in'
 import { Route as authOtpRouteImport } from './routes/(auth)/otp'
 import { Route as authForgotPasswordRouteImport } from './routes/(auth)/forgot-password'
+import { Route as PortalAppRouteRouteImport } from './routes/portal/_app/route'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as AuthenticatedRegistrationsRouteRouteImport } from './routes/_authenticated/registrations/route'
 import { Route as AuthenticatedAdminRouteRouteImport } from './routes/_authenticated/admin/route'
+import { Route as PortalAppIndexRouteImport } from './routes/portal/_app/index'
 import { Route as AuthenticatedVoucherIndexRouteImport } from './routes/_authenticated/voucher/index'
 import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authenticated/users/index'
 import { Route as AuthenticatedTrafficIndexRouteImport } from './routes/_authenticated/traffic/index'
@@ -37,6 +41,10 @@ import { Route as AuthenticatedLogIndexRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedHotspotIndexRouteImport } from './routes/_authenticated/hotspot/index'
 import { Route as AuthenticatedHelpCenterIndexRouteImport } from './routes/_authenticated/help-center/index'
 import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authenticated/customers/index'
+import { Route as PortalAppTicketsRouteImport } from './routes/portal/_app/tickets'
+import { Route as PortalAppSubscriptionsRouteImport } from './routes/portal/_app/subscriptions'
+import { Route as PortalAppProfileRouteImport } from './routes/portal/_app/profile'
+import { Route as PortalAppPaymentsRouteImport } from './routes/portal/_app/payments'
 import { Route as AuthenticatedVoucherSalesRouteImport } from './routes/_authenticated/voucher/sales'
 import { Route as AuthenticatedVoucherPrintRouteImport } from './routes/_authenticated/voucher/print'
 import { Route as AuthenticatedVoucherGenerateRouteImport } from './routes/_authenticated/voucher/generate'
@@ -56,6 +64,7 @@ import { Route as AuthenticatedHotspotHostsRouteImport } from './routes/_authent
 import { Route as AuthenticatedHotspotBillingRouteImport } from './routes/_authenticated/hotspot/billing'
 import { Route as AuthenticatedHotspotActiveRouteImport } from './routes/_authenticated/hotspot/active'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
+import { Route as PortalAppInvoicesIndexRouteImport } from './routes/portal/_app/invoices/index'
 import { Route as AuthenticatedAdminWhatsappIndexRouteImport } from './routes/_authenticated/admin/whatsapp/index'
 import { Route as AuthenticatedAdminUsersIndexRouteImport } from './routes/_authenticated/admin/users/index'
 import { Route as AuthenticatedAdminSettingsIndexRouteImport } from './routes/_authenticated/admin/settings/index'
@@ -63,14 +72,25 @@ import { Route as AuthenticatedAdminRoutersIndexRouteImport } from './routes/_au
 import { Route as AuthenticatedAdminNotificationsIndexRouteImport } from './routes/_authenticated/admin/notifications/index'
 import { Route as AuthenticatedAdminMessageTemplatesIndexRouteImport } from './routes/_authenticated/admin/message-templates/index'
 import { Route as AuthenticatedAdminAuditLogsIndexRouteImport } from './routes/_authenticated/admin/audit-logs/index'
+import { Route as PortalAppInvoicesIdRouteImport } from './routes/portal/_app/invoices/$id'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
+const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortalLoginRoute = PortalLoginRouteImport.update({
+  id: '/portal/login',
+  path: '/portal/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const publicRegisterRoute = publicRegisterRouteImport.update({
@@ -123,6 +143,11 @@ const authForgotPasswordRoute = authForgotPasswordRouteImport.update({
   path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PortalAppRouteRoute = PortalAppRouteRouteImport.update({
+  id: '/portal/_app',
+  path: '/portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedSettingsRouteRoute =
   AuthenticatedSettingsRouteRouteImport.update({
     id: '/settings',
@@ -139,6 +164,11 @@ const AuthenticatedAdminRouteRoute = AuthenticatedAdminRouteRouteImport.update({
   id: '/admin',
   path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const PortalAppIndexRoute = PortalAppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PortalAppRouteRoute,
 } as any)
 const AuthenticatedVoucherIndexRoute =
   AuthenticatedVoucherIndexRouteImport.update({
@@ -216,6 +246,26 @@ const AuthenticatedCustomersIndexRoute =
     path: '/customers/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const PortalAppTicketsRoute = PortalAppTicketsRouteImport.update({
+  id: '/tickets',
+  path: '/tickets',
+  getParentRoute: () => PortalAppRouteRoute,
+} as any)
+const PortalAppSubscriptionsRoute = PortalAppSubscriptionsRouteImport.update({
+  id: '/subscriptions',
+  path: '/subscriptions',
+  getParentRoute: () => PortalAppRouteRoute,
+} as any)
+const PortalAppProfileRoute = PortalAppProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => PortalAppRouteRoute,
+} as any)
+const PortalAppPaymentsRoute = PortalAppPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => PortalAppRouteRoute,
+} as any)
 const AuthenticatedVoucherSalesRoute =
   AuthenticatedVoucherSalesRouteImport.update({
     id: '/voucher/sales',
@@ -327,6 +377,11 @@ const AuthenticatedErrorsErrorRoute =
     path: '/errors/$error',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const PortalAppInvoicesIndexRoute = PortalAppInvoicesIndexRouteImport.update({
+  id: '/invoices/',
+  path: '/invoices/',
+  getParentRoute: () => PortalAppRouteRoute,
+} as any)
 const AuthenticatedAdminWhatsappIndexRoute =
   AuthenticatedAdminWhatsappIndexRouteImport.update({
     id: '/whatsapp/',
@@ -369,12 +424,18 @@ const AuthenticatedAdminAuditLogsIndexRoute =
     path: '/audit-logs/',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
+const PortalAppInvoicesIdRoute = PortalAppInvoicesIdRouteImport.update({
+  id: '/invoices/$id',
+  path: '/invoices/$id',
+  getParentRoute: () => PortalAppRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AuthenticatedIndexRoute
+  '/': typeof IndexRoute
   '/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/registrations': typeof AuthenticatedRegistrationsRouteRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
+  '/portal': typeof PortalAppRouteRouteWithChildren
   '/forgot-password': typeof authForgotPasswordRoute
   '/otp': typeof authOtpRoute
   '/sign-in': typeof authSignInRoute
@@ -385,6 +446,8 @@ export interface FileRoutesByFullPath {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/register': typeof publicRegisterRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/portal/login': typeof PortalLoginRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/hotspot/active': typeof AuthenticatedHotspotActiveRoute
   '/hotspot/billing': typeof AuthenticatedHotspotBillingRoute
@@ -404,6 +467,10 @@ export interface FileRoutesByFullPath {
   '/voucher/generate': typeof AuthenticatedVoucherGenerateRoute
   '/voucher/print': typeof AuthenticatedVoucherPrintRoute
   '/voucher/sales': typeof AuthenticatedVoucherSalesRoute
+  '/portal/payments': typeof PortalAppPaymentsRoute
+  '/portal/profile': typeof PortalAppProfileRoute
+  '/portal/subscriptions': typeof PortalAppSubscriptionsRoute
+  '/portal/tickets': typeof PortalAppTicketsRoute
   '/customers/': typeof AuthenticatedCustomersIndexRoute
   '/help-center/': typeof AuthenticatedHelpCenterIndexRoute
   '/hotspot/': typeof AuthenticatedHotspotIndexRoute
@@ -417,6 +484,8 @@ export interface FileRoutesByFullPath {
   '/traffic/': typeof AuthenticatedTrafficIndexRoute
   '/users/': typeof AuthenticatedUsersIndexRoute
   '/voucher/': typeof AuthenticatedVoucherIndexRoute
+  '/portal/': typeof PortalAppIndexRoute
+  '/portal/invoices/$id': typeof PortalAppInvoicesIdRoute
   '/admin/audit-logs/': typeof AuthenticatedAdminAuditLogsIndexRoute
   '/admin/message-templates/': typeof AuthenticatedAdminMessageTemplatesIndexRoute
   '/admin/notifications/': typeof AuthenticatedAdminNotificationsIndexRoute
@@ -424,8 +493,10 @@ export interface FileRoutesByFullPath {
   '/admin/settings/': typeof AuthenticatedAdminSettingsIndexRoute
   '/admin/users/': typeof AuthenticatedAdminUsersIndexRoute
   '/admin/whatsapp/': typeof AuthenticatedAdminWhatsappIndexRoute
+  '/portal/invoices/': typeof PortalAppInvoicesIndexRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof IndexRoute
   '/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/forgot-password': typeof authForgotPasswordRoute
   '/otp': typeof authOtpRoute
@@ -437,7 +508,8 @@ export interface FileRoutesByTo {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/register': typeof publicRegisterRoute
-  '/': typeof AuthenticatedIndexRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/portal/login': typeof PortalLoginRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/hotspot/active': typeof AuthenticatedHotspotActiveRoute
   '/hotspot/billing': typeof AuthenticatedHotspotBillingRoute
@@ -457,6 +529,10 @@ export interface FileRoutesByTo {
   '/voucher/generate': typeof AuthenticatedVoucherGenerateRoute
   '/voucher/print': typeof AuthenticatedVoucherPrintRoute
   '/voucher/sales': typeof AuthenticatedVoucherSalesRoute
+  '/portal/payments': typeof PortalAppPaymentsRoute
+  '/portal/profile': typeof PortalAppProfileRoute
+  '/portal/subscriptions': typeof PortalAppSubscriptionsRoute
+  '/portal/tickets': typeof PortalAppTicketsRoute
   '/customers': typeof AuthenticatedCustomersIndexRoute
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
   '/hotspot': typeof AuthenticatedHotspotIndexRoute
@@ -470,6 +546,8 @@ export interface FileRoutesByTo {
   '/traffic': typeof AuthenticatedTrafficIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
   '/voucher': typeof AuthenticatedVoucherIndexRoute
+  '/portal': typeof PortalAppIndexRoute
+  '/portal/invoices/$id': typeof PortalAppInvoicesIdRoute
   '/admin/audit-logs': typeof AuthenticatedAdminAuditLogsIndexRoute
   '/admin/message-templates': typeof AuthenticatedAdminMessageTemplatesIndexRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsIndexRoute
@@ -477,13 +555,16 @@ export interface FileRoutesByTo {
   '/admin/settings': typeof AuthenticatedAdminSettingsIndexRoute
   '/admin/users': typeof AuthenticatedAdminUsersIndexRoute
   '/admin/whatsapp': typeof AuthenticatedAdminWhatsappIndexRoute
+  '/portal/invoices': typeof PortalAppInvoicesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/_authenticated/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/_authenticated/registrations': typeof AuthenticatedRegistrationsRouteRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
+  '/portal/_app': typeof PortalAppRouteRouteWithChildren
   '/(auth)/forgot-password': typeof authForgotPasswordRoute
   '/(auth)/otp': typeof authOtpRoute
   '/(auth)/sign-in': typeof authSignInRoute
@@ -494,7 +575,8 @@ export interface FileRoutesById {
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
   '/(public)/register': typeof publicRegisterRoute
-  '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/portal/login': typeof PortalLoginRoute
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/_authenticated/hotspot/active': typeof AuthenticatedHotspotActiveRoute
   '/_authenticated/hotspot/billing': typeof AuthenticatedHotspotBillingRoute
@@ -514,6 +596,10 @@ export interface FileRoutesById {
   '/_authenticated/voucher/generate': typeof AuthenticatedVoucherGenerateRoute
   '/_authenticated/voucher/print': typeof AuthenticatedVoucherPrintRoute
   '/_authenticated/voucher/sales': typeof AuthenticatedVoucherSalesRoute
+  '/portal/_app/payments': typeof PortalAppPaymentsRoute
+  '/portal/_app/profile': typeof PortalAppProfileRoute
+  '/portal/_app/subscriptions': typeof PortalAppSubscriptionsRoute
+  '/portal/_app/tickets': typeof PortalAppTicketsRoute
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
   '/_authenticated/help-center/': typeof AuthenticatedHelpCenterIndexRoute
   '/_authenticated/hotspot/': typeof AuthenticatedHotspotIndexRoute
@@ -527,6 +613,8 @@ export interface FileRoutesById {
   '/_authenticated/traffic/': typeof AuthenticatedTrafficIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
   '/_authenticated/voucher/': typeof AuthenticatedVoucherIndexRoute
+  '/portal/_app/': typeof PortalAppIndexRoute
+  '/portal/_app/invoices/$id': typeof PortalAppInvoicesIdRoute
   '/_authenticated/admin/audit-logs/': typeof AuthenticatedAdminAuditLogsIndexRoute
   '/_authenticated/admin/message-templates/': typeof AuthenticatedAdminMessageTemplatesIndexRoute
   '/_authenticated/admin/notifications/': typeof AuthenticatedAdminNotificationsIndexRoute
@@ -534,6 +622,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/settings/': typeof AuthenticatedAdminSettingsIndexRoute
   '/_authenticated/admin/users/': typeof AuthenticatedAdminUsersIndexRoute
   '/_authenticated/admin/whatsapp/': typeof AuthenticatedAdminWhatsappIndexRoute
+  '/portal/_app/invoices/': typeof PortalAppInvoicesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -542,6 +631,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/registrations'
     | '/settings'
+    | '/portal'
     | '/forgot-password'
     | '/otp'
     | '/sign-in'
@@ -552,6 +642,8 @@ export interface FileRouteTypes {
     | '/500'
     | '/503'
     | '/register'
+    | '/dashboard'
+    | '/portal/login'
     | '/errors/$error'
     | '/hotspot/active'
     | '/hotspot/billing'
@@ -571,6 +663,10 @@ export interface FileRouteTypes {
     | '/voucher/generate'
     | '/voucher/print'
     | '/voucher/sales'
+    | '/portal/payments'
+    | '/portal/profile'
+    | '/portal/subscriptions'
+    | '/portal/tickets'
     | '/customers/'
     | '/help-center/'
     | '/hotspot/'
@@ -584,6 +680,8 @@ export interface FileRouteTypes {
     | '/traffic/'
     | '/users/'
     | '/voucher/'
+    | '/portal/'
+    | '/portal/invoices/$id'
     | '/admin/audit-logs/'
     | '/admin/message-templates/'
     | '/admin/notifications/'
@@ -591,8 +689,10 @@ export interface FileRouteTypes {
     | '/admin/settings/'
     | '/admin/users/'
     | '/admin/whatsapp/'
+    | '/portal/invoices/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/'
     | '/admin'
     | '/forgot-password'
     | '/otp'
@@ -604,7 +704,8 @@ export interface FileRouteTypes {
     | '/500'
     | '/503'
     | '/register'
-    | '/'
+    | '/dashboard'
+    | '/portal/login'
     | '/errors/$error'
     | '/hotspot/active'
     | '/hotspot/billing'
@@ -624,6 +725,10 @@ export interface FileRouteTypes {
     | '/voucher/generate'
     | '/voucher/print'
     | '/voucher/sales'
+    | '/portal/payments'
+    | '/portal/profile'
+    | '/portal/subscriptions'
+    | '/portal/tickets'
     | '/customers'
     | '/help-center'
     | '/hotspot'
@@ -637,6 +742,8 @@ export interface FileRouteTypes {
     | '/traffic'
     | '/users'
     | '/voucher'
+    | '/portal'
+    | '/portal/invoices/$id'
     | '/admin/audit-logs'
     | '/admin/message-templates'
     | '/admin/notifications'
@@ -644,12 +751,15 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/users'
     | '/admin/whatsapp'
+    | '/portal/invoices'
   id:
     | '__root__'
+    | '/'
     | '/_authenticated'
     | '/_authenticated/admin'
     | '/_authenticated/registrations'
     | '/_authenticated/settings'
+    | '/portal/_app'
     | '/(auth)/forgot-password'
     | '/(auth)/otp'
     | '/(auth)/sign-in'
@@ -660,7 +770,8 @@ export interface FileRouteTypes {
     | '/(errors)/500'
     | '/(errors)/503'
     | '/(public)/register'
-    | '/_authenticated/'
+    | '/_authenticated/dashboard'
+    | '/portal/login'
     | '/_authenticated/errors/$error'
     | '/_authenticated/hotspot/active'
     | '/_authenticated/hotspot/billing'
@@ -680,6 +791,10 @@ export interface FileRouteTypes {
     | '/_authenticated/voucher/generate'
     | '/_authenticated/voucher/print'
     | '/_authenticated/voucher/sales'
+    | '/portal/_app/payments'
+    | '/portal/_app/profile'
+    | '/portal/_app/subscriptions'
+    | '/portal/_app/tickets'
     | '/_authenticated/customers/'
     | '/_authenticated/help-center/'
     | '/_authenticated/hotspot/'
@@ -693,6 +808,8 @@ export interface FileRouteTypes {
     | '/_authenticated/traffic/'
     | '/_authenticated/users/'
     | '/_authenticated/voucher/'
+    | '/portal/_app/'
+    | '/portal/_app/invoices/$id'
     | '/_authenticated/admin/audit-logs/'
     | '/_authenticated/admin/message-templates/'
     | '/_authenticated/admin/notifications/'
@@ -700,10 +817,13 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/settings/'
     | '/_authenticated/admin/users/'
     | '/_authenticated/admin/whatsapp/'
+    | '/portal/_app/invoices/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  PortalAppRouteRoute: typeof PortalAppRouteRouteWithChildren
   authForgotPasswordRoute: typeof authForgotPasswordRoute
   authOtpRoute: typeof authOtpRoute
   authSignInRoute: typeof authSignInRoute
@@ -714,6 +834,7 @@ export interface RootRouteChildren {
   errors500Route: typeof errors500Route
   errors503Route: typeof errors503Route
   publicRegisterRoute: typeof publicRegisterRoute
+  PortalLoginRoute: typeof PortalLoginRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -725,11 +846,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/': {
-      id: '/_authenticated/'
+    '/': {
+      id: '/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portal/login': {
+      id: '/portal/login'
+      path: '/portal/login'
+      fullPath: '/portal/login'
+      preLoaderRoute: typeof PortalLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/(public)/register': {
@@ -802,6 +937,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/portal/_app': {
+      id: '/portal/_app'
+      path: '/portal'
+      fullPath: '/portal'
+      preLoaderRoute: typeof PortalAppRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
       path: '/settings'
@@ -822,6 +964,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin'
       preLoaderRoute: typeof AuthenticatedAdminRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/portal/_app/': {
+      id: '/portal/_app/'
+      path: '/'
+      fullPath: '/portal/'
+      preLoaderRoute: typeof PortalAppIndexRouteImport
+      parentRoute: typeof PortalAppRouteRoute
     }
     '/_authenticated/voucher/': {
       id: '/_authenticated/voucher/'
@@ -913,6 +1062,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/customers/'
       preLoaderRoute: typeof AuthenticatedCustomersIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/portal/_app/tickets': {
+      id: '/portal/_app/tickets'
+      path: '/tickets'
+      fullPath: '/portal/tickets'
+      preLoaderRoute: typeof PortalAppTicketsRouteImport
+      parentRoute: typeof PortalAppRouteRoute
+    }
+    '/portal/_app/subscriptions': {
+      id: '/portal/_app/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/portal/subscriptions'
+      preLoaderRoute: typeof PortalAppSubscriptionsRouteImport
+      parentRoute: typeof PortalAppRouteRoute
+    }
+    '/portal/_app/profile': {
+      id: '/portal/_app/profile'
+      path: '/profile'
+      fullPath: '/portal/profile'
+      preLoaderRoute: typeof PortalAppProfileRouteImport
+      parentRoute: typeof PortalAppRouteRoute
+    }
+    '/portal/_app/payments': {
+      id: '/portal/_app/payments'
+      path: '/payments'
+      fullPath: '/portal/payments'
+      preLoaderRoute: typeof PortalAppPaymentsRouteImport
+      parentRoute: typeof PortalAppRouteRoute
     }
     '/_authenticated/voucher/sales': {
       id: '/_authenticated/voucher/sales'
@@ -1047,6 +1224,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedErrorsErrorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/portal/_app/invoices/': {
+      id: '/portal/_app/invoices/'
+      path: '/invoices'
+      fullPath: '/portal/invoices/'
+      preLoaderRoute: typeof PortalAppInvoicesIndexRouteImport
+      parentRoute: typeof PortalAppRouteRoute
+    }
     '/_authenticated/admin/whatsapp/': {
       id: '/_authenticated/admin/whatsapp/'
       path: '/whatsapp'
@@ -1095,6 +1279,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/audit-logs/'
       preLoaderRoute: typeof AuthenticatedAdminAuditLogsIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/portal/_app/invoices/$id': {
+      id: '/portal/_app/invoices/$id'
+      path: '/invoices/$id'
+      fullPath: '/portal/invoices/$id'
+      preLoaderRoute: typeof PortalAppInvoicesIdRouteImport
+      parentRoute: typeof PortalAppRouteRoute
     }
   }
 }
@@ -1169,7 +1360,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRouteRoute: typeof AuthenticatedAdminRouteRouteWithChildren
   AuthenticatedRegistrationsRouteRoute: typeof AuthenticatedRegistrationsRouteRouteWithChildren
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
-  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
   AuthenticatedHotspotActiveRoute: typeof AuthenticatedHotspotActiveRoute
   AuthenticatedHotspotBillingRoute: typeof AuthenticatedHotspotBillingRoute
@@ -1203,7 +1394,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRegistrationsRouteRoute:
     AuthenticatedRegistrationsRouteRouteWithChildren,
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
-  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,
   AuthenticatedHotspotActiveRoute: AuthenticatedHotspotActiveRoute,
   AuthenticatedHotspotBillingRoute: AuthenticatedHotspotBillingRoute,
@@ -1235,8 +1426,34 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface PortalAppRouteRouteChildren {
+  PortalAppPaymentsRoute: typeof PortalAppPaymentsRoute
+  PortalAppProfileRoute: typeof PortalAppProfileRoute
+  PortalAppSubscriptionsRoute: typeof PortalAppSubscriptionsRoute
+  PortalAppTicketsRoute: typeof PortalAppTicketsRoute
+  PortalAppIndexRoute: typeof PortalAppIndexRoute
+  PortalAppInvoicesIdRoute: typeof PortalAppInvoicesIdRoute
+  PortalAppInvoicesIndexRoute: typeof PortalAppInvoicesIndexRoute
+}
+
+const PortalAppRouteRouteChildren: PortalAppRouteRouteChildren = {
+  PortalAppPaymentsRoute: PortalAppPaymentsRoute,
+  PortalAppProfileRoute: PortalAppProfileRoute,
+  PortalAppSubscriptionsRoute: PortalAppSubscriptionsRoute,
+  PortalAppTicketsRoute: PortalAppTicketsRoute,
+  PortalAppIndexRoute: PortalAppIndexRoute,
+  PortalAppInvoicesIdRoute: PortalAppInvoicesIdRoute,
+  PortalAppInvoicesIndexRoute: PortalAppInvoicesIndexRoute,
+}
+
+const PortalAppRouteRouteWithChildren = PortalAppRouteRoute._addFileChildren(
+  PortalAppRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  PortalAppRouteRoute: PortalAppRouteRouteWithChildren,
   authForgotPasswordRoute: authForgotPasswordRoute,
   authOtpRoute: authOtpRoute,
   authSignInRoute: authSignInRoute,
@@ -1247,6 +1464,7 @@ const rootRouteChildren: RootRouteChildren = {
   errors500Route: errors500Route,
   errors503Route: errors503Route,
   publicRegisterRoute: publicRegisterRoute,
+  PortalLoginRoute: PortalLoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

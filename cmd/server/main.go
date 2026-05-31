@@ -37,6 +37,7 @@ import (
 	"github.com/quiqxiq/rosmon/service/metrics"
 	"github.com/quiqxiq/rosmon/service/notification"
 	"github.com/quiqxiq/rosmon/service/notification/whatsapp"
+	"github.com/quiqxiq/rosmon/service/portal"
 	"github.com/quiqxiq/rosmon/store"
 	"github.com/quiqxiq/rosmon/store/model"
 	"github.com/sirupsen/logrus"
@@ -124,8 +125,20 @@ func main() {
 
 	// ── Auth Service ──────────────────────────────────────────────────────
 	authSigner := auth.NewSigner(authCfg.JWTSecret, authCfg.AccessTTL, authCfg.RefreshTTL)
+	if v := strings.TrimSpace(os.Getenv("JWT_CUSTOMER_TTL")); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			authSigner.SetCustomerTTL(d)
+		}
+	}
 	authHasher := auth.NewHasher(authCfg.BcryptCost)
 	authSvc := auth.New(userStore, refreshStore, authHasher, authSigner)
+
+	// ── Customer Portal auth (Fase 3) ─────────────────────────────────────
+	portalAuth := portal.New(portal.Deps{
+		Customers: customerStore,
+		Hasher:    authHasher,
+		Signer:    authSigner,
+	})
 	if err := authSvc.BootstrapAdmin(rootCtx, authCfg.AdminUsername, authCfg.AdminPassword); err != nil {
 		log.WithError(err).Warn("bootstrap admin failed (may already exist)")
 	} else if authCfg.AdminUsername != "" {
@@ -271,6 +284,7 @@ func main() {
 		RegistrationStore:   registrationStore,
 		NotificationService: notifSvc,
 		BillingService:      billingSvc,
+		PortalAuth:          portalAuth,
 		AuthService:         authSvc,
 		AuthSigner:          authSigner,
 		UserLimiter:         userLim,

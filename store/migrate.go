@@ -36,7 +36,30 @@ func Migrate(db *gorm.DB) error {
 	if err := seedSystemSettings(db); err != nil {
 		return err
 	}
-	return seedMessageTemplates(db)
+	if err := seedMessageTemplates(db); err != nil {
+		return err
+	}
+	return backfillInvoicePaymentCodes(db)
+}
+
+// backfillInvoicePaymentCodes assigns a unique PaymentCode to existing unpaid
+// invoices (issued/overdue) that don't have one yet — so the settle-by-code /
+// QR feature works for invoices created before this column existed. Idempotent.
+func backfillInvoicePaymentCodes(db *gorm.DB) error {
+	var invoices []model.Invoice
+	if err := db.Where("(payment_code = '' OR payment_code IS NULL) AND status IN ?",
+		[]string{"issued", "overdue"}).Find(&invoices).Error; err != nil {
+		return err
+	}
+	for i := range invoices {
+		code := NewPaymentCode()
+		if err := db.Model(&model.Invoice{}).
+			Where("id = ?", invoices[i].ID).
+			Update("payment_code", code).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // seedSystemSettings inserts default settings if they don't exist yet.

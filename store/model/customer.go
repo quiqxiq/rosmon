@@ -20,6 +20,10 @@ type Customer struct {
 	Status    string `gorm:"size:20;not null;default:aktif;index"` // 'aktif' | 'nonaktif'
 	CreatedBy *uint  `gorm:"index"`                                // → users(id), nullable
 
+	// PortalPasswordHash = bcrypt hash untuk login customer portal. Kosong =
+	// pelanggan belum diberi akses portal. Tidak pernah masuk DTO/log.
+	PortalPasswordHash string `gorm:"size:255"`
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`

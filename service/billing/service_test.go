@@ -29,6 +29,9 @@ func (f *fakeInvoiceStore) Create(_ context.Context, inv *model.Invoice, items [
 func (f *fakeInvoiceStore) GetByID(context.Context, uint) (*model.Invoice, error) {
 	return nil, store.ErrInvoiceNotFound
 }
+func (f *fakeInvoiceStore) GetByPaymentCode(context.Context, string) (*model.Invoice, error) {
+	return nil, store.ErrInvoiceNotFound
+}
 func (f *fakeInvoiceStore) List(context.Context, store.InvoiceListFilter) ([]model.Invoice, error) {
 	return nil, nil
 }

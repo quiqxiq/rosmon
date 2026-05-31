@@ -53,7 +53,7 @@ export function UserAuthForm({
   function onSubmit(data: z.infer<typeof formSchema>) {
     loginMutation.mutate(data, {
       onSuccess: () => {
-        const targetPath = redirectTo || '/'
+        const targetPath = redirectTo || '/dashboard'
         navigate({ to: targetPath, replace: true })
       },
       onError: (error) => {

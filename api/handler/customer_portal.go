@@ -1,0 +1,202 @@
+package handler
+
+import (
+	"errors"
+	"net/http"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+	"github.com/quiqxiq/rosmon/api/dto"
+	"github.com/quiqxiq/rosmon/api/middleware"
+	"github.com/quiqxiq/rosmon/service/auth"
+	"github.com/quiqxiq/rosmon/service/portal"
+	"github.com/quiqxiq/rosmon/store"
+)
+
+// CustomerPortal handler — endpoint self-service pelanggan (/api/customer/*).
+// Semua di-scope ke CustomerID dari token (anti-IDOR).
+type CustomerPortal struct {
+	Portal    *portal.CustomerAuth
+	Customers store.CustomerStore
+	Subs      store.SubscriptionStore
+	Invoices  store.InvoiceStore
+	Payments  store.PaymentStore
+}
+
+func NewCustomerPortal(
+	p *portal.CustomerAuth,
+	cs store.CustomerStore,
+	ss store.SubscriptionStore,
+	is store.InvoiceStore,
+	ps store.PaymentStore,
+) *CustomerPortal {
+	return &CustomerPortal{Portal: p, Customers: cs, Subs: ss, Invoices: is, Payments: ps}
+}
+
+func (h *CustomerPortal) Register(g *gin.RouterGroup) {
+	r := g.Group("/customer")
+	r.GET("/me", h.Me)
+	r.GET("/subscriptions", h.Subscriptions)
+	r.GET("/subscriptions/:id/status", h.SubscriptionStatus)
+	r.GET("/invoices", h.ListInvoices)
+	r.GET("/invoices/:id", h.GetInvoice)
+	r.GET("/payments", h.PaymentHistory)
+	r.POST("/change-password", h.ChangePassword)
+}
+
+// currentCustomerID mengambil CustomerID dari token customer.
+func currentCustomerID(c *gin.Context) (uint, bool) {
+	claims, ok := middleware.CustomerClaimsFrom(c)
+	if !ok {
+		c.AbortWithStatusJSON(http.StatusUnauthorized,
+			dto.Err("UNAUTHORIZED", "no customer authentication context", c.Request.URL.Path))
+		return 0, false
+	}
+	return claims.CustomerID, true
+}
+
+func (h *CustomerPortal) Me(c *gin.Context) {
+	cid, ok := currentCustomerID(c)
+	if !ok {
+		return
+	}
+	cust, err := h.Customers.Get(c.Request.Context(), cid)
+	if err != nil {
+		if errors.Is(err, store.ErrCustomerNotFound) {
+			c.AbortWithStatusJSON(http.StatusNotFound,
+				dto.Err("NOT_FOUND", "customer not found", c.Request.URL.Path))
+			return
+		}
+		WriteErr(c, err)
+		return
+	}
+	WriteOK(c, dto.FromModelCustomerMe(cust))
+}
+
+func (h *CustomerPortal) Subscriptions(c *gin.Context) {
+	cid, ok := currentCustomerID(c)
+	if !ok {
+		return
+	}
+	subs, err := h.Subs.List(c.Request.Context(), store.SubscriptionListFilter{CustomerID: cid})
+	if err != nil {
+		WriteErr(c, err)
+		return
+	}
+	out := make([]dto.SubscriptionResponse, len(subs))
+	for i, s := range subs {
+		out[i] = dto.FromModelSubscription(s)
+	}
+	WriteList(c, out, len(out))
+}
+
+func (h *CustomerPortal) SubscriptionStatus(c *gin.Context) {
+	cid, ok := currentCustomerID(c)
+	if !ok {
+		return
+	}
+	id, ok := parseUintParam(c, "id")
+	if !ok {
+		return
+	}
+	sub, err := h.Subs.Get(c.Request.Context(), id)
+	if err != nil || sub.CustomerID != cid {
+		c.AbortWithStatusJSON(http.StatusNotFound,
+			dto.Err("NOT_FOUND", "subscription not found", c.Request.URL.Path))
+		return
+	}
+	WriteOK(c, dto.FromModelSubscription(sub))
+}
+
+func (h *CustomerPortal) ListInvoices(c *gin.Context) {
+	cid, ok := currentCustomerID(c)
+	if !ok {
+		return
+	}
+	items, err := h.Invoices.List(c.Request.Context(), store.InvoiceListFilter{
+		CustomerID: cid,
+		Status:     c.Query("status"),
+	})
+	if err != nil {
+		WriteErr(c, err)
+		return
+	}
+	out := make([]dto.InvoiceResponse, len(items))
+	for i, it := range items {
+		out[i] = dto.FromModelInvoice(it)
+	}
+	WriteList(c, out, len(out))
+}
+
+func (h *CustomerPortal) GetInvoice(c *gin.Context) {
+	cid, ok := currentCustomerID(c)
+	if !ok {
+		return
+	}
+	id, ok := parseUintParam(c, "id")
+	if !ok {
+		return
+	}
+	inv, err := h.Invoices.GetByID(c.Request.Context(), id)
+	if err != nil || inv.CustomerID != cid {
+		c.AbortWithStatusJSON(http.StatusNotFound,
+			dto.Err("NOT_FOUND", "invoice not found", c.Request.URL.Path))
+		return
+	}
+	WriteOK(c, dto.FromModelInvoice(*inv))
+}
+
+func (h *CustomerPortal) PaymentHistory(c *gin.Context) {
+	cid, ok := currentCustomerID(c)
+	if !ok {
+		return
+	}
+	items, err := h.Payments.List(c.Request.Context(), store.PaymentListFilter{CustomerID: cid})
+	if err != nil {
+		WriteErr(c, err)
+		return
+	}
+	out := make([]dto.PaymentResponse, len(items))
+	for i, it := range items {
+		out[i] = dto.FromModelPayment(it)
+	}
+	WriteList(c, out, len(out))
+}
+
+func (h *CustomerPortal) ChangePassword(c *gin.Context) {
+	cid, ok := currentCustomerID(c)
+	if !ok {
+		return
+	}
+	var req dto.ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		WriteValidationErr(c, err)
+		return
+	}
+	err := h.Portal.ChangePassword(c.Request.Context(), cid, req.OldPassword, req.NewPassword)
+	if err != nil {
+		switch {
+		case errors.Is(err, auth.ErrInvalidCredentials):
+			c.AbortWithStatusJSON(http.StatusBadRequest,
+				dto.Err("INVALID_ARGUMENT", "password lama salah", c.Request.URL.Path))
+		case errors.Is(err, auth.ErrWeakPassword):
+			c.AbortWithStatusJSON(http.StatusBadRequest,
+				dto.Err("INVALID_ARGUMENT", "password baru minimal 8 karakter", c.Request.URL.Path))
+		default:
+			WriteErr(c, err)
+		}
+		return
+	}
+	WriteOK(c, gin.H{"message": "password updated"})
+}
+
+func parseUintParam(c *gin.Context, name string) (uint, bool) {
+	raw := c.Param(name)
+	n, err := strconv.ParseUint(raw, 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest,
+			dto.Err("INVALID_ID", "invalid "+name, raw))
+		return 0, false
+	}
+	return uint(n), true
+}

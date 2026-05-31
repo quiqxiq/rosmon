@@ -13,6 +13,10 @@ import (
 // CtxKeyClaims adalah gin.Context key untuk *auth.Claims set oleh RequireAuth.
 const CtxKeyClaims = "auth_claims"
 
+// CtxKeyCustomerClaims adalah gin.Context key untuk *auth.CustomerClaims set
+// oleh RequireCustomerAuth.
+const CtxKeyCustomerClaims = "customer_claims"
+
 // RequireAuth verify Bearer token. Set claims ke context kalau valid.
 // 401 + WWW-Authenticate header kalau token absent / invalid / expired.
 //
@@ -79,6 +83,47 @@ func ClaimsFrom(c *gin.Context) (*auth.Claims, bool) {
 		return nil, false
 	}
 	claims, ok := v.(*auth.Claims)
+	return claims, ok
+}
+
+// RequireCustomerAuth verify Bearer token sebagai customer access token (scope
+// portal pelanggan, TERPISAH dari staff). Token staff ditolak (typ mismatch).
+func RequireCustomerAuth(signer *auth.Signer) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token, ok := extractBearer(c.GetHeader("Authorization"))
+		if !ok {
+			if qt := strings.TrimSpace(c.Query("access_token")); qt != "" {
+				token, ok = qt, true
+			}
+		}
+		if !ok {
+			abortUnauthorized(c, "missing or malformed Authorization header")
+			return
+		}
+		claims, err := signer.VerifyCustomerAccess(token)
+		if err != nil {
+			switch {
+			case errors.Is(err, auth.ErrTokenExpired):
+				abortUnauthorized(c, "token expired")
+			case errors.Is(err, auth.ErrTokenWrongType):
+				abortUnauthorized(c, "wrong token type (staff token used on customer portal?)")
+			default:
+				abortUnauthorized(c, "invalid token")
+			}
+			return
+		}
+		c.Set(CtxKeyCustomerClaims, claims)
+		c.Next()
+	}
+}
+
+// CustomerClaimsFrom mengambil customer claims dari gin.Context.
+func CustomerClaimsFrom(c *gin.Context) (*auth.CustomerClaims, bool) {
+	v, ok := c.Get(CtxKeyCustomerClaims)
+	if !ok {
+		return nil, false
+	}
+	claims, ok := v.(*auth.CustomerClaims)
 	return claims, ok
 }
 
