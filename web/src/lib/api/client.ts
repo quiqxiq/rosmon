@@ -50,7 +50,7 @@ apiClient.interceptors.response.use(
     if (
       error.response?.status !== 401 ||
       originalRequest._retry ||
-      !originalRequest.url?.includes('/auth/refresh') // don't refresh the refresh endpoint
+      originalRequest.url?.includes('/auth/refresh') // don't refresh the refresh endpoint itself
     ) {
       return Promise.reject(error)
     }

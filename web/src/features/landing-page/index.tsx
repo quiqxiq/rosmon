@@ -19,7 +19,7 @@ import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatIDR } from '@/lib/format'
 import { usePublicPackages } from '../public-register/api/queries'
-import { PublicRegister } from '../public-register'
+import { RegisterForm } from '../public-register'
 
 // ─── Packages Section ────────────────────────────────────────────────────────
 
@@ -306,7 +306,9 @@ export function LandingPage() {
               Isi formulir di bawah dan kami akan segera menghubungi Anda
             </p>
           </div>
-          <PublicRegister />
+          <div className='rounded-xl border bg-card p-5 shadow-sm sm:p-6'>
+            <RegisterForm />
+          </div>
         </div>
       </section>
 

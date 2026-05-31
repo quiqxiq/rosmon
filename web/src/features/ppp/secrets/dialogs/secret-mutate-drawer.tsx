@@ -1,10 +1,19 @@
-import { useState } from 'react'
+import { useMemo } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useActiveRouterId } from '@/stores/active-router-store'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import {
   Select,
   SelectContent,
@@ -21,7 +30,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { InputCombobox } from '@/components/input-combobox'
 import { parseAPIError } from '@/lib/api/errors'
+import { usePools } from '@/features/network/api/queries'
 import { useAddPPPSecret, useUpdatePPPSecret } from '../api/queries'
 import {
   PPP_SERVICES,
@@ -31,39 +44,37 @@ import {
 } from '../api/schema'
 import { useSecretsDialogStore } from '../store/secrets-dialog-store'
 
-type SecretDraft = {
-  name: string
-  password: string
-  service: string
-  profile: string
-  local_address: string
-  remote_address: string
-  comment: string
-}
+// ── Schema ──────────────────────────────────────────────────────────────────
 
-function emptyDraft(): SecretDraft {
+const baseSchema = z.object({
+  name: z.string().min(1, 'Username wajib diisi'),
+  password: z.string(),
+  service: z.string(),
+  profile: z.string(),
+  local_address: z.string(),
+  remote_address: z.string(),
+  comment: z.string(),
+})
+
+const addSchema = baseSchema.extend({
+  password: z.string().min(1, 'Password wajib diisi'),
+})
+
+type SecretFormValues = z.infer<typeof baseSchema>
+
+function defaultValues(target?: PPPSecret | null): SecretFormValues {
   return {
-    name: '',
+    name: target?.name ?? '',
     password: '',
-    service: 'any',
-    profile: '',
-    local_address: '',
-    remote_address: '',
-    comment: '',
+    service: target?.service ?? 'any',
+    profile: target?.profile ?? '',
+    local_address: target?.local_address ?? '',
+    remote_address: target?.remote_address ?? '',
+    comment: target?.comment ?? '',
   }
 }
 
-function draftFromTarget(target: PPPSecret): SecretDraft {
-  return {
-    name: target.name,
-    password: '',
-    service: target.service || 'any',
-    profile: target.profile ?? '',
-    local_address: target.local_address ?? '',
-    remote_address: target.remote_address ?? '',
-    comment: target.comment ?? '',
-  }
-}
+// ── Root ─────────────────────────────────────────────────────────────────────
 
 export function SecretMutateDrawer() {
   const { mode, target, close } = useSecretsDialogStore()
@@ -82,6 +93,8 @@ export function SecretMutateDrawer() {
   )
 }
 
+// ── Form ─────────────────────────────────────────────────────────────────────
+
 type SecretFormProps = {
   mode: 'add' | 'edit'
   target: PPPSecret | null
@@ -93,46 +106,40 @@ function SecretForm({ mode, target, onClose }: SecretFormProps) {
   const addMutation = useAddPPPSecret(routerId)
   const updateMutation = useUpdatePPPSecret(routerId)
 
-  const [draft, setDraft] = useState<SecretDraft>(() =>
-    mode === 'edit' && target ? draftFromTarget(target) : emptyDraft(),
+  const { data: pools, isLoading: poolsLoading } = usePools(routerId)
+  const addressPoolOptions = useMemo(
+    () => (pools ?? []).map((p) => ({ label: p.name, value: p.name })),
+    [pools],
   )
 
-  const update = <K extends keyof SecretDraft>(
-    key: K,
-    value: SecretDraft[K],
-  ) => {
-    setDraft((prev) => ({ ...prev, [key]: value }))
-  }
+  const isEdit = mode === 'edit'
+  const form = useForm<SecretFormValues>({
+    resolver: zodResolver(isEdit ? baseSchema : addSchema),
+    defaultValues: defaultValues(isEdit ? target : null),
+  })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!draft.name.trim()) {
-      toast.error('Username is required')
-      return
-    }
+  const isPending = addMutation.isPending || updateMutation.isPending
 
+  const onSubmit = (values: SecretFormValues) => {
     if (mode === 'add') {
-      if (!draft.password.trim()) {
-        toast.error('Password is required')
-        return
-      }
       const payload: PPPSecretCreateInput = {
-        name: draft.name.trim(),
-        password: draft.password,
-        service: draft.service,
+        name: values.name.trim(),
+        password: values.password,
+        service: values.service,
       }
-      if (draft.profile.trim()) payload.profile = draft.profile.trim()
-      if (draft.local_address.trim())
-        payload.local_address = draft.local_address.trim()
-      if (draft.remote_address.trim())
-        payload.remote_address = draft.remote_address.trim()
+      if (values.profile.trim()) payload.profile = values.profile.trim()
+      if (values.local_address.trim())
+        payload.local_address = values.local_address.trim()
+      if (values.remote_address.trim())
+        payload.remote_address = values.remote_address.trim()
+
       addMutation.mutate(payload, {
         onSuccess: () => {
-          toast.success(`Secret '${draft.name}' added`)
+          toast.success(`Secret '${values.name}' ditambahkan`)
           onClose()
         },
         onError: (err) =>
-          toast.error('Failed to add secret', {
+          toast.error('Gagal menambahkan secret', {
             description: parseAPIError(err),
           }),
       })
@@ -141,34 +148,33 @@ function SecretForm({ mode, target, onClose }: SecretFormProps) {
 
     if (!target) return
     const patch: PPPSecretUpdateInput = {
-      name: draft.name.trim(),
-      service: draft.service,
-      profile: draft.profile.trim(),
-      local_address: draft.local_address.trim(),
-      remote_address: draft.remote_address.trim(),
-      comment: draft.comment.trim(),
+      name: values.name.trim(),
+      service: values.service,
+      profile: values.profile.trim(),
+      local_address: values.local_address.trim(),
+      remote_address: values.remote_address.trim(),
+      comment: values.comment.trim(),
     }
-    if (draft.password.trim()) patch.password = draft.password
+    if (values.password.trim()) patch.password = values.password.trim()
+
     updateMutation.mutate(
       { id: target.id, patch },
       {
         onSuccess: () => {
-          toast.success(`Secret '${draft.name}' updated`)
+          toast.success(`Secret '${values.name}' diperbarui`)
           onClose()
         },
         onError: (err) =>
-          toast.error('Failed to update secret', {
+          toast.error('Gagal memperbarui secret', {
             description: parseAPIError(err),
           }),
       },
     )
   }
 
-  const isPending = addMutation.isPending || updateMutation.isPending
-
   return (
     <SheetContent className='flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-md'>
-      <SheetHeader className='border-b'>
+      <SheetHeader className='border-b px-6 py-4'>
         <SheetTitle>
           {mode === 'add' ? 'Add PPP Secret' : 'Edit PPP Secret'}
         </SheetTitle>
@@ -177,87 +183,160 @@ function SecretForm({ mode, target, onClose }: SecretFormProps) {
         </SheetDescription>
       </SheetHeader>
 
-      <form
-        id='secret-form'
-        className='flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4'
-        onSubmit={handleSubmit}
-      >
-        <div className='grid grid-cols-2 gap-3'>
-          <Field label='Username'>
-            <Input
-              value={draft.name}
-              onChange={(e) => update('name', e.target.value)}
-              placeholder='pppoe-001'
-              autoComplete='off'
+      <Form {...form}>
+        <form
+          id='secret-form'
+          className='flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5'
+          onSubmit={form.handleSubmit(onSubmit)}
+        >
+          {/* Username + Password */}
+          <div className='grid grid-cols-2 gap-3'>
+            <FormField
+              control={form.control}
+              name='name'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Username</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder='pppoe-001'
+                      autoComplete='off'
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </Field>
-          <Field
-            label={mode === 'edit' ? 'Password (leave blank to keep)' : 'Password'}
-          >
-            <Input
-              value={draft.password}
-              onChange={(e) => update('password', e.target.value)}
-              placeholder='••••'
-              autoComplete='off'
+            <FormField
+              control={form.control}
+              name='password'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {isEdit ? 'Password (kosongkan = tetap)' : 'Password'}
+                  </FormLabel>
+                  <FormControl>
+                    <Input placeholder='••••' autoComplete='off' {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </Field>
-        </div>
+          </div>
 
-        <Field label='Service'>
-          <Select
-            value={draft.service}
-            onValueChange={(v) => update('service', v)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PPP_SERVICES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-
-        <Field label='Profile'>
-          <Input
-            value={draft.profile}
-            onChange={(e) => update('profile', e.target.value)}
-            placeholder='default'
+          {/* Service */}
+          <FormField
+            control={form.control}
+            name='service'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Service</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {PPP_SERVICES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-        </Field>
 
-        <div className='grid grid-cols-2 gap-3'>
-          <Field label='Local Address'>
-            <Input
-              value={draft.local_address}
-              onChange={(e) => update('local_address', e.target.value)}
-              placeholder='10.0.0.1'
-            />
-          </Field>
-          <Field label='Remote Address'>
-            <Input
-              value={draft.remote_address}
-              onChange={(e) => update('remote_address', e.target.value)}
-              placeholder='10.0.0.2 / pool'
-            />
-          </Field>
-        </div>
+          {/* Profile */}
+          <FormField
+            control={form.control}
+            name='profile'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Profile</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder='default'
+                    autoComplete='off'
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        {mode === 'edit' && (
-          <Field label='Comment'>
-            <Input
-              value={draft.comment}
-              onChange={(e) => update('comment', e.target.value)}
-              placeholder='Optional'
+          {/* Local + Remote Address */}
+          <div className='grid grid-cols-2 gap-3'>
+            <FormField
+              control={form.control}
+              name='local_address'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Local Address</FormLabel>
+                  <FormControl>
+                    <InputCombobox
+                      options={addressPoolOptions}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      placeholder='10.0.0.1'
+                      isLoading={poolsLoading}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </Field>
-        )}
-      </form>
+            <FormField
+              control={form.control}
+              name='remote_address'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Remote Address</FormLabel>
+                  <FormControl>
+                    <InputCombobox
+                      options={addressPoolOptions}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      placeholder='10.0.0.2 / pool'
+                      isLoading={poolsLoading}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
-      <SheetFooter className='border-t'>
+          {/* Comment — edit only */}
+          {isEdit && (
+            <FormField
+              control={form.control}
+              name='comment'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Comment</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder='Catatan opsional...'
+                      className='resize-none'
+                      rows={2}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+        </form>
+      </Form>
+
+      <SheetFooter className='border-t px-6 py-4'>
         <SheetClose asChild>
           <Button variant='outline' size='sm' disabled={isPending}>
             Cancel
@@ -275,22 +354,5 @@ function SecretForm({ mode, target, onClose }: SecretFormProps) {
         </Button>
       </SheetFooter>
     </SheetContent>
-  )
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className='flex flex-col gap-1.5'>
-      <Label className='text-xs font-medium text-muted-foreground'>
-        {label}
-      </Label>
-      {children}
-    </div>
   )
 }

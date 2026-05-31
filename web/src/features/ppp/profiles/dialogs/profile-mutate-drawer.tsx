@@ -1,10 +1,20 @@
-import { useState } from 'react'
+import { useMemo } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useActiveRouterId } from '@/stores/active-router-store'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import {
   Select,
   SelectContent,
@@ -21,7 +31,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { parseAPIError } from '@/lib/api/errors'
+import { usePools } from '@/features/network/api/queries'
 import { useAddPPPProfile, useUpdatePPPProfile } from '../api/queries'
 import {
   type RouterPPPProfile,
@@ -29,46 +42,41 @@ import {
   type RouterPPPProfileUpdateInput,
 } from '../api/schema'
 import { useProfilesDialogStore } from '../store/profiles-dialog-store'
+import { InputCombobox } from '@/components/input-combobox'
 
-type ProfileDraft = {
-  name: string
-  rate_limit: string
-  local_address: string
-  remote_address: string
-  session_timeout: string
-  idle_timeout: string
-  parent_queue: string
-  comment: string
-  disabled: 'true' | 'false'
-}
+// ── Zod schema ──────────────────────────────────────────────────────────────
 
-function emptyDraft(): ProfileDraft {
+const profileFormSchema = z.object({
+  name: z.string().min(1, 'Name wajib diisi'),
+  rate_limit: z.string().optional(),
+  local_address: z.string().optional(),
+  remote_address: z.string().optional(),
+  session_timeout: z.string().optional(),
+  idle_timeout: z.string().optional(),
+  parent_queue: z.string().optional(),
+  comment: z.string().optional(),
+  disabled: z.enum(['true', 'false']),
+})
+
+type ProfileFormValues = z.infer<typeof profileFormSchema>
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+function defaultValues(target?: RouterPPPProfile | null): ProfileFormValues {
   return {
-    name: '',
-    rate_limit: '',
-    local_address: '',
-    remote_address: '',
-    session_timeout: '',
-    idle_timeout: '',
-    parent_queue: '',
-    comment: '',
-    disabled: 'false',
+    name: target?.name ?? '',
+    rate_limit: target?.rate_limit ?? '',
+    local_address: target?.local_address ?? '',
+    remote_address: target?.remote_address ?? '',
+    session_timeout: target?.session_timeout ?? '',
+    idle_timeout: target?.idle_timeout ?? '',
+    parent_queue: target?.parent_queue ?? '',
+    comment: target?.comment ?? '',
+    disabled: target?.disabled ? 'true' : 'false',
   }
 }
 
-function draftFromTarget(t: RouterPPPProfile): ProfileDraft {
-  return {
-    name: t.name,
-    rate_limit: t.rate_limit ?? '',
-    local_address: t.local_address ?? '',
-    remote_address: t.remote_address ?? '',
-    session_timeout: t.session_timeout ?? '',
-    idle_timeout: t.idle_timeout ?? '',
-    parent_queue: t.parent_queue ?? '',
-    comment: t.comment ?? '',
-    disabled: t.disabled ? 'true' : 'false',
-  }
-}
+// ── Root component (controls Sheet open/close) ───────────────────────────────
 
 export function ProfileMutateDrawer() {
   const { mode, target, close } = useProfilesDialogStore()
@@ -87,6 +95,8 @@ export function ProfileMutateDrawer() {
   )
 }
 
+// ── Form component ───────────────────────────────────────────────────────────
+
 type ProfileFormProps = {
   mode: 'add' | 'edit'
   target: RouterPPPProfile | null
@@ -98,44 +108,50 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
   const addMutation = useAddPPPProfile(routerId)
   const updateMutation = useUpdatePPPProfile(routerId)
 
-  const [draft, setDraft] = useState<ProfileDraft>(() =>
-    mode === 'edit' && target ? draftFromTarget(target) : emptyDraft(),
+  // Fetch IP pools for address combobox options.
+  const { data: pools, isLoading: poolsLoading } = usePools(routerId)
+
+  // Build combobox options from pool list — value = pool name (what MikroTik expects).
+  const addressPoolOptions = useMemo(
+    () =>
+      (pools ?? []).map((p) => ({
+        label: p.name,
+        value: p.name,
+      })),
+    [pools],
   )
 
-  const update = <K extends keyof ProfileDraft>(
-    key: K,
-    value: ProfileDraft[K],
-  ) => setDraft((prev) => ({ ...prev, [key]: value }))
+  const form = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileFormSchema),
+    defaultValues: defaultValues(mode === 'edit' ? target : null),
+  })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!draft.name.trim()) {
-      toast.error('Name is required')
-      return
-    }
+  const isPending = addMutation.isPending || updateMutation.isPending
+
+  const onSubmit = (values: ProfileFormValues) => {
     const common = {
-      local_address: draft.local_address.trim(),
-      remote_address: draft.remote_address.trim(),
-      rate_limit: draft.rate_limit.trim(),
-      session_timeout: draft.session_timeout.trim(),
-      idle_timeout: draft.idle_timeout.trim(),
-      parent_queue: draft.parent_queue.trim(),
-      comment: draft.comment.trim(),
-      disabled: draft.disabled === 'true',
+      local_address: values.local_address?.trim() || undefined,
+      remote_address: values.remote_address?.trim() || undefined,
+      rate_limit: values.rate_limit?.trim() || undefined,
+      session_timeout: values.session_timeout?.trim() || undefined,
+      idle_timeout: values.idle_timeout?.trim() || undefined,
+      parent_queue: values.parent_queue?.trim() || undefined,
+      comment: values.comment?.trim() || undefined,
+      disabled: values.disabled === 'true',
     }
 
     if (mode === 'add') {
       const payload: RouterPPPProfileCreateInput = {
-        name: draft.name.trim(),
+        name: values.name.trim(),
         ...common,
       }
       addMutation.mutate(payload, {
         onSuccess: () => {
-          toast.success(`Profile '${draft.name}' added`)
+          toast.success(`Profile '${values.name}' berhasil ditambahkan`)
           onClose()
         },
         onError: (err) =>
-          toast.error('Failed to add profile', {
+          toast.error('Gagal menambahkan profile', {
             description: parseAPIError(err),
           }),
       })
@@ -144,123 +160,231 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
 
     if (!target) return
     const patch: RouterPPPProfileUpdateInput = {
-      name: draft.name.trim(),
+      name: values.name.trim(),
       ...common,
     }
     updateMutation.mutate(
       { id: target.id, patch },
       {
         onSuccess: () => {
-          toast.success(`Profile '${draft.name}' updated`)
+          toast.success(`Profile '${values.name}' berhasil diperbarui`)
           onClose()
         },
         onError: (err) =>
-          toast.error('Failed to update profile', {
+          toast.error('Gagal memperbarui profile', {
             description: parseAPIError(err),
           }),
       },
     )
   }
 
-  const isPending = addMutation.isPending || updateMutation.isPending
-
   return (
     <SheetContent className='flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-md'>
-      <SheetHeader className='border-b'>
+      <SheetHeader className='border-b px-6 py-4'>
         <SheetTitle>
-          {mode === 'add' ? 'Add PPP Profile' : 'Edit PPP Profile'}
+          {mode === 'add' ? 'Tambah PPP Profile' : 'Edit PPP Profile'}
         </SheetTitle>
         <SheetDescription>
           RouterOS /ppp/profile · addresses · rate limit
         </SheetDescription>
       </SheetHeader>
 
-      <form
-        id='ppp-profile-form'
-        className='flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4'
-        onSubmit={handleSubmit}
-      >
-        <Field label='Name'>
-          <Input
-            value={draft.name}
-            onChange={(e) => update('name', e.target.value)}
-            placeholder='default'
-            autoComplete='off'
+      <Form {...form}>
+        <form
+          id='ppp-profile-form'
+          className='flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5'
+          onSubmit={form.handleSubmit(onSubmit)}
+        >
+          {/* Name */}
+          <FormField
+            control={form.control}
+            name='name'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Name</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder='default'
+                    autoComplete='off'
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-        </Field>
-        <Field label='Rate Limit (rx/tx)'>
-          <Input
-            value={draft.rate_limit}
-            onChange={(e) => update('rate_limit', e.target.value)}
-            placeholder='10M/10M'
-          />
-        </Field>
-        <div className='grid grid-cols-2 gap-3'>
-          <Field label='Local Address'>
-            <Input
-              value={draft.local_address}
-              onChange={(e) => update('local_address', e.target.value)}
-              placeholder='10.0.0.1'
-            />
-          </Field>
-          <Field label='Remote Address'>
-            <Input
-              value={draft.remote_address}
-              onChange={(e) => update('remote_address', e.target.value)}
-              placeholder='pool name / IP'
-            />
-          </Field>
-        </div>
-        <div className='grid grid-cols-2 gap-3'>
-          <Field label='Session Timeout'>
-            <Input
-              value={draft.session_timeout}
-              onChange={(e) => update('session_timeout', e.target.value)}
-              placeholder='1h30m'
-            />
-          </Field>
-          <Field label='Idle Timeout'>
-            <Input
-              value={draft.idle_timeout}
-              onChange={(e) => update('idle_timeout', e.target.value)}
-              placeholder='10m'
-            />
-          </Field>
-        </div>
-        <Field label='Parent Queue'>
-          <Input
-            value={draft.parent_queue}
-            onChange={(e) => update('parent_queue', e.target.value)}
-            placeholder='queue name'
-          />
-        </Field>
-        <Field label='Status'>
-          <Select
-            value={draft.disabled}
-            onValueChange={(v) => update('disabled', v as 'true' | 'false')}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value='false'>Enabled</SelectItem>
-              <SelectItem value='true'>Disabled</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field label='Comment'>
-          <Input
-            value={draft.comment}
-            onChange={(e) => update('comment', e.target.value)}
-            placeholder='Optional'
-          />
-        </Field>
-      </form>
 
-      <SheetFooter className='border-t'>
+          {/* Rate Limit */}
+          <FormField
+            control={form.control}
+            name='rate_limit'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Rate Limit</FormLabel>
+                <FormControl>
+                  <Input placeholder='10M/10M' autoComplete='off' {...field} />
+                </FormControl>
+                <FormDescription>
+                  Format: rx/tx — contoh 10M/10M atau 5M/2M
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Address row */}
+          <div className='grid grid-cols-2 gap-3'>
+            {/* Local Address */}
+            <FormField
+              control={form.control}
+              name='local_address'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Local Address</FormLabel>
+                  <FormControl>
+                    <InputCombobox
+                      options={addressPoolOptions}
+                      value={field.value ?? ''}
+                      onValueChange={field.onChange}
+                      placeholder='IP atau pool...'
+                      isLoading={poolsLoading}
+                    />
+                  </FormControl>
+                  <FormDescription className='text-xs'>
+                    IP address gateway
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Remote Address */}
+            <FormField
+              control={form.control}
+              name='remote_address'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Remote Address</FormLabel>
+                  <FormControl>
+                    <InputCombobox
+                      options={addressPoolOptions}
+                      value={field.value ?? ''}
+                      onValueChange={field.onChange}
+                      placeholder='IP atau pool...'
+                      isLoading={poolsLoading}
+                    />
+                  </FormControl>
+                  <FormDescription className='text-xs'>
+                    IP atau nama pool client
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {/* Timeout row */}
+          <div className='grid grid-cols-2 gap-3'>
+            <FormField
+              control={form.control}
+              name='session_timeout'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Session Timeout</FormLabel>
+                  <FormControl>
+                    <Input placeholder='1h30m' autoComplete='off' {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='idle_timeout'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Idle Timeout</FormLabel>
+                  <FormControl>
+                    <Input placeholder='10m' autoComplete='off' {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {/* Parent Queue */}
+          <FormField
+            control={form.control}
+            name='parent_queue'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Parent Queue</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder='nama queue (opsional)'
+                    autoComplete='off'
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Status */}
+          <FormField
+            control={form.control}
+            name='disabled'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Status</FormLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value='false'>Enabled</SelectItem>
+                    <SelectItem value='true'>Disabled</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Comment */}
+          <FormField
+            control={form.control}
+            name='comment'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Comment</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder='Catatan opsional...'
+                    className='resize-none'
+                    rows={2}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </form>
+      </Form>
+
+      <SheetFooter className='border-t px-6 py-4'>
         <SheetClose asChild>
           <Button variant='outline' size='sm' disabled={isPending}>
-            Cancel
+            Batal
           </Button>
         </SheetClose>
         <Button
@@ -271,26 +395,9 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
           className='gap-1.5'
         >
           {isPending && <Loader2 className='size-4 animate-spin' />}
-          {mode === 'add' ? 'Add Profile' : 'Save Changes'}
+          {mode === 'add' ? 'Tambah Profile' : 'Simpan Perubahan'}
         </Button>
       </SheetFooter>
     </SheetContent>
-  )
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className='flex flex-col gap-1.5'>
-      <Label className='text-xs font-medium text-muted-foreground'>
-        {label}
-      </Label>
-      {children}
-    </div>
   )
 }

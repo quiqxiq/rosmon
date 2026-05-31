@@ -2,7 +2,7 @@ services:
 
   postgres:
     image: postgres:17-alpine
-    container_name: rosmon-postgres
+    container_name: rosmon-postgres-dev
     environment:
       POSTGRES_DB: mikhmon
       POSTGRES_USER: mikhmon
@@ -10,7 +10,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_dev:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mikhmon -d mikhmon"]
       interval: 5s
@@ -19,7 +19,7 @@ services:
 
   influxdb3:
     image: quay.io/influxdb/influxdb3-core:latest
-    container_name: rosmon-influx
+    container_name: rosmon-influx-dev
     command:
       - serve
       - --node-id=node0
@@ -30,7 +30,7 @@ services:
     ports:
       - "8181:8181"
     volumes:
-      - influx_data:/var/lib/influxdb3
+      - influx_data_dev:/var/lib/influxdb3
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8181/ping"]
       interval: 5s
@@ -41,7 +41,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-    container_name: rosmon-backend
+    container_name: rosmon-backend-dev
     ports:
       - "8080:8080"
     environment:
@@ -56,7 +56,7 @@ services:
       - INFLUX_TOKEN=dev_admin_token_placeholder
       - INFLUX_DATABASE=mikhmon
       - HTTP_BIND=0.0.0.0:8080
-      - CORS_ALLOWED_ORIGINS=*
+      - CORS_ALLOWED_ORIGINS=http://localhost:5173
       - JWT_SECRET=replace-with-32-char-or-longer-secret-string-here
       - ADMIN_USERNAME=admin
       - ADMIN_PASSWORD=adminpass
@@ -65,20 +65,19 @@ services:
         condition: service_healthy
       influxdb3:
         condition: service_healthy
-    volumes:
-      - backend_data:/app/data
 
   frontend:
     build:
       context: ../web
-      dockerfile: Dockerfile
-    container_name: rosmon-frontend
+      dockerfile: Dockerfile.dev
+    container_name: rosmon-frontend-dev
     ports:
-      - "80:80"
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8080
     depends_on:
       - backend
 
 volumes:
-  postgres_data:
-  influx_data:
-  backend_data:
+  postgres_data_dev:
+  influx_data_dev:

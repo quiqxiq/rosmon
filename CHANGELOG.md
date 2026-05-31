@@ -5,6 +5,21 @@ Versi pakai semantic versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **Full-Stack Dockerization (Prod & Dev)**:
+  - Dockerfile multi-stage untuk compile backend Go secara efisien dan minimal.
+  - Multi-stage `web/Dockerfile` (production) untuk compile React web frontend, disajikan menggunakan **Nginx** lengkap dengan fallback routing `nginx.conf` untuk mendukung React Router SPA.
+  - `web/Dockerfile.dev` (development) untuk menjalankan Vite development server dengan support Hot Module Replacement (HMR) dan bind `--host`.
+  - `docker/docker-compose.yml` (production) berisi PostgreSQL, InfluxDB3, Go backend server, dan React frontend server di port 80.
+  - `docker/docker-compose-dev.yml` (development) berisi PostgreSQL, InfluxDB3, Go backend server, dan React frontend server di port 5173.
+- **Skrip Go Otomatisasi Cross-Platform**:
+  - `scripts/setup/main.go` untuk setup awal (cloning file `.env`), auto-generation kunci JWT dan crypto enkripsi secara acak yang aman tanpa `openssl`, serta auto-install npm packages via `pnpm` secara multi-platform (Windows, macOS, Linux).
+  - `scripts/influx-token/main.go` untuk pembuatan admin token InfluxDB3 secara otomatis dari container Docker yang aktif dan menyimpannya langsung ke `.env`, memecahkan semua error authentication di backend Go.
+- **Revamp Makefile Cross-Platform**:
+  - Target `make setup` dan `make influx-token` dialihkan menggunakan skrip Go di atas agar bisa dijalankan di sistem operasi apapun tanpa shell dependencies.
+  - Penambahan target-target docker compose lengkap untuk development dan production: `up-dev`, `down-dev`, `build-docker-dev`, `rebuild-dev`, serta `up`, `down`, `build-docker`, `rebuild`.
+
 Refactor besar berdasarkan `ANALYSIS.md` — fase 1–4. Auth dan password
 device encryption ditunda ke fase 5 (separate plan).
 

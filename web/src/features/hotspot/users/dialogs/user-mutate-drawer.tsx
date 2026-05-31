@@ -1,10 +1,18 @@
-import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useActiveRouterId } from '@/stores/active-router-store'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import {
   Select,
   SelectContent,
@@ -21,47 +29,51 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { useHotspotProfiles } from '@/features/hotspot/profiles/api/queries'
 import { useAddHotspotUser, useUpdateHotspotUser } from '../api/queries'
 import { type HotspotUserViewModel } from '../components/view-model'
 import { useUsersDialogStore } from '../store/users-dialog-store'
 
-// Local form draft kept in RouterOS-key shape so the body we POST/PUT
-// matches `HotspotUserMutation` (`Record<string, string>`) with zero
-// transformation at submit time.
-type UserDraft = {
-  name: string
-  password: string
-  profile: string
-  server: string
-  'mac-address': string
-  comment: string
-  disabled: 'true' | 'false'
-}
+// The list of known hotspot servers is not exposed as a hook yet.
+// We hardcode the common defaults plus `all` (implicit "any server").
+const SERVERS = ['all', 'HS-01', 'HS-02', 'HS-03']
 
-function emptyDraft(profileFallback: string): UserDraft {
+// ── Schema ──────────────────────────────────────────────────────────────────
+
+const baseSchema = z.object({
+  name: z.string().min(1, 'Username wajib diisi'),
+  password: z.string(),
+  profile: z.string(),
+  server: z.string(),
+  mac_address: z.string(),
+  comment: z.string(),
+  disabled: z.enum(['true', 'false']),
+})
+
+const addSchema = baseSchema.extend({
+  password: z.string().min(1, 'Password wajib diisi'),
+})
+
+type UserFormValues = z.infer<typeof baseSchema>
+
+function defaultValues(
+  target?: HotspotUserViewModel | null,
+  profileFallback = '',
+): UserFormValues {
   return {
-    name: '',
-    password: '',
-    profile: profileFallback,
-    server: 'all',
-    'mac-address': '',
-    comment: '',
-    disabled: 'false',
+    name: target?.name ?? '',
+    password: target?.password ?? '',
+    profile: target?.profile ?? profileFallback,
+    server: target?.server ?? 'all',
+    mac_address: target?.macAddress ?? '',
+    comment: target?.comment ?? '',
+    disabled: target?.enabledStatus === 'disabled' ? 'true' : 'false',
   }
 }
 
-function draftFromTarget(target: HotspotUserViewModel): UserDraft {
-  return {
-    name: target.name,
-    password: target.password,
-    profile: target.profile,
-    server: target.server || 'all',
-    'mac-address': target.macAddress,
-    comment: target.comment,
-    disabled: target.enabledStatus === 'disabled' ? 'true' : 'false',
-  }
-}
+// ── Root ─────────────────────────────────────────────────────────────────────
 
 export function UserMutateDrawer() {
   const { mode, target, close } = useUsersDialogStore()
@@ -80,6 +92,8 @@ export function UserMutateDrawer() {
   )
 }
 
+// ── Form ─────────────────────────────────────────────────────────────────────
+
 type UserFormProps = {
   mode: 'add' | 'edit'
   target: HotspotUserViewModel | null
@@ -95,80 +109,57 @@ function UserForm({ mode, target, onClose }: UserFormProps) {
   const addMutation = useAddHotspotUser(routerId)
   const updateMutation = useUpdateHotspotUser(routerId)
 
-  const [draft, setDraft] = useState<UserDraft>(() => {
-    if (mode === 'edit' && target) return draftFromTarget(target)
-    return emptyDraft(profileFallback)
+  const isEdit = mode === 'edit'
+  const form = useForm<UserFormValues>({
+    resolver: zodResolver(isEdit ? baseSchema : addSchema),
+    defaultValues: defaultValues(isEdit ? target : null, profileFallback),
   })
 
-  const update = <K extends keyof UserDraft>(key: K, value: UserDraft[K]) => {
-    setDraft((prev) => ({ ...prev, [key]: value }))
-  }
+  const isPending = addMutation.isPending || updateMutation.isPending
 
-  // The list of known hotspot servers is not exposed as a hook yet — we
-  // hardcode the common defaults plus `all` (the implicit "any server"
-  // value). Once `features/hotspot/servers/` ships a query this becomes
-  // a Select fed by that source.
-  const SERVERS = ['all', 'HS-01', 'HS-02', 'HS-03']
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!draft.name.trim()) {
-      toast.error('Username is required')
-      return
-    }
-    if (!draft.password.trim()) {
-      toast.error('Password is required')
-      return
-    }
-
-    // Strip empty optional fields so the API doesn't receive blank
-    // `mac-address` keys that would override a previously-set MAC on
-    // edit.
+  const onSubmit = (values: UserFormValues) => {
     const payload: Record<string, string> = {
-      name: draft.name.trim(),
-      password: draft.password,
-      profile: draft.profile,
-      server: draft.server,
-      disabled: draft.disabled,
+      name: values.name.trim(),
+      password: values.password,
+      profile: values.profile,
+      server: values.server,
+      disabled: values.disabled,
     }
-    if (draft['mac-address']) payload['mac-address'] = draft['mac-address']
-    if (draft.comment) payload.comment = draft.comment
+    if (values.mac_address.trim())
+      payload['mac-address'] = values.mac_address.trim()
+    if (values.comment.trim()) payload.comment = values.comment.trim()
 
     if (mode === 'add') {
       addMutation.mutate(payload, {
         onSuccess: () => {
-          toast.success(`User '${draft.name}' added`)
+          toast.success(`User '${values.name}' ditambahkan`)
           onClose()
         },
-        onError: (err) => {
-          toast.error('Failed to add user', {
+        onError: (err) =>
+          toast.error('Gagal menambahkan user', {
             description: err instanceof Error ? err.message : String(err),
-          })
-        },
+          }),
       })
     } else if (target) {
       updateMutation.mutate(
         { id: target.id, patch: payload },
         {
           onSuccess: () => {
-            toast.success(`User '${draft.name}' updated`)
+            toast.success(`User '${values.name}' diperbarui`)
             onClose()
           },
-          onError: (err) => {
-            toast.error('Failed to update user', {
+          onError: (err) =>
+            toast.error('Gagal memperbarui user', {
               description: err instanceof Error ? err.message : String(err),
-            })
-          },
+            }),
         },
       )
     }
   }
 
-  const isPending = addMutation.isPending || updateMutation.isPending
-
   return (
     <SheetContent className='flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-md'>
-      <SheetHeader className='border-b'>
+      <SheetHeader className='border-b px-6 py-4'>
         <SheetTitle>
           {mode === 'add' ? 'Add Hotspot User' : 'Edit Hotspot User'}
         </SheetTitle>
@@ -177,108 +168,172 @@ function UserForm({ mode, target, onClose }: UserFormProps) {
         </SheetDescription>
       </SheetHeader>
 
-      <form
-        id='user-form'
-        className='flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4'
-        onSubmit={handleSubmit}
-      >
-        <div className='grid grid-cols-2 gap-3'>
-          <Field label='Username'>
-            <Input
-              value={draft.name}
-              onChange={(e) => update('name', e.target.value)}
-              placeholder='wifi-001'
-              autoComplete='off'
-            />
-          </Field>
-          <Field label='Password'>
-            <Input
-              value={draft.password}
-              onChange={(e) => update('password', e.target.value)}
-              placeholder='••••'
-              autoComplete='off'
-            />
-          </Field>
-        </div>
-
-        <Field label='Profile'>
-          <Select
-            value={draft.profile}
-            onValueChange={(v) => update('profile', v)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder='Select a profile' />
-            </SelectTrigger>
-            <SelectContent>
-              {profiles.length === 0 ? (
-                <SelectItem value='__none' disabled>
-                  No profiles available
-                </SelectItem>
-              ) : (
-                profiles.map((p) => (
-                  <SelectItem key={p.id} value={p.name}>
-                    {p.name}
-                    {p.validity ? ` · ${p.validity}` : ''}
-                  </SelectItem>
-                ))
+      <Form {...form}>
+        <form
+          id='hotspot-user-form'
+          className='flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5'
+          onSubmit={form.handleSubmit(onSubmit)}
+        >
+          {/* Username + Password */}
+          <div className='grid grid-cols-2 gap-3'>
+            <FormField
+              control={form.control}
+              name='name'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Username</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder='wifi-001'
+                      autoComplete='off'
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )}
-            </SelectContent>
-          </Select>
-        </Field>
+            />
+            <FormField
+              control={form.control}
+              name='password'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input placeholder='••••' autoComplete='off' {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
-        <Field label='Server'>
-          <Select
-            value={draft.server}
-            onValueChange={(v) => update('server', v)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SERVERS.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-
-        <Field label='MAC Address'>
-          <Input
-            value={draft['mac-address']}
-            onChange={(e) =>
-              update('mac-address', e.target.value.toUpperCase())
-            }
-            placeholder='AA:BB:CC:DD:EE:FF'
+          {/* Profile */}
+          <FormField
+            control={form.control}
+            name='profile'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Profile</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder='Select a profile' />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {profiles.length === 0 ? (
+                      <SelectItem value='__none' disabled>
+                        No profiles available
+                      </SelectItem>
+                    ) : (
+                      profiles.map((p) => (
+                        <SelectItem key={p.id} value={p.name}>
+                          {p.name}
+                          {p.validity ? ` · ${p.validity}` : ''}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-        </Field>
 
-        <Field label='Status'>
-          <Select
-            value={draft.disabled}
-            onValueChange={(v) => update('disabled', v as 'true' | 'false')}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value='false'>Enabled</SelectItem>
-              <SelectItem value='true'>Disabled</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
-
-        <Field label='Comment'>
-          <Input
-            value={draft.comment}
-            onChange={(e) => update('comment', e.target.value)}
-            placeholder='Optional'
+          {/* Server */}
+          <FormField
+            control={form.control}
+            name='server'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Server</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {SERVERS.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-        </Field>
-      </form>
 
-      <SheetFooter className='border-t'>
+          {/* MAC Address */}
+          <FormField
+            control={form.control}
+            name='mac_address'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>MAC Address</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder='AA:BB:CC:DD:EE:FF'
+                    {...field}
+                    onChange={(e) =>
+                      field.onChange(e.target.value.toUpperCase())
+                    }
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Status */}
+          <FormField
+            control={form.control}
+            name='disabled'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Status</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value='false'>Enabled</SelectItem>
+                    <SelectItem value='true'>Disabled</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Comment */}
+          <FormField
+            control={form.control}
+            name='comment'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Comment</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder='Catatan opsional...'
+                    className='resize-none'
+                    rows={2}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </form>
+      </Form>
+
+      <SheetFooter className='border-t px-6 py-4'>
         <SheetClose asChild>
           <Button variant='outline' size='sm' disabled={isPending}>
             Cancel
@@ -287,7 +342,7 @@ function UserForm({ mode, target, onClose }: UserFormProps) {
         <Button
           type='submit'
           size='sm'
-          form='user-form'
+          form='hotspot-user-form'
           disabled={isPending}
           className='gap-1.5'
         >
@@ -296,22 +351,5 @@ function UserForm({ mode, target, onClose }: UserFormProps) {
         </Button>
       </SheetFooter>
     </SheetContent>
-  )
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className='flex flex-col gap-1.5'>
-      <Label className='text-xs font-medium text-muted-foreground'>
-        {label}
-      </Label>
-      {children}
-    </div>
   )
 }

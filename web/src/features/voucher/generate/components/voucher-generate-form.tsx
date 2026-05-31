@@ -1,5 +1,6 @@
 import { Loader2, Plus, RotateCcw } from 'lucide-react'
 import { formatIDR } from '@/features/hotspot/profiles/data/data'
+import { type HotspotProfile } from '@/features/hotspot/profiles/data/schema'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,11 +17,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   charSetOptions,
   dataLimitUnitOptions,
   nameLengthOptions,
-  profileGenerateOptions,
   serverGenerateOptions,
   userTypeOptions,
 } from '../data/data'
@@ -37,6 +38,9 @@ type VoucherGenerateFormProps = {
   onGenerate: () => void
   onReset: () => void
   isGenerating?: boolean
+  /** Real profiles fetched from the active router */
+  profiles?: HotspotProfile[]
+  isLoadingProfiles?: boolean
 }
 
 export function VoucherGenerateFormPanel({
@@ -45,6 +49,8 @@ export function VoucherGenerateFormPanel({
   onGenerate,
   onReset,
   isGenerating = false,
+  profiles = [],
+  isLoadingProfiles = false,
 }: VoucherGenerateFormProps) {
   const update = <K extends keyof VoucherGenerateForm>(
     key: K,
@@ -97,26 +103,37 @@ export function VoucherGenerateFormPanel({
           </div>
 
           <Field label='Profile'>
-            <Select
-              value={form.profile}
-              onValueChange={(v) => update('profile', v)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {profileGenerateOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    <span className='flex items-center justify-between gap-3 w-full'>
-                      <span>{opt.label}</span>
-                      <span className='text-xs text-muted-foreground tabular-nums'>
-                        {formatIDR(opt.sellingPrice)} · {opt.validity}
-                      </span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {isLoadingProfiles ? (
+              <Skeleton className='h-9 w-full' />
+            ) : (
+              <Select
+                value={form.profile}
+                onValueChange={(v) => update('profile', v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder='Pilih profile' />
+                </SelectTrigger>
+                <SelectContent>
+                  {profiles.length === 0 ? (
+                    <SelectItem value='__none' disabled>
+                      Belum ada profile di router ini
+                    </SelectItem>
+                  ) : (
+                    profiles.map((p) => (
+                      <SelectItem key={p.id} value={p.name}>
+                        <span className='flex items-center justify-between gap-3 w-full'>
+                          <span>{p.name}</span>
+                          <span className='text-xs text-muted-foreground tabular-nums'>
+                            {p.sellingPrice ? formatIDR(p.sellingPrice) : ''}
+                            {p.validity ? ` · ${p.validity}` : ''}
+                          </span>
+                        </span>
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            )}
           </Field>
 
           <Field label='User Mode'>

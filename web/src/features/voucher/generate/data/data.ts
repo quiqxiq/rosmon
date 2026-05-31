@@ -1,4 +1,3 @@
-import { hotspotProfilesSeed } from '@/features/hotspot/profiles/data/data'
 import {
   type CharSet,
   type DataLimitUnit,
@@ -42,18 +41,12 @@ export const serverGenerateOptions = [
   { label: 'HS-03', value: 'HS-03' },
 ]
 
-export const profileGenerateOptions = hotspotProfilesSeed.map((p) => ({
-  label: p.name,
-  value: p.name,
-  price: p.price,
-  sellingPrice: p.sellingPrice,
-  validity: p.validity,
-}))
-
 export const defaultGenerateForm: VoucherGenerateForm = {
   qty: 1,
   server: 'all',
-  profile: hotspotProfilesSeed[0]?.name ?? '',
+  // profile is intentionally empty — index.tsx sets it from the first
+  // real profile returned by useHotspotProfiles via a useEffect.
+  profile: '',
   userType: 'up',
   nameLength: 6,
   charSet: 'mix',

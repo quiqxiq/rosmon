@@ -11,13 +11,19 @@ import { parseAPIError } from '@/lib/api/errors'
 import { usePublicPackages, useSubmitRegistration } from './api/queries'
 import { type PublicPackage, type ServiceType } from './api/schema'
 
-export function PublicRegister() {
+// ─── Core form — embeddable, no wrapper/bg ────────────────────────────────────
+
+export function RegisterForm({ onSuccess }: { onSuccess?: (id: number) => void }) {
   const packagesQuery = usePublicPackages()
   const submitMut = useSubmitRegistration()
 
   const packages = packagesQuery.data ?? []
-  const hasPppoe = packages.some((p) => p.service_type === 'pppoe')
-  const hasHotspot = packages.some((p) => p.service_type === 'hotspot')
+
+  // Hanya paket PPPoE yang relevan di form ini — Hotspot tidak butuh paket
+  const pppoePackages = useMemo(
+    () => packages.filter((p) => p.service_type === 'pppoe'),
+    [packages],
+  )
 
   const [service, setService] = useState<ServiceType>('pppoe')
   const [packageId, setPackageId] = useState<number | null>(null)
@@ -28,18 +34,12 @@ export function PublicRegister() {
   const [notes, setNotes] = useState('')
   const [doneId, setDoneId] = useState<number | null>(null)
 
-  const visible = useMemo(
-    () =>
-      (packagesQuery.data ?? []).filter((p) => p.service_type === service),
-    [packagesQuery.data, service],
-  )
+  const selectedPkg = packages.find((p) => p.id === packageId) ?? null
 
   const selectService = (s: ServiceType) => {
     setService(s)
     setPackageId(null)
   }
-
-  const selectedPkg = packages.find((p) => p.id === packageId) ?? null
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -47,8 +47,9 @@ export function PublicRegister() {
       toast.error('Nama, nomor HP, dan alamat wajib diisi')
       return
     }
-    if (!selectedPkg) {
-      toast.error('Silakan pilih paket terlebih dahulu')
+    // PPPoE: wajib pilih paket jika ada; Hotspot: tidak perlu paket
+    if (service === 'pppoe' && pppoePackages.length > 0 && !selectedPkg) {
+      toast.error('Silakan pilih paket PPPoE terlebih dahulu')
       return
     }
     submitMut.mutate(
@@ -59,13 +60,15 @@ export function PublicRegister() {
         area: area.trim() || undefined,
         notes: notes.trim() || undefined,
         service_type: service,
-        device_id: selectedPkg.device_id,
-        ...(service === 'pppoe'
-          ? { ppp_profile_id: selectedPkg.id }
-          : { hotspot_profile_id: selectedPkg.id }),
+        ...(service === 'pppoe' && selectedPkg
+          ? { ppp_profile_id: selectedPkg.id, device_id: selectedPkg.device_id }
+          : {}),
       },
       {
-        onSuccess: (res) => setDoneId(res.id),
+        onSuccess: (res) => {
+          setDoneId(res.id)
+          onSuccess?.(res.id)
+        },
         onError: (err) =>
           toast.error('Gagal mengirim pendaftaran', {
             description: parseAPIError(err),
@@ -74,6 +77,127 @@ export function PublicRegister() {
     )
   }
 
+  if (doneId !== null) {
+    return <SuccessPanel id={doneId} />
+  }
+
+  return (
+    <form onSubmit={submit} className='flex flex-col gap-5'>
+      {/* Service type — selalu tampil */}
+      <div className='flex flex-col gap-1.5'>
+        <Label className='text-sm font-medium'>Jenis layanan</Label>
+        <div className='grid grid-cols-2 gap-2'>
+          <ServiceButton
+            active={service === 'pppoe'}
+            onClick={() => selectService('pppoe')}
+            label='PPPoE'
+            desc='Internet rumahan dengan paket bulanan'
+          />
+          <ServiceButton
+            active={service === 'hotspot'}
+            onClick={() => selectService('hotspot')}
+            label='Hotspot'
+            desc='Pemasangan akses point / RT-RW'
+          />
+        </div>
+      </div>
+
+      {/* Pilih paket — hanya untuk PPPoE */}
+      {service === 'pppoe' && (
+        <div className='flex flex-col gap-1.5'>
+          <Label className='text-sm font-medium'>
+            Pilih paket{pppoePackages.length > 0 && <span className='text-destructive'> *</span>}
+          </Label>
+          {packagesQuery.isLoading ? (
+            <div className='flex items-center gap-2 py-2 text-sm text-muted-foreground'>
+              <Loader2 className='size-4 animate-spin' />
+              Memuat paket…
+            </div>
+          ) : pppoePackages.length === 0 ? (
+            <p className='rounded-lg border border-dashed px-3 py-3 text-sm text-muted-foreground'>
+              Paket PPPoE belum tersedia saat ini. Admin akan menghubungi Anda untuk
+              menentukan paket setelah pendaftaran.
+            </p>
+          ) : (
+            <div className='grid gap-2 sm:grid-cols-2'>
+              {pppoePackages.map((p) => (
+                <PackageCard
+                  key={p.id}
+                  pkg={p}
+                  selected={packageId === p.id}
+                  onSelect={() => setPackageId(p.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Info Hotspot */}
+      {service === 'hotspot' && (
+        <div className='rounded-lg border border-dashed bg-muted/40 px-4 py-3 text-sm text-muted-foreground'>
+          Pendaftaran pemasangan Hotspot tidak memerlukan pilihan paket. Isi data
+          kontak di bawah — admin akan menghubungi Anda untuk konfirmasi lokasi
+          dan konfigurasi.
+        </div>
+      )}
+
+      {/* Data kontak */}
+      <div className='grid gap-4 sm:grid-cols-2'>
+        <LField label='Nama lengkap *'>
+          <Input
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder='Budi Santoso'
+          />
+        </LField>
+        <LField label='Nomor HP / WhatsApp *'>
+          <Input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder='08123456789'
+            type='tel'
+          />
+        </LField>
+      </div>
+      <LField label='Alamat pemasangan *'>
+        <Textarea
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          rows={2}
+          className='resize-none'
+          placeholder='Jl. Mawar No. 1, RT01/RW02'
+        />
+      </LField>
+      <div className='grid gap-4 sm:grid-cols-2'>
+        <LField label='Area / Blok (opsional)'>
+          <Input
+            value={area}
+            onChange={(e) => setArea(e.target.value)}
+            placeholder='Blok A'
+          />
+        </LField>
+        <LField label='Catatan (opsional)'>
+          <Input
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder='Patokan rumah, dll.'
+          />
+        </LField>
+      </div>
+
+      <Button type='submit' className='gap-1.5' disabled={submitMut.isPending}>
+        {submitMut.isPending && <Loader2 className='size-4 animate-spin' />}
+        Kirim Pendaftaran
+      </Button>
+    </form>
+  )
+}
+
+// ─── Standalone full-page wrapper — dipakai oleh /register route ──────────────
+
+export function PublicRegister() {
+  const [doneId, setDoneId] = useState<number | null>(null)
   return (
     <div className='flex min-h-svh flex-col items-center bg-muted/40 px-4 py-10'>
       <div className='w-full max-w-2xl'>
@@ -93,110 +217,8 @@ export function PublicRegister() {
         <div className='rounded-xl border bg-card p-5 shadow-sm sm:p-6'>
           {doneId !== null ? (
             <SuccessPanel id={doneId} />
-          ) : packagesQuery.isLoading ? (
-            <div className='flex justify-center py-10'>
-              <Loader2 className='size-6 animate-spin text-muted-foreground' />
-            </div>
-          ) : packages.length === 0 ? (
-            <p className='py-10 text-center text-sm text-muted-foreground'>
-              Belum ada paket yang tersedia. Silakan hubungi kami langsung.
-            </p>
           ) : (
-            <form onSubmit={submit} className='flex flex-col gap-5'>
-              {/* Service type */}
-              {hasPppoe && hasHotspot && (
-                <div className='flex flex-col gap-1.5'>
-                  <Label className='text-sm font-medium'>Jenis layanan</Label>
-                  <div className='grid grid-cols-2 gap-2'>
-                    <ServiceButton
-                      active={service === 'pppoe'}
-                      onClick={() => selectService('pppoe')}
-                      label='PPPoE'
-                      desc='Internet rumahan'
-                    />
-                    <ServiceButton
-                      active={service === 'hotspot'}
-                      onClick={() => selectService('hotspot')}
-                      label='Hotspot'
-                      desc='Voucher / berbagi'
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Packages */}
-              <div className='flex flex-col gap-1.5'>
-                <Label className='text-sm font-medium'>Pilih paket</Label>
-                <div className='grid gap-2 sm:grid-cols-2'>
-                  {visible.map((p) => (
-                    <PackageCard
-                      key={p.id}
-                      pkg={p}
-                      selected={packageId === p.id}
-                      onSelect={() => setPackageId(p.id)}
-                    />
-                  ))}
-                  {visible.length === 0 && (
-                    <p className='text-sm text-muted-foreground'>
-                      Tidak ada paket untuk layanan ini.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Contact details */}
-              <div className='grid gap-4 sm:grid-cols-2'>
-                <LField label='Nama lengkap *'>
-                  <Input
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder='Budi Santoso'
-                  />
-                </LField>
-                <LField label='Nomor HP / WhatsApp *'>
-                  <Input
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder='08123456789'
-                  />
-                </LField>
-              </div>
-              <LField label='Alamat pemasangan *'>
-                <Textarea
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  rows={2}
-                  placeholder='Jl. Mawar No. 1, RT01/RW02'
-                />
-              </LField>
-              <div className='grid gap-4 sm:grid-cols-2'>
-                <LField label='Area / Blok (opsional)'>
-                  <Input
-                    value={area}
-                    onChange={(e) => setArea(e.target.value)}
-                    placeholder='Blok A'
-                  />
-                </LField>
-                <LField label='Catatan (opsional)'>
-                  <Input
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder='Patokan rumah, dll.'
-                  />
-                </LField>
-              </div>
-
-              <Button
-                type='submit'
-                className='gap-1.5'
-                disabled={submitMut.isPending}
-              >
-                {submitMut.isPending && (
-                  <Loader2 className='size-4 animate-spin' />
-                )}
-                Kirim Pendaftaran
-              </Button>
-            </form>
+            <RegisterForm onSuccess={setDoneId} />
           )}
         </div>
 
@@ -207,6 +229,8 @@ export function PublicRegister() {
     </div>
   )
 }
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ServiceButton({
   active,
