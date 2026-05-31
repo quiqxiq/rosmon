@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Langganan — Rosmon</title>
+  <link rel="stylesheet" href="css/rosmon.css" />
+</head>
+<body>
+  <div class="app-shell">
+
+    <header class="app-header">
+      <span class="header-title">Langganan</span>
+    </header>
+
+    <main class="app-content">
+
+      <div class="section-title">Paket Aktif</div>
+
+      <div class="card mb-4">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+          <div>
+            <div style="font-size:18px;font-weight:700;color:var(--fg);">Rosmon Home 30 Mbps</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:2px;">Internet Unlimited · PPPoE</div>
+          </div>
+          <span class="badge badge-success">Aktif</span>
+        </div>
+
+        <div style="background:var(--bg);border-radius:var(--radius-md);padding:12px;margin-bottom:12px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <div style="font-size:12px;color:var(--muted);">Username</div>
+              <div style="font-size:14px;font-weight:600;color:var(--fg);font-family:var(--font-mono);">budi.s_01</div>
+            </div>
+            <div>
+              <div style="font-size:12px;color:var(--muted);">Tipe Koneksi</div>
+              <div style="font-size:14px;font-weight:600;color:var(--fg);">PPPoE</div>
+            </div>
+            <div>
+              <div style="font-size:12px;color:var(--muted);">Kecepatan</div>
+              <div style="font-size:14px;font-weight:600;color:var(--fg);">30 / 10 Mbps</div>
+            </div>
+            <div>
+              <div style="font-size:12px;color:var(--muted);">Kuota</div>
+              <div style="font-size:14px;font-weight:600;color:var(--fg);">Unlimited</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid var(--border);">
+          <div>
+            <div style="font-size:12px;color:var(--muted);">Tagihan bulanan</div>
+            <div style="font-size:20px;font-weight:700;color:var(--fg);font-variant-numeric:tabular-nums;">Rp 350.000</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:12px;color:var(--muted);">Tagih berikutnya</div>
+            <div style="font-size:14px;font-weight:600;color:var(--fg);">1 Juli 2026</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">Detail Pelanggan</div>
+
+      <div class="card">
+        <div class="info-row">
+          <span class="info-label">ID Pelanggan</span>
+          <span class="info-value font-mono">CS-00482</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Terdaftar sejak</span>
+          <span class="info-value">15 Oktober 2024</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Area</span>
+          <span class="info-value">RT 03 / RW 05, Kel. Sukamaju</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Alamat Pemasangan</span>
+          <span class="info-value" style="max-width:200px;">Jl. Melati No. 12, Blok C</span>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;padding:12px 16px;background:var(--info-bg);border-radius:var(--radius-md);font-size:13px;color:var(--fg-secondary);display:flex;gap:8px;align-items:flex-start;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--info-fg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+        Untuk perubahan paket atau alamat, silakan hubungi admin Rosmon di kantor atau via WhatsApp.
+      </div>
+
+    </main>
+
+    <nav class="tab-bar">
+      <a href="home.html" class="tab-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span>Beranda</span>
+      </a>
+      <a href="invoices.html" class="tab-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="4" width="20" height="16" rx="2"/>
+          <path d="M12 9v4M8 13h8"/>
+        </svg>
+        <span>Tagihan</span>
+        <span class="tab-badge">2</span>
+      </a>
+      <a href="subscription.html" class="tab-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+          <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+          <circle cx="12" cy="20" r="1"/>
+        </svg>
+        <span>Langganan</span>
+      </a>
+      <a href="profile.html" class="tab-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+        <span>Akun</span>
+      </a>
+    </nav>
+
+  </div>
+
+  <script>
+    try {
+      if (localStorage.getItem('rosmon:dark') === '1') {
+        document.documentElement.classList.add('dark');
+      }
+    } catch(_) {}
+  </script>
+</body>
+</html>

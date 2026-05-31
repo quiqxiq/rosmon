@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Detail Tagihan — Rosmon</title>
+  <link rel="stylesheet" href="css/rosmon.css" />
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+
+    <header class="app-header">
+      <a href="invoices.html" class="header-back" aria-label="Kembali">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </a>
+      <span class="header-title">Detail Tagihan</span>
+    </header>
+
+    <main class="app-content no-tab">
+
+      <div class="card mb-4">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+          <div>
+            <div style="font-size:13px;color:var(--muted);font-family:var(--font-mono);">INV-2026-0061</div>
+            <div style="font-size:15px;font-weight:500;color:var(--fg);margin-top:2px;">Periode Mei 2026</div>
+          </div>
+          <span class="badge badge-danger">Terlambat</span>
+        </div>
+        <div style="padding-top:12px;border-top:1px solid var(--border);">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:4px;">Total Tagihan</div>
+          <div style="font-size:32px;font-weight:800;color:var(--fg);font-variant-numeric:tabular-nums;">Rp 350.000</div>
+        </div>
+        <div style="margin-top:12px;display:flex;justify-content:space-between;font-size:13px;">
+          <span style="color:var(--muted);">Jatuh tempo</span>
+          <span style="color:oklch(50% 0.18 25);font-weight:600;">5 Mei 2026 (terlambat)</span>
+        </div>
+      </div>
+
+      <div class="section-title">Kode Pembayaran</div>
+
+      <div class="qr-card mb-4">
+        <div class="qr-wrapper">
+          <canvas id="qrCanvas"></canvas>
+        </div>
+        <div class="payment-code" id="paymentCode">ABC2 3XYZ 90</div>
+        <button class="copy-btn" id="copyBtn" onclick="copyCode()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          <span id="copyLabel">Salin Kode</span>
+        </button>
+        <div class="qr-instruction">
+          Tunjukkan QR atau sebutkan kode ini ke petugas saat membayar tunai. Pembayaran akan otomatis tercatat setelah petugas memindai.
+        </div>
+      </div>
+
+      <div class="section-title" style="display:flex;align-items:center;gap:8px;">
+        Atau Bayar Online
+        <span class="online-badge">Baru</span>
+      </div>
+
+      <a href="payment.html" class="btn btn-primary btn-full mb-4" style="gap:10px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+          <line x1="1" y1="10" x2="23" y2="10"/>
+        </svg>
+        Bayar Online Sekarang
+      </a>
+
+      <div class="card" style="background:var(--info-bg);border-color:var(--border);">
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--info-fg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:2px;">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+          <div style="font-size:13px;color:var(--fg-secondary);line-height:1.6;">
+            Bayar tunai: tunjukkan QR/kode ke petugas. Bayar online: pakai VA, e-wallet, atau QRIS langsung dari aplikasi.
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <div class="toast toast-success" id="toast">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success-fg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+    <span>Kode berhasil disalin</span>
+  </div>
+
+  <script>
+    (function() {
+      try {
+        if (localStorage.getItem('rosmon:dark') === '1') {
+          document.documentElement.classList.add('dark');
+        }
+      } catch(_) {}
+
+      var qrContent = 'rosmon-pay:ABC23XYZ90';
+      var canvas = document.getElementById('qrCanvas');
+
+      if (typeof QRCode !== 'undefined') {
+        QRCode.toCanvas(canvas, qrContent, {
+          width: 200,
+          margin: 0,
+          color: { dark: '#1c1b1a', light: '#ffffff' }
+        });
+      } else {
+        canvas.width = 200;
+        canvas.height = 200;
+        var ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(0, 0, 200, 200);
+        ctx.fillStyle = '#999';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('QR Code', 100, 100);
+      }
+    })();
+
+    function copyCode() {
+      var code = 'ABC2 3XYZ 90';
+      var btn = document.getElementById('copyBtn');
+      var label = document.getElementById('copyLabel');
+
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(code.replace(/\s/g, ''));
+      }
+
+      btn.classList.add('copied');
+      label.textContent = 'Tersalin!';
+
+      var toast = document.getElementById('toast');
+      toast.classList.add('show');
+
+      setTimeout(function() {
+        btn.classList.remove('copied');
+        label.textContent = 'Salin Kode';
+        toast.classList.remove('show');
+      }, 2000);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Tagihan — Rosmon</title>
+  <link rel="stylesheet" href="css/rosmon.css" />
+</head>
+<body>
+  <div class="app-shell">
+
+    <header class="app-header">
+      <span class="header-title">Tagihan</span>
+    </header>
+
+    <main class="app-content">
+
+      <div class="chip-group mb-4" id="filterChips">
+        <button class="chip active" data-filter="all">Semua</button>
+        <button class="chip" data-filter="unpaid">Belum Bayar</button>
+        <button class="chip" data-filter="paid">Lunas</button>
+      </div>
+
+      <div id="invoiceList">
+
+        <a href="invoice-detail.html" class="invoice-card overdue" data-status="unpaid">
+          <div class="invoice-header">
+            <span class="invoice-number">INV-2026-0061</span>
+            <span class="badge badge-danger">Terlambat</span>
+          </div>
+          <div class="invoice-amount">Rp 350.000</div>
+          <div class="invoice-meta">
+            <span>Periode Mei 2026</span>
+            <span>Jatuh tempo: 5 Mei 2026</span>
+          </div>
+        </a>
+
+        <a href="invoice-detail.html?id=2" class="invoice-card unpaid" data-status="unpaid">
+          <div class="invoice-header">
+            <span class="invoice-number">INV-2026-0062</span>
+            <span class="badge badge-warning">Belum Bayar</span>
+          </div>
+          <div class="invoice-amount">Rp 350.000</div>
+          <div class="invoice-meta">
+            <span>Periode Juni 2026</span>
+            <span>Jatuh tempo: 5 Jul 2026</span>
+          </div>
+        </a>
+
+        <a href="invoice-detail.html?id=3" class="invoice-card paid" data-status="paid">
+          <div class="invoice-header">
+            <span class="invoice-number">INV-2026-0045</span>
+            <span class="badge badge-success">Lunas</span>
+          </div>
+          <div class="invoice-amount" style="text-decoration:line-through;opacity:0.6;">Rp 350.000</div>
+          <div class="invoice-meta">
+            <span>Periode April 2026</span>
+            <span>Dibayar: 2 Apr 2026</span>
+          </div>
+        </a>
+
+        <a href="invoice-detail.html?id=4" class="invoice-card paid" data-status="paid">
+          <div class="invoice-header">
+            <span class="invoice-number">INV-2026-0032</span>
+            <span class="badge badge-success">Lunas</span>
+          </div>
+          <div class="invoice-amount" style="text-decoration:line-through;opacity:0.6;">Rp 350.000</div>
+          <div class="invoice-meta">
+            <span>Periode Maret 2026</span>
+            <span>Dibayar: 3 Mar 2026</span>
+          </div>
+        </a>
+
+        <a href="invoice-detail.html?id=5" class="invoice-card paid" data-status="paid">
+          <div class="invoice-header">
+            <span class="invoice-number">INV-2026-0019</span>
+            <span class="badge badge-success">Lunas</span>
+          </div>
+          <div class="invoice-amount" style="text-decoration:line-through;opacity:0.6;">Rp 350.000</div>
+          <div class="invoice-meta">
+            <span>Periode Februari 2026</span>
+            <span>Dibayar: 4 Feb 2026</span>
+          </div>
+        </a>
+
+      </div>
+
+      <div id="emptyState" class="empty-state" style="display:none;">
+        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="4" width="20" height="16" rx="2"/>
+          <path d="M12 9v4M8 13h8"/>
+        </svg>
+        <div class="empty-title">Tidak ada tagihan</div>
+        <div class="empty-desc">Semua tagihan Anda sudah lunas</div>
+      </div>
+
+    </main>
+
+    <nav class="tab-bar">
+      <a href="home.html" class="tab-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span>Beranda</span>
+      </a>
+      <a href="invoices.html" class="tab-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="4" width="20" height="16" rx="2"/>
+          <path d="M12 9v4M8 13h8"/>
+        </svg>
+        <span>Tagihan</span>
+        <span class="tab-badge">2</span>
+      </a>
+      <a href="subscription.html" class="tab-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+          <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+          <circle cx="12" cy="20" r="1"/>
+        </svg>
+        <span>Langganan</span>
+      </a>
+      <a href="profile.html" class="tab-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+        <span>Akun</span>
+      </a>
+    </nav>
+
+  </div>
+
+  <script>
+    (function() {
+      try {
+        if (localStorage.getItem('rosmon:dark') === '1') {
+          document.documentElement.classList.add('dark');
+        }
+      } catch(_) {}
+
+      var chips = document.querySelectorAll('.chip');
+      var cards = document.querySelectorAll('.invoice-card');
+      var emptyState = document.getElementById('emptyState');
+
+      chips.forEach(function(chip) {
+        chip.addEventListener('click', function() {
+          chips.forEach(function(c) { c.classList.remove('active'); });
+          chip.classList.add('active');
+
+          var filter = chip.getAttribute('data-filter');
+          var visibleCount = 0;
+
+          cards.forEach(function(card) {
+            var status = card.getAttribute('data-status');
+            var show = filter === 'all' || status === filter;
+            card.style.display = show ? 'block' : 'none';
+            if (show) visibleCount++;
+          });
+
+          emptyState.style.display = visibleCount === 0 ? 'block' : 'none';
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

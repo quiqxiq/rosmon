@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Dukungan — Rosmon</title>
+  <link rel="stylesheet" href="css/rosmon.css" />
+</head>
+<body>
+  <div class="app-shell">
+
+    <header class="app-header">
+      <a href="home.html" class="header-back" aria-label="Kembali">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </a>
+      <span class="header-title">Pusat Dukungan</span>
+    </header>
+
+    <main class="app-content no-tab">
+
+      <div class="chip-group mb-4" id="filterChips">
+        <button class="chip active" data-filter="all">Semua</button>
+        <button class="chip" data-filter="open">Terbuka</button>
+        <button class="chip" data-filter="resolved">Selesai</button>
+      </div>
+
+      <div id="ticketList">
+
+        <a href="ticket-detail.html" class="ticket-card" data-status="open">
+          <div class="ticket-header">
+            <span class="ticket-id">TKT-2026-0042</span>
+            <span class="badge badge-warning">Menunggu</span>
+          </div>
+          <div class="ticket-title">Internet lambat sejak kemarin sore</div>
+          <div class="ticket-preview">Kecepatan turun drastis dari 30 Mbps jadi di bawah 5 Mbps sejak kemarin sore sekitar jam 4...</div>
+          <div class="ticket-footer">
+            <span>30 Mei 2026</span>
+            <span>2 balasan</span>
+          </div>
+        </a>
+
+        <a href="ticket-detail.html?id=2" class="ticket-card" data-status="open">
+          <div class="ticket-header">
+            <span class="ticket-id">TKT-2026-0038</span>
+            <span class="badge badge-info">Diproses</span>
+          </div>
+          <div class="ticket-title">Request pindah titik pasang</div>
+          <div class="ticket-preview">Saya renovasi rumah dan ingin memindahkan router ke lantai 2. Apakah bisa dijadwalkan teknisi?</div>
+          <div class="ticket-footer">
+            <span>25 Mei 2026</span>
+            <span>4 balasan</span>
+          </div>
+        </a>
+
+        <a href="ticket-detail.html?id=3" class="ticket-card" data-status="resolved">
+          <div class="ticket-header">
+            <span class="ticket-id">TKT-2026-0021</span>
+            <span class="badge badge-success">Selesai</span>
+          </div>
+          <div class="ticket-title">Tidak bisa connect setelah hujan</div>
+          <div class="ticket-preview">Setelah hujan deras, koneksi putus total. Lampu modem LOS merah berkedip.</div>
+          <div class="ticket-footer">
+            <span>12 Mei 2026</span>
+            <span>6 balasan</span>
+          </div>
+        </a>
+
+      </div>
+
+      <div id="emptyState" class="empty-state" style="display:none;">
+        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        <div class="empty-title">Belum ada tiket</div>
+        <div class="empty-desc">Buat tiket baru jika butuh bantuan</div>
+      </div>
+
+    </main>
+
+    <button class="fab" id="openNewTicket" aria-label="Buat tiket baru">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+    </button>
+
+  </div>
+
+  <div class="drawer-overlay" id="drawerOverlay"></div>
+  <div class="drawer" id="newTicketDrawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-header">
+      <h3>Buat Tiket Baru</h3>
+      <button class="drawer-close" id="closeDrawer" aria-label="Tutup">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="drawer-body">
+      <form id="newTicketForm" style="display:flex;flex-direction:column;gap:14px;">
+        <div class="input-group">
+          <label class="input-label" for="ticketCategory">Kategori</label>
+          <select class="input-field" id="ticketCategory" required>
+            <option value="">Pilih kategori</option>
+            <option value="koneksi">Koneksi / Internet Lambat</option>
+            <option value="gangguan">Gangguan / Putus</option>
+            <option value="billing">Tagihan / Pembayaran</option>
+            <option value="teknis">Teknis / Perangkat</option>
+            <option value="lainnya">Lainnya</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label class="input-label" for="ticketTitle">Judul Masalah</label>
+          <input class="input-field" type="text" id="ticketTitle" placeholder="Ringkasan singkat masalah Anda" required />
+        </div>
+        <div class="input-group">
+          <label class="input-label" for="ticketDesc">Deskripsi</label>
+          <textarea class="input-field" id="ticketDesc" rows="4" placeholder="Ceritakan detail masalahnya..." style="resize:none;min-height:100px;" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full" id="submitTicketBtn" style="margin-top:8px;">
+          Kirim Tiket
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast toast-success" id="toast">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success-fg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+    <span>Tiket berhasil dikirim</span>
+  </div>
+
+  <script>
+    (function() {
+      try {
+        if (localStorage.getItem('rosmon:dark') === '1') {
+          document.documentElement.classList.add('dark');
+        }
+      } catch(_) {}
+
+      var chips = document.querySelectorAll('.chip');
+      var cards = document.querySelectorAll('.ticket-card');
+      var emptyState = document.getElementById('emptyState');
+
+      chips.forEach(function(chip) {
+        chip.addEventListener('click', function() {
+          chips.forEach(function(c) { c.classList.remove('active'); });
+          chip.classList.add('active');
+          var filter = chip.getAttribute('data-filter');
+          var visibleCount = 0;
+          cards.forEach(function(card) {
+            var status = card.getAttribute('data-status');
+            var show = filter === 'all' || status === filter;
+            card.style.display = show ? 'block' : 'none';
+            if (show) visibleCount++;
+          });
+          emptyState.style.display = visibleCount === 0 ? 'block' : 'none';
+        });
+      });
+
+      var overlay = document.getElementById('drawerOverlay');
+      var drawer = document.getElementById('newTicketDrawer');
+      var openBtn = document.getElementById('openNewTicket');
+      var closeBtn = document.getElementById('closeDrawer');
+      var form = document.getElementById('newTicketForm');
+      var toast = document.getElementById('toast');
+      var submitBtn = document.getElementById('submitTicketBtn');
+
+      openBtn.addEventListener('click', function() {
+        overlay.classList.add('open');
+        drawer.classList.add('open');
+      });
+
+      closeBtn.addEventListener('click', closeDrawerFn);
+      overlay.addEventListener('click', closeDrawerFn);
+
+      function closeDrawerFn() {
+        overlay.classList.remove('open');
+        drawer.classList.remove('open');
+        form.reset();
+      }
+
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        submitBtn.classList.add('btn-loading');
+        submitBtn.disabled = true;
+        setTimeout(function() {
+          submitBtn.classList.remove('btn-loading');
+          submitBtn.disabled = false;
+          closeDrawerFn();
+          toast.classList.add('show');
+          setTimeout(function() { toast.classList.remove('show'); }, 2500);
+        }, 1200);
+      });
+    })();
+  </script>
+</body>
+</html>

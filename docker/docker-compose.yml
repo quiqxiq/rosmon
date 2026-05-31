@@ -20,20 +20,26 @@ services:
   influxdb3:
     image: quay.io/influxdb/influxdb3-core:latest
     container_name: rosmon-influx
+    # Dev mode: --without-auth → tidak butuh token (INFLUX_TOKEN bisa kosong).
+    # Untuk produksi dengan auth: jalankan 'make influx-token', lalu ganti
+    # --without-auth dengan --admin-token-file /influxdb3/admin.token dan tambah
+    # volume bind mount file tokennya.
     command:
       - serve
       - --node-id=node0
       - --object-store=file
       - --data-dir=/var/lib/influxdb3
       - --http-bind=0.0.0.0:8181
+      - --without-auth
     ports:
       - "8181:8181"
     volumes:
       - influx_data:/var/lib/influxdb3
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8181/health"]
-      interval: 3s
-      timeout: 2s
+      # /ping tidak butuh auth — aman untuk healthcheck di semua mode.
+      test: ["CMD", "curl", "-fsS", "http://localhost:8181/ping"]
+      interval: 5s
+      timeout: 3s
       retries: 20
 
 volumes:
