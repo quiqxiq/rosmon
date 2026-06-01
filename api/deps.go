@@ -77,4 +77,10 @@ type Deps struct {
 	// script. Boleh kosong → webhook block di-skip (selling record
 	// di-bypass). Sumber: env GO_SERVICE_URL.
 	GoServiceURL string
+
+	// HookSharedSecret adalah nilai yang harus dikirim router via header
+	// X-Rosmon-Secret saat POST ke /hook/hotspot/login/:device_id.
+	// Kosong = tidak ada validasi (backward compat / dev mode).
+	// Sumber: env HOOK_SHARED_SECRET.
+	HookSharedSecret string
 }

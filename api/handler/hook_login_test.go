@@ -154,7 +154,7 @@ func setupHookLoginEngine(t *testing.T) (*gin.Engine, *fakeTxStore, *fakeProfile
 	}
 
 	g := r.Group("/api/v1")
-	handler.NewHookLogin(devStore, txStore, profStore, nil).Register(g)
+	handler.NewHookLogin(devStore, txStore, profStore, "", nil).Register(g)
 	return r, txStore, profStore
 }
 

@@ -9,7 +9,6 @@ import (
 	"github.com/quiqxiq/rosmon/service/billing"
 	"github.com/quiqxiq/rosmon/service/notification"
 	"github.com/quiqxiq/rosmon/store"
-	"github.com/quiqxiq/rosmon/store/model"
 	"github.com/sirupsen/logrus"
 )
 
@@ -75,7 +74,7 @@ func (j *BillingCronJob) Run(ctx context.Context) error {
 
 		// Advance next_invoice_date by 1 month.
 		next := sub.NextInvoiceDate.AddDate(0, 1, 0)
-		if err := j.SubStore.Update(ctx, &model.Subscription{ID: sub.ID, NextInvoiceDate: &next}); err != nil {
+		if err := j.SubStore.UpdateNextInvoiceDate(ctx, sub.ID, next); err != nil {
 			j.Log.WithError(err).WithField("subscription_id", sub.ID).Warn("billing_cron: update next_invoice_date failed")
 		}
 

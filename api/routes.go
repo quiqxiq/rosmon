@@ -25,11 +25,11 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 	// ── Public webhook (router on-login) ──────────────────────────────────
 	// PENTING: register SEBELUM auth chain di-pasang. Endpoint ini tidak
 	// butuh JWT karena dipanggil oleh /tool/fetch dari MikroTik router.
-	// MVP: tidak ada IP whitelist / shared secret — wajib di-add sebelum
-	// deploy ke production.
+	// Webhook dari MikroTik on-login. Tidak pakai JWT. Jika HOOK_SHARED_SECRET
+	// di-set di env, request harus menyertakan header X-Rosmon-Secret yang cocok.
 	if deps.TxStore != nil && deps.ProfileStore != nil && deps.DeviceStore != nil {
 		hookGroup := g.Group("")
-		handler.NewHookLogin(deps.DeviceStore, deps.TxStore, deps.ProfileStore, deps.Logger).
+		handler.NewHookLogin(deps.DeviceStore, deps.TxStore, deps.ProfileStore, deps.HookSharedSecret, deps.Logger).
 			Register(hookGroup)
 	}
 
@@ -184,7 +184,7 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		ch.PortalAuth = deps.PortalAuth
 		ch.Audit = deps.AuditLogStore
 		ch.Register(bizScope)
-		// set-portal-password = admin+operator.
+		// set-portal-password + DELETE /customers/:id = admin+operator.
 		adminOp := g.Group("")
 		for _, mw := range authChain {
 			adminOp.Use(mw)
@@ -193,6 +193,7 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 			adminOp.Use(middleware.RequireRole(roleAdmin, roleOperator))
 		}
 		ch.RegisterAdmin(adminOp)
+		ch.RegisterMutate(adminOp)
 	}
 	if deps.SubscriptionStore != nil && deps.CustomerStore != nil {
 		subScope := g.Group("")
@@ -215,11 +216,22 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		handler.NewSettings(deps.SettingStore).Register(bizAuth)
 	}
 	if deps.InvoiceStore != nil && deps.SequenceStore != nil {
-		bizAuth := g.Group("")
+		// GET /invoices, GET /invoices/:id — semua authenticated user.
+		invRead := g.Group("")
 		for _, mw := range authChain {
-			bizAuth.Use(mw)
+			invRead.Use(mw)
 		}
-		handler.NewInvoices(deps.InvoiceStore, deps.SequenceStore).Register(bizAuth)
+		h := handler.NewInvoices(deps.InvoiceStore, deps.SequenceStore)
+		h.RegisterRead(invRead)
+		// POST /invoices/generate, POST /invoices/:id/cancel — admin+operator saja.
+		invWrite := g.Group("")
+		for _, mw := range authChain {
+			invWrite.Use(mw)
+		}
+		if deps.AuthSigner != nil {
+			invWrite.Use(middleware.RequireRole(roleAdmin, roleOperator))
+		}
+		h.RegisterWrite(invWrite)
 	}
 	if deps.PaymentStore != nil && deps.InvoiceStore != nil {
 		bizAuth := g.Group("")

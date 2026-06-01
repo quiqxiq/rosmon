@@ -39,6 +39,7 @@ type SubscriptionCreateRequest struct {
 	ServiceType      string `json:"service_type"       binding:"required,oneof=pppoe hotspot"`
 	MikrotikUsername string `json:"mikrotik_username"  binding:"required,min=1,max=100"`
 	MikrotikPassword string `json:"mikrotik_password"  binding:"required,min=1,max=200"`
+	BillingDay       *int   `json:"billing_day"        binding:"omitempty,gte=1,lte=28"`
 	Notes            string `json:"notes"              binding:"max=2000"`
 }
 

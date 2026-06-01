@@ -143,8 +143,11 @@ func (h *Subscriptions) Create(c *gin.Context) {
 		ServiceType:      req.ServiceType,
 		MikrotikUsername: req.MikrotikUsername,
 		MikrotikPassword: req.MikrotikPassword,
+		BillingDay:       req.BillingDay,
 		Notes:            req.Notes,
 		Status:           "pending_install",
+		// pending_create: outbox akan retry push ke router jika router offline saat create.
+		SyncStatus: "pending_create",
 	}
 	if err := h.Store.Create(c.Request.Context(), sub); err != nil {
 		if errors.Is(err, store.ErrSubscriptionUsernameTaken) {
@@ -162,11 +165,13 @@ func (h *Subscriptions) Create(c *gin.Context) {
 	warning := h.tryProvisionOnRouter(c, *sub, profileName, false)
 	if warning == "" {
 		// Sync sukses → naikkan status ke active otomatis dan set activated_at.
+		// Juga update SyncStatus ke synced karena sudah berhasil.
 		now := time.Now()
 		if err := h.Store.UpdateStatus(c.Request.Context(), sub.ID, "active", &now, nil); err == nil {
 			sub.Status = "active"
 			sub.ActivatedAt = &now
 		}
+		_ = h.Store.UpdateSyncStatus(c.Request.Context(), sub.ID, "synced", "")
 	}
 
 	c.JSON(http.StatusCreated, dto.OK(dto.SubscriptionWriteResponse{

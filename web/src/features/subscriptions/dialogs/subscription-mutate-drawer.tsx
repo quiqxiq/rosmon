@@ -56,6 +56,7 @@ const baseSchema = z.object({
   profile_id: z.string(),
   mikrotik_username: z.string(),
   mikrotik_password: z.string(),
+  billing_day: z.string(),
   notes: z.string(),
 })
 
@@ -78,6 +79,7 @@ function defaultValues(target?: Subscription | null): SubscriptionFormValues {
       : '',
     mikrotik_username: target?.mikrotik_username ?? '',
     mikrotik_password: '',
+    billing_day: target?.billing_day ? String(target.billing_day) : '',
     notes: target?.notes ?? '',
   }
 }
@@ -154,6 +156,7 @@ function SubscriptionForm({ mode, target, onClose }: SubscriptionFormProps) {
         service_type: values.service_type,
         mikrotik_username: values.mikrotik_username.trim(),
         mikrotik_password: values.mikrotik_password,
+        billing_day: values.billing_day ? Number(values.billing_day) : undefined,
         notes: values.notes.trim() || undefined,
         ...(values.service_type === 'pppoe'
           ? { ppp_profile_id: profileId }
@@ -382,6 +385,34 @@ function SubscriptionForm({ mode, target, onClose }: SubscriptionFormProps) {
               )}
             />
           </div>
+
+          {/* Billing Day — hanya saat create */}
+          {!isEdit && (
+            <FormField
+              control={form.control}
+              name='billing_day'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Tanggal Tagih
+                    <span className='ml-1 text-muted-foreground text-xs'>
+                      (1–28, opsional)
+                    </span>
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      type='number'
+                      min={1}
+                      max={28}
+                      placeholder='Kosong = default global'
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
 
           {/* Notes */}
           <FormField

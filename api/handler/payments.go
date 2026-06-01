@@ -136,6 +136,13 @@ func (h *Payments) Create(c *gin.Context) {
 		BankName:        req.BankName,
 		Status:          "pending",
 	}
+	// Validasi CustomerID harus cocok dengan invoice.CustomerID untuk mencegah
+	// korupsi data (staff tidak bisa set customer_id yang salah untuk invoice milik customer lain).
+	if inv.CustomerID != 0 && req.CustomerID != inv.CustomerID {
+		c.AbortWithStatusJSON(http.StatusBadRequest,
+			dto.Err("INVALID_ARGUMENT", "customer_id tidak sesuai dengan customer invoice", c.Request.URL.Path))
+		return
+	}
 	if err := h.Store.Create(c.Request.Context(), p); err != nil {
 		WriteErr(c, err)
 		return
@@ -304,12 +311,14 @@ func (h *Payments) applySettlement(ctx context.Context, p *model.Payment) {
 		if sub, subErr := h.SubStore.Get(ctx, inv.SubscriptionID); subErr == nil {
 			switch sub.Status {
 			case "isolir":
-				_ = h.SubStore.UpdateSyncStatus(ctx, sub.ID, "pending_profile_change", "payment settled — restore profile")
+				// Penting: UpdateStatus DULU sebelum UpdateSyncStatus agar outbox
+				// membaca status 'active' yang benar saat memproses pending_profile_change.
 				_ = h.SubStore.UpdateStatus(ctx, sub.ID, "active", nil, nil)
+				_ = h.SubStore.UpdateSyncStatus(ctx, sub.ID, "pending_profile_change", "payment settled — restore profile")
 				restored = true
 			case "suspended":
-				_ = h.SubStore.UpdateSyncStatus(ctx, sub.ID, "pending_enable", "payment settled — re-enable")
 				_ = h.SubStore.UpdateStatus(ctx, sub.ID, "active", nil, nil)
+				_ = h.SubStore.UpdateSyncStatus(ctx, sub.ID, "pending_enable", "payment settled — re-enable")
 				restored = true
 			}
 		}

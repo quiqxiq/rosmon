@@ -120,7 +120,7 @@ func (s *gormInvoiceStore) ListDueForBilling(ctx context.Context, date time.Time
 func (s *gormInvoiceStore) ListOverdue(ctx context.Context, cutoff time.Time) ([]model.Invoice, error) {
 	var out []model.Invoice
 	err := s.db.WithContext(ctx).
-		Where("due_date < ? AND status = ?", cutoff, "issued").
+		Where("due_date < ? AND status IN ?", cutoff, []string{"issued", "overdue"}).
 		Find(&out).Error
 	return out, err
 }

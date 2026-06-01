@@ -100,7 +100,18 @@ func (h *CustomerPortal) SubscriptionStatus(c *gin.Context) {
 		return
 	}
 	sub, err := h.Subs.Get(c.Request.Context(), id)
-	if err != nil || sub.CustomerID != cid {
+	if err != nil {
+		if errors.Is(err, store.ErrSubscriptionNotFound) {
+			c.AbortWithStatusJSON(http.StatusNotFound,
+				dto.Err("NOT_FOUND", "subscription not found", c.Request.URL.Path))
+			return
+		}
+		// DB error — jangan expose sebagai 404, ini bisa menyembunyikan masalah serius
+		WriteErr(c, err)
+		return
+	}
+	// Ownership check — customer hanya bisa lihat subscriptionnya sendiri (anti-IDOR).
+	if sub.CustomerID != cid {
 		c.AbortWithStatusJSON(http.StatusNotFound,
 			dto.Err("NOT_FOUND", "subscription not found", c.Request.URL.Path))
 		return

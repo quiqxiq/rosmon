@@ -21,6 +21,11 @@ export const SubscriptionSchema = z.object({
   sync_status: z.string(),
   sync_notes: z.string().optional(),
   notes: z.string(),
+  // Anniversary billing
+  billing_day: z.number().nullable().optional(),
+  next_invoice_date: z.string().nullable().optional(),
+  activated_at: z.string().nullable().optional(),
+  terminated_at: z.string().nullable().optional(),
   created_at: z.string(),
   updated_at: z.string(),
 })
@@ -34,6 +39,8 @@ export type SubscriptionCreateInput = {
   service_type: ServiceType
   mikrotik_username: string
   mikrotik_password: string
+  /** Tanggal billing per bulan (1–28). Null = fallback ke setting global. */
+  billing_day?: number
   notes?: string
 }
 

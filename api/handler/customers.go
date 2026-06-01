@@ -33,6 +33,11 @@ func (h *Customers) Register(g *gin.RouterGroup) {
 	r.POST("", h.Create)
 	r.GET("/:id", h.Get)
 	r.PUT("/:id", h.Update)
+}
+
+// RegisterMutate mount endpoint yang butuh admin/operator: DELETE /customers/:id.
+func (h *Customers) RegisterMutate(g *gin.RouterGroup) {
+	r := g.Group("/customers")
 	r.DELETE("/:id", h.Delete)
 }
 

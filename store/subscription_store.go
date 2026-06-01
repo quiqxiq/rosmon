@@ -8,6 +8,7 @@ import (
 
 	"github.com/quiqxiq/rosmon/store/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var (
@@ -34,6 +35,9 @@ type SubscriptionStore interface {
 	// ListPendingSync returns rows where sync_status != 'synced', up to limit,
 	// using FOR UPDATE SKIP LOCKED to avoid double-processing by concurrent workers.
 	ListPendingSync(ctx context.Context, limit int) ([]model.Subscription, error)
+	// UpdateNextInvoiceDate performs a targeted single-column update — dipakai
+	// billing_cron untuk menghindari Save partial yang menimpa field lain.
+	UpdateNextInvoiceDate(ctx context.Context, id uint, next time.Time) error
 	Delete(ctx context.Context, id uint) error
 }
 
@@ -172,15 +176,32 @@ func (s *gormSubscriptionStore) UpdateSyncStatus(ctx context.Context, id uint, s
 
 func (s *gormSubscriptionStore) ListPendingSync(ctx context.Context, limit int) ([]model.Subscription, error) {
 	var out []model.Subscription
+	// Gunakan clause.Locking (GORM v2) — Set("gorm:query_option") adalah API GORM v1 dan diabaikan.
+	// Filter juga status='error' dari query: subscription yang gagal sync tidak di-retry
+	// otomatis oleh outbox — butuh reconcile manual oleh operator.
 	err := s.db.WithContext(ctx).
-		Where("sync_status != ?", "synced").
-		Set("gorm:query_option", "FOR UPDATE SKIP LOCKED").
+		Where("sync_status NOT IN ?", []string{"synced", "error"}).
+		Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
 		Limit(limit).
 		Find(&out).Error
 	if err != nil {
 		return nil, err
 	}
 	return decryptSubscriptions(out)
+}
+
+func (s *gormSubscriptionStore) UpdateNextInvoiceDate(ctx context.Context, id uint, next time.Time) error {
+	res := s.db.WithContext(ctx).Model(&model.Subscription{}).Where("id = ?", id).Updates(map[string]any{
+		"next_invoice_date": next,
+		"updated_at":        time.Now(),
+	})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrSubscriptionNotFound
+	}
+	return nil
 }
 
 func (s *gormSubscriptionStore) Delete(ctx context.Context, id uint) error {

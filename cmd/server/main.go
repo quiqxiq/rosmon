@@ -13,8 +13,8 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -68,14 +68,14 @@ func main() {
 	// Opsional tapi sangat direkomendasikan di production.
 	// Lihat .env.example untuk cara generate.
 	if keyHex := os.Getenv("DEVICE_PASSWORD_KEY"); keyHex != "" {
-		key := make([]byte, 0, 32)
-		if _, err := fmt.Sscanf(keyHex, "%x", &key); err == nil && len(key) == 32 {
+		key, hexErr := hex.DecodeString(keyHex)
+		if hexErr != nil || len(key) != 32 {
+			log.Warn("DEVICE_PASSWORD_KEY tidak valid — harus 64 hex chars (32 byte). Gunakan 'openssl rand -hex 32' untuk generate. Password device disimpan plaintext.")
+		} else {
 			if err := store.SetDeviceCryptoKey(key); err != nil {
 				log.WithError(err).Fatal("invalid DEVICE_PASSWORD_KEY")
 			}
 			log.Info("device password encryption enabled")
-		} else {
-			log.Warn("DEVICE_PASSWORD_KEY tidak valid — abaikan (password tidak terenkripsi). Gunakan 'openssl rand -hex 32' untuk generate.")
 		}
 	} else {
 		log.Warn("DEVICE_PASSWORD_KEY tidak di-set — password device disimpan plaintext")
@@ -260,6 +260,15 @@ func main() {
 		log.WithField("url", goServiceURL).Info("on-login webhook target")
 	}
 
+	// HOOK_SHARED_SECRET: secret untuk validasi webhook dari MikroTik router.
+	// Jika di-set, router harus mengirim header X-Rosmon-Secret dengan nilai ini.
+	hookSecret := strings.TrimSpace(os.Getenv("HOOK_SHARED_SECRET"))
+	if hookSecret == "" {
+		log.Warn("HOOK_SHARED_SECRET tidak di-set — webhook /hook/hotspot/login tidak tervalidasi (development mode)")
+	} else {
+		log.Info("hook shared secret configured")
+	}
+
 	// ── HTTP Server ───────────────────────────────────────────────────────
 	deps := &api.Deps{
 		Logger:            log,
@@ -294,6 +303,7 @@ func main() {
 		Hub:                 hub,
 		InfluxReader:        influxReader,
 		GoServiceURL:        goServiceURL,
+		HookSharedSecret:    hookSecret,
 	}
 
 	handler := api.NewServer(deps)

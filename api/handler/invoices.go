@@ -24,9 +24,20 @@ func NewInvoices(s store.InvoiceStore, seq store.SequenceStore) *Invoices {
 }
 
 func (h *Invoices) Register(g *gin.RouterGroup) {
+	h.RegisterRead(g)
+	h.RegisterWrite(g)
+}
+
+// RegisterRead mounts GET endpoints (accessible to all authenticated users).
+func (h *Invoices) RegisterRead(g *gin.RouterGroup) {
 	r := g.Group("/invoices")
 	r.GET("", h.List)
 	r.GET("/:id", h.Get)
+}
+
+// RegisterWrite mounts mutating endpoints (admin+operator only).
+func (h *Invoices) RegisterWrite(g *gin.RouterGroup) {
+	r := g.Group("/invoices")
 	r.POST("/generate", h.Generate)
 	r.POST("/:id/cancel", h.Cancel)
 }

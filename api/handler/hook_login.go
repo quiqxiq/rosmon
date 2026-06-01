@@ -24,22 +24,24 @@ const LoginEventComment = "login"
 
 // HookLogin meng-handle webhook fire-and-forget dari MikroTik on-login
 // script. Endpoint ini TIDAK pakai JWT auth (router tidak bisa pegang
-// token). Untuk MVP juga TIDAK pakai IP whitelist atau shared secret —
-// sangat tidak disarankan expose ke publik.
+// token). Keamanan via HOOK_SHARED_SECRET env — kalau di-set, setiap
+// request harus menyertakan header X-Rosmon-Secret dengan nilai yang cocok.
 //
 // Flow:
-//  1. Parse form-encoded body: user, mac, ip, profile.
-//  2. Validate device_id exists.
-//  3. Lookup profile_config (device_id, profile).
-//  4. Skip kalau mode tidak mencatat transaksi (rem/ntf/"0") → non_recording_mode.
-//  5. Dedup window-based: kalau sudah ada record (device_id, username, comment="login")
+//  1. Validasi shared secret (jika dikonfigurasi).
+//  2. Parse form-encoded body: user, mac, ip, profile.
+//  3. Validate device_id exists.
+//  4. Lookup profile_config (device_id, profile).
+//  5. Skip kalau mode tidak mencatat transaksi (rem/ntf/"0") → non_recording_mode.
+//  6. Dedup window-based: kalau sudah ada record (device_id, username, comment="login")
 //     dalam window validity terakhir → return 200 tanpa insert (re-login).
-//  6. Insert transaction baru → return 200.
+//  7. Insert transaction baru → return 200.
 type HookLogin struct {
-	DeviceStore  store.DeviceStore
-	TxStore      store.TransactionStore
-	ProfileStore store.HotspotProfileStore
-	Log          *logrus.Logger
+	DeviceStore      store.DeviceStore
+	TxStore          store.TransactionStore
+	ProfileStore     store.HotspotProfileStore
+	HookSharedSecret string // opsional — jika di-set, validasi X-Rosmon-Secret header
+	Log              *logrus.Logger
 }
 
 // NewHookLogin constructor.
@@ -47,16 +49,18 @@ func NewHookLogin(
 	devStore store.DeviceStore,
 	txStore store.TransactionStore,
 	profStore store.HotspotProfileStore,
+	hookSecret string,
 	log *logrus.Logger,
 ) *HookLogin {
 	if log == nil {
 		log = logrus.New()
 	}
 	return &HookLogin{
-		DeviceStore:  devStore,
-		TxStore:      txStore,
-		ProfileStore: profStore,
-		Log:          log,
+		DeviceStore:      devStore,
+		TxStore:          txStore,
+		ProfileStore:     profStore,
+		HookSharedSecret: hookSecret,
+		Log:              log,
 	}
 }
 
@@ -72,6 +76,15 @@ func (h *HookLogin) Register(g *gin.RouterGroup) {
 //
 // Fatal hanya untuk request yang malformed (bad device_id, missing user).
 func (h *HookLogin) Login(c *gin.Context) {
+	// Validasi shared secret jika dikonfigurasi.
+	if h.HookSharedSecret != "" {
+		header := c.GetHeader("X-Rosmon-Secret")
+		if header != h.HookSharedSecret {
+			c.AbortWithStatusJSON(http.StatusUnauthorized,
+				dto.Err("UNAUTHORIZED", "invalid hook secret", c.Request.URL.Path))
+			return
+		}
+	}
 	deviceIDRaw := c.Param("device_id")
 	deviceID64, err := strconv.ParseUint(deviceIDRaw, 10, 64)
 	if err != nil {

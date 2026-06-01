@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -64,6 +65,7 @@ func (h *Registrations) RegisterStaff(g *gin.RouterGroup) {
 	r.GET("/:id", h.Get)
 	r.POST("/:id/approve", h.Approve)
 	r.POST("/:id/reject", h.Reject)
+	r.POST("/:id/cancel", h.Cancel)
 	r.PUT("/:id/assign", h.Assign)
 	r.POST("/:id/complete-install", h.CompleteInstall)
 }
@@ -240,6 +242,47 @@ func (h *Registrations) Reject(c *gin.Context) {
 		"customer_name": reg.FullName,
 		"reason":        req.Reason,
 	})
+	WriteOK(c, dto.FromModelRegistration(reg))
+}
+
+// Cancel — POST /registrations/:id/cancel. Staff membatalkan registrasi yang
+// masih dalam tahap pending atau approved (belum complete-install).
+func (h *Registrations) Cancel(c *gin.Context) {
+	id, ok := parseRegID(c)
+	if !ok {
+		return
+	}
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	_ = c.ShouldBindJSON(&req) // body opsional
+
+	ctx := c.Request.Context()
+	reg, err := h.Store.Get(ctx, id)
+	if err != nil {
+		h.writeErr(c, err)
+		return
+	}
+	if reg.Status == "cancelled" || reg.Status == "completed" || reg.Status == "rejected" {
+		c.AbortWithStatusJSON(http.StatusConflict,
+			dto.Err("CONFLICT", fmt.Sprintf("registration cannot be cancelled (status: %s)", reg.Status), c.Request.URL.Path))
+		return
+	}
+
+	old := reg
+	now := time.Now()
+	reg.Status = "cancelled"
+	reg.RejectionReason = req.Reason
+	reg.ReviewedAt = &now
+	if claims, okC := middleware.ClaimsFrom(c); okC {
+		uid := claims.UserID
+		reg.ReviewedBy = &uid
+	}
+	if err := h.Store.Update(ctx, &reg); err != nil {
+		WriteErr(c, err)
+		return
+	}
+	h.audit(c, "cancel_registration", reg.ID, old, reg)
 	WriteOK(c, dto.FromModelRegistration(reg))
 }
 
