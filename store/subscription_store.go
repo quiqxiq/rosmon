@@ -149,6 +149,10 @@ func (s *gormSubscriptionStore) UpdateStatus(ctx context.Context, id uint, statu
 	if terminatedAt != nil {
 		updates["terminated_at"] = *terminatedAt
 	}
+	if status == "active" {
+		today := time.Now().Truncate(24 * time.Hour)
+		updates["next_invoice_date"] = gorm.Expr("COALESCE(next_invoice_date, ?)", today)
+	}
 	res := s.db.WithContext(ctx).Model(&model.Subscription{}).Where("id = ?", id).Updates(updates)
 	if res.Error != nil {
 		return res.Error

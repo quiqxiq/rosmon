@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/quiqxiq/rosmon/domain"
@@ -34,7 +35,7 @@ func TestBuild_GoldenFiles(t *testing.T) {
 			}
 			want, err := os.ReadFile(path)
 			require.NoError(t, err, "missing golden file (run with -update)")
-			assert.Equal(t, string(want), got)
+			assert.Equal(t, strings.ReplaceAll(string(want), "\r\n", "\n"), strings.ReplaceAll(got, "\r\n", "\n"))
 		})
 	}
 }

@@ -72,8 +72,21 @@ func (j *BillingCronJob) Run(ctx context.Context) error {
 		}
 		generated++
 
-		// Advance next_invoice_date by 1 month.
-		next := sub.NextInvoiceDate.AddDate(0, 1, 0)
+		// Advance next_invoice_date by 1 month, aligned to billing day.
+		billingDay := 1
+		if sub.BillingDay != nil {
+			billingDay = *sub.BillingDay
+		} else {
+			billingDay = j.settingInt(ctx, "billing.default_billing_day", 1)
+		}
+		if billingDay < 1 {
+			billingDay = 1
+		} else if billingDay > 28 {
+			billingDay = 28
+		}
+		nextMonth := sub.NextInvoiceDate.AddDate(0, 1, 0)
+		next := time.Date(nextMonth.Year(), nextMonth.Month(), billingDay, 0, 0, 0, 0, nextMonth.Location())
+
 		if err := j.SubStore.UpdateNextInvoiceDate(ctx, sub.ID, next); err != nil {
 			j.Log.WithError(err).WithField("subscription_id", sub.ID).Warn("billing_cron: update next_invoice_date failed")
 		}

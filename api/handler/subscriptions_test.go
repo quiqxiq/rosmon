@@ -148,6 +148,19 @@ func (f *fakeSubscriptionStore) ListPendingSync(_ context.Context, limit int) ([
 	return out, nil
 }
 
+func (f *fakeSubscriptionStore) UpdateNextInvoiceDate(_ context.Context, id uint, next time.Time) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	s, ok := f.rows[id]
+	if !ok {
+		return store.ErrSubscriptionNotFound
+	}
+	s.NextInvoiceDate = &next
+	s.UpdatedAt = time.Now()
+	f.rows[id] = s
+	return nil
+}
+
 var _ store.SubscriptionStore = (*fakeSubscriptionStore)(nil)
 
 // fakePPPProfileStore — in-memory implementasi store.PPPProfileStore.

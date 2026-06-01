@@ -385,13 +385,26 @@ func (h *Registrations) CompleteInstall(c *gin.Context) {
 			h.Log.WithError(bErr).WithField("subscription_id", sub.ID).Warn("complete-install: first invoice failed")
 		} else {
 			resp["invoice"] = dto.FromModelInvoice(*inv)
+
+			// Geser jadwal tagih berikutnya +1 bulan (periode ini sudah ditagih) dan sejajarkan dengan billing day.
+			billingDay := 1
+			if sub.BillingDay != nil {
+				billingDay = *sub.BillingDay
+			} else {
+				billingDay = h.settingInt(ctx, "billing.default_billing_day", 1)
+			}
+			if billingDay < 1 {
+				billingDay = 1
+			} else if billingDay > 28 {
+				billingDay = 28
+			}
+			nextMonth := today.AddDate(0, 1, 0)
+			next := time.Date(nextMonth.Year(), nextMonth.Month(), billingDay, 0, 0, 0, 0, nextMonth.Location())
+			sub.NextInvoiceDate = &next
+			if err := h.Subs.Update(ctx, sub); err != nil {
+				h.Log.WithError(err).WithField("subscription_id", sub.ID).Warn("complete-install: advance next_invoice_date failed")
+			}
 		}
-	}
-	// Geser jadwal tagih berikutnya +1 bulan (periode ini sudah ditagih).
-	next := today.AddDate(0, 1, 0)
-	sub.NextInvoiceDate = &next
-	if err := h.Subs.Update(ctx, sub); err != nil {
-		h.Log.WithError(err).WithField("subscription_id", sub.ID).Warn("complete-install: advance next_invoice_date failed")
 	}
 
 	old := reg
