@@ -49,6 +49,7 @@ import { Route as AuthenticatedVoucherSalesRouteImport } from './routes/_authent
 import { Route as AuthenticatedVoucherPrintRouteImport } from './routes/_authenticated/voucher/print'
 import { Route as AuthenticatedVoucherGenerateRouteImport } from './routes/_authenticated/voucher/generate'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings/notifications'
+import { Route as AuthenticatedSettingsPaymentGatewayRouteImport } from './routes/_authenticated/settings/payment-gateway'
 import { Route as AuthenticatedSettingsDisplayRouteImport } from './routes/_authenticated/settings/display'
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
@@ -288,6 +289,12 @@ const AuthenticatedSettingsNotificationsRoute =
   AuthenticatedSettingsNotificationsRouteImport.update({
     id: '/notifications',
     path: '/notifications',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsPaymentGatewayRoute =
+  AuthenticatedSettingsPaymentGatewayRouteImport.update({
+    id: '/payment-gateway',
+    path: '/payment-gateway',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 const AuthenticatedSettingsDisplayRoute =
@@ -593,6 +600,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/_authenticated/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/_authenticated/settings/payment-gateway': typeof AuthenticatedSettingsPaymentGatewayRoute
   '/_authenticated/voucher/generate': typeof AuthenticatedVoucherGenerateRoute
   '/_authenticated/voucher/print': typeof AuthenticatedVoucherPrintRoute
   '/_authenticated/voucher/sales': typeof AuthenticatedVoucherSalesRoute
@@ -788,6 +796,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/appearance'
     | '/_authenticated/settings/display'
     | '/_authenticated/settings/notifications'
+    | '/_authenticated/settings/payment-gateway'
     | '/_authenticated/voucher/generate'
     | '/_authenticated/voucher/print'
     | '/_authenticated/voucher/sales'
@@ -1119,6 +1128,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsNotificationsRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/settings/payment-gateway': {
+      id: '/_authenticated/settings/payment-gateway'
+      path: '/payment-gateway'
+      fullPath: '/settings/payment-gateway'
+      preLoaderRoute: typeof AuthenticatedSettingsPaymentGatewayRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
     '/_authenticated/settings/display': {
       id: '/_authenticated/settings/display'
       path: '/display'
@@ -1338,6 +1354,7 @@ interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsAppearanceRoute: typeof AuthenticatedSettingsAppearanceRoute
   AuthenticatedSettingsDisplayRoute: typeof AuthenticatedSettingsDisplayRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
+  AuthenticatedSettingsPaymentGatewayRoute: typeof AuthenticatedSettingsPaymentGatewayRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
 }
 
@@ -1348,6 +1365,8 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
     AuthenticatedSettingsDisplayRoute: AuthenticatedSettingsDisplayRoute,
     AuthenticatedSettingsNotificationsRoute:
       AuthenticatedSettingsNotificationsRoute,
+    AuthenticatedSettingsPaymentGatewayRoute:
+      AuthenticatedSettingsPaymentGatewayRoute,
     AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
   }
 

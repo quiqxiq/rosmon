@@ -74,11 +74,14 @@ func seedSystemSettings(db *gorm.DB) error {
 		{Key: "notification.admin_phone", Value: "", ValueType: "string", GroupName: "notification", Description: "Nomor WA admin untuk notifikasi internal (registrasi baru, dll)"},
 		{Key: "general.company_name", Value: "", ValueType: "string", GroupName: "general", Description: "Nama perusahaan ISP"},
 		// Payment gateway — Xendit.
-		// CATATAN: API secret key disimpan di env var XENDIT_SECRET_KEY (bukan di DB).
-		// Hanya flag non-secret yang disimpan di sini.
-		{Key: "payment.xendit_enabled", Value: "false", ValueType: "bool", GroupName: "payment", Description: "Aktifkan payment gateway Xendit (butuh XENDIT_SECRET_KEY di env)"},
-		{Key: "payment.xendit_invoice_duration", Value: "86400", ValueType: "int", GroupName: "payment", Description: "Durasi link pembayaran Xendit dalam detik (default: 86400 = 24 jam)"},
-		{Key: "payment.app_url", Value: "", ValueType: "string", GroupName: "payment", Description: "URL publik aplikasi untuk redirect setelah bayar (contoh: https://isp.example.com)"},
+		// Semua konfigurasi Xendit disimpan di DB agar bisa diubah dari UI Settings
+		// tanpa perlu restart server. secret_key di-mask di GET response (tidak pernah
+		// dikembalikan ke client dalam bentuk plaintext).
+		{Key: "payment.xendit_enabled", Value: "false", ValueType: "bool", GroupName: "payment_gateway", Description: "Aktifkan payment gateway Xendit"},
+		{Key: "payment.xendit_secret_key", Value: "", ValueType: "secret", GroupName: "payment_gateway", Description: "Xendit API Secret Key (xnd_production_... / xnd_development_...)"},
+		{Key: "payment.xendit_webhook_token", Value: "", ValueType: "secret", GroupName: "payment_gateway", Description: "Xendit X-CALLBACK-TOKEN untuk validasi webhook"},
+		{Key: "payment.xendit_invoice_duration", Value: "86400", ValueType: "int", GroupName: "payment_gateway", Description: "Durasi link pembayaran Xendit dalam detik (default: 86400 = 24 jam)"},
+		{Key: "payment.app_url", Value: "", ValueType: "string", GroupName: "payment_gateway", Description: "URL publik aplikasi untuk redirect setelah bayar (contoh: https://isp.example.com)"},
 	}
 	for _, s := range defaults {
 		s := s

@@ -270,27 +270,17 @@ func main() {
 		log.Info("hook shared secret configured")
 	}
 
-	// ── Payment Gateway — Xendit (Fase 4) ─────────────────────────────────
-	// Secret key dari env var XENDIT_SECRET_KEY (TIDAK dari DB).
-	// Jika tidak di-set, endpoint payment gateway di-skip (soft-disable).
-	var xenditSvc *paymentSvc.Service
-	if xenditKey := strings.TrimSpace(os.Getenv("XENDIT_SECRET_KEY")); xenditKey != "" {
-		xenditWebhookToken := strings.TrimSpace(os.Getenv("XENDIT_WEBHOOK_TOKEN"))
-		if xenditWebhookToken == "" {
-			log.Warn("XENDIT_WEBHOOK_TOKEN tidak di-set — webhook Xendit tidak tervalidasi (dev mode)")
-		}
-		xenditAdapter := paymentSvc.NewXenditAdapter(xenditKey, xenditWebhookToken, 0)
-		xenditSvc = paymentSvc.New(paymentSvc.Deps{
-			Gateway:   xenditAdapter,
-			Payments:  paymentStore,
-			Invoices:  invoiceStore,
-			Customers: customerStore,
-			Settings:  settingStore,
-		})
-		log.Info("xendit payment gateway enabled")
-	} else {
-		log.Info("XENDIT_SECRET_KEY tidak di-set — payment gateway Xendit dinonaktifkan")
-	}
+	// ── Payment Service (Fase 4) ────────────────────────────────────
+	// Konfigurasi Xendit (secret key, webhook token, dll) disimpan di system_settings
+	// dan dibaca per-request. Tidak perlu env var — semua bisa diubah dari UI Settings.
+	paymentService := paymentSvc.New(paymentSvc.Deps{
+		Payments:  paymentStore,
+		Invoices:  invoiceStore,
+		Customers: customerStore,
+		Settings:  settingStore,
+	})
+	log.Info("payment service ready (xendit config from system_settings)")
+
 
 	// ── HTTP Server ───────────────────────────────────────────────────────
 	deps := &api.Deps{
@@ -317,7 +307,7 @@ func main() {
 		NotificationService: notifSvc,
 		BillingService:      billingSvc,
 		PortalAuth:          portalAuth,
-		XenditGateway:       xenditSvc,
+		XenditGateway:       paymentService,
 		AuthService:         authSvc,
 		AuthSigner:          authSigner,
 		UserLimiter:         userLim,

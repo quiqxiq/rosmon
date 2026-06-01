@@ -71,7 +71,17 @@ func (h *XenditWebhook) Handle(c *gin.Context) {
 		return
 	}
 
-	// 2. Kumpulkan semua header (lowercase key) untuk verifikasi.
+	ctx := c.Request.Context()
+
+	// 2. Build adapter on-demand dari DB settings.
+	adapter, err := h.PaymentSvc.BuildGatewayForWebhook(ctx)
+	if err != nil {
+		h.Log.WithError(err).Warn("xendit webhook: gateway not configured")
+		c.JSON(http.StatusOK, gin.H{"status": "ignored", "message": "gateway not configured"})
+		return
+	}
+
+	// 3. Kumpulkan semua header (lowercase key) untuk verifikasi.
 	headers := make(map[string]string, len(c.Request.Header))
 	for k, v := range c.Request.Header {
 		if len(v) > 0 {
@@ -79,17 +89,15 @@ func (h *XenditWebhook) Handle(c *gin.Context) {
 		}
 	}
 
-	// 3. Verifikasi signature webhook.
-	if h.PaymentSvc != nil {
-		if verifyErr := h.PaymentSvc.VerifyWebhookSignature(rawBody, headers); verifyErr != nil {
-			h.Log.WithError(verifyErr).Warn("xendit webhook: signature invalid")
-			c.JSON(http.StatusUnauthorized, dto.Err("UNAUTHORIZED", "invalid callback token", c.Request.URL.Path))
-			return
-		}
+	// 4. Verifikasi signature webhook.
+	if verifyErr := adapter.VerifyWebhookSignature(rawBody, headers); verifyErr != nil {
+		h.Log.WithError(verifyErr).Warn("xendit webhook: signature invalid")
+		c.JSON(http.StatusUnauthorized, dto.Err("UNAUTHORIZED", "invalid callback token", c.Request.URL.Path))
+		return
 	}
 
-	// 4. Parse event.
-	evt, err := h.PaymentSvc.ParseWebhookEvent(rawBody)
+	// 5. Parse event.
+	evt, err := adapter.ParseWebhookEvent(rawBody)
 	if err != nil {
 		h.Log.WithError(err).Warn("xendit webhook: parse event failed")
 		c.JSON(http.StatusBadRequest, dto.Err("BAD_REQUEST", "cannot parse webhook event", c.Request.URL.Path))
@@ -102,9 +110,7 @@ func (h *XenditWebhook) Handle(c *gin.Context) {
 		"status":       evt.Status,
 	})
 
-	ctx := c.Request.Context()
-
-	// 5. Lookup payment berdasarkan ExternalRef.
+	// 6. Lookup payment berdasarkan ExternalRef.
 	p, err := h.Payments.GetByExternalRef(ctx, evt.GatewayName, evt.ExternalRef)
 	if err != nil {
 		if errors.Is(err, store.ErrPaymentNotFound) {
@@ -119,7 +125,7 @@ func (h *XenditWebhook) Handle(c *gin.Context) {
 		return
 	}
 
-	// 6. Idempotency: jika sudah confirmed, langsung OK.
+	// 7. Idempotency: jika sudah confirmed, langsung OK.
 	if p.Status == "confirmed" {
 		log.Info("xendit webhook: already confirmed, skip")
 		c.JSON(http.StatusOK, gin.H{"status": "already_confirmed"})

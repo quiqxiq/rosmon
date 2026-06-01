@@ -4,33 +4,28 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/quiqxiq/rosmon/store"
 	"github.com/quiqxiq/rosmon/store/model"
 )
 
-// Service mengorkestrasi inisiasi pembayaran online:
-//  1. Validasi invoice (belum dibayar, milik customer yang tepat).
-//  2. Buat Payment record di DB (status=pending, gateway=xendit).
-//  3. Panggil gateway.CreateInvoice() → dapatkan invoice_url.
-//  4. Update Payment record dengan ExternalRef dan InvoiceURL.
-//  5. Kembalikan InvoiceURL ke caller (handler → customer portal).
+// Service mengorkestrasi inisiasi pembayaran online.
 //
-// Settlement (mark invoice paid, restore subscription) dilakukan oleh
-// webhook handler setelah konfirmasi dari gateway.
+// Arsitektur DB-driven: secret key dan konfigurasi dibaca dari system_settings
+// per-request agar admin bisa mengubah konfigurasi dari UI tanpa restart server.
+// Gateway adapter dibuat on-demand menggunakan secret key dari DB.
 type Service struct {
-	gateway   Gateway
 	payments  store.PaymentStore
 	invoices  store.InvoiceStore
 	customers store.CustomerStore
 	settings  store.SettingStore
-	nowFunc   func() time.Time // injectable untuk test
+	nowFunc   func() time.Time
 }
 
 // Deps adalah container dependency untuk Service.
 type Deps struct {
-	Gateway   Gateway
 	Payments  store.PaymentStore
 	Invoices  store.InvoiceStore
 	Customers store.CustomerStore
@@ -44,13 +39,34 @@ func New(d Deps) *Service {
 		d.NowFunc = time.Now
 	}
 	return &Service{
-		gateway:   d.Gateway,
 		payments:  d.Payments,
 		invoices:  d.Invoices,
 		customers: d.Customers,
 		settings:  d.Settings,
 		nowFunc:   d.NowFunc,
 	}
+}
+
+// buildGateway membaca konfigurasi Xendit dari DB dan membuat adapter baru.
+// Mengembalikan error jika payment gateway tidak diaktifkan atau belum dikonfigurasi.
+func (s *Service) buildGateway(ctx context.Context) (*XenditAdapter, error) {
+	enabled := s.settingStr(ctx, "payment.xendit_enabled", "false")
+	if enabled != "true" {
+		return nil, fmt.Errorf("payment gateway Xendit belum diaktifkan (setting payment.xendit_enabled)")
+	}
+	secretKey := s.settingStr(ctx, "payment.xendit_secret_key", "")
+	if strings.TrimSpace(secretKey) == "" {
+		return nil, fmt.Errorf("payment gateway belum dikonfigurasi: secret key kosong")
+	}
+	webhookToken := s.settingStr(ctx, "payment.xendit_webhook_token", "")
+	duration := s.settingInt(ctx, "payment.xendit_invoice_duration", 86400)
+	return NewXenditAdapter(secretKey, webhookToken, duration), nil
+}
+
+// IsEnabled mengembalikan true jika gateway Xendit aktif dan secret key tersedia.
+func (s *Service) IsEnabled(ctx context.Context) bool {
+	_, err := s.buildGateway(ctx)
+	return err == nil
 }
 
 // InitiatePaymentResult adalah output dari InitiatePayment.
@@ -61,11 +77,13 @@ type InitiatePaymentResult struct {
 }
 
 // InitiatePayment membuat link pembayaran Xendit untuk invoice tertentu.
-// Idempotent: jika sudah ada payment pending untuk invoice ini via gateway
-// yang sama, kembalikan link yang ada (belum expired).
-//
 // customerID dipakai untuk validasi ownership (anti-IDOR).
 func (s *Service) InitiatePayment(ctx context.Context, invoiceID, customerID uint) (InitiatePaymentResult, error) {
+	gw, err := s.buildGateway(ctx)
+	if err != nil {
+		return InitiatePaymentResult{}, err
+	}
+
 	// 1. Ambil invoice + validasi.
 	inv, err := s.invoices.GetByID(ctx, invoiceID)
 	if err != nil {
@@ -89,41 +107,37 @@ func (s *Service) InitiatePayment(ctx context.Context, invoiceID, customerID uin
 
 	// 3. Buat Payment record di DB dulu (DB-first).
 	now := s.nowFunc()
-	idempotencyKey := fmt.Sprintf("%s-inv%d-%d", s.gateway.Name(), invoiceID, now.UnixMilli())
+	idempotencyKey := fmt.Sprintf("xendit-inv%d-%d", invoiceID, now.UnixMilli())
 	p := &model.Payment{
 		InvoiceID:      invoiceID,
 		CustomerID:     customerID,
 		Amount:         inv.Amount,
-		Method:         s.gateway.Name(),
+		Method:         "xendit",
 		Status:         "pending",
-		GatewayName:    s.gateway.Name(),
+		GatewayName:    "xendit",
 		IdempotencyKey: idempotencyKey,
 	}
 	if err := s.payments.Create(ctx, p); err != nil {
 		return InitiatePaymentResult{}, fmt.Errorf("payment: create payment record: %w", err)
 	}
 
-	// 4. Baca settings untuk URL redirect + durasi.
+	// 4. Baca settings untuk URL redirect.
 	appURL := s.settingStr(ctx, "payment.app_url", "")
-	duration := s.settingInt(ctx, "payment.xendit_invoice_duration", 86400)
-
 	successURL := appURL + "/portal/invoices/" + strconv.FormatUint(uint64(invoiceID), 10) + "?status=paid"
 	failureURL := appURL + "/portal/invoices/" + strconv.FormatUint(uint64(invoiceID), 10) + "?status=failed"
 
 	// 5. Panggil gateway.
 	gwReq := CreateInvoiceRequest{
-		ExternalID:      fmt.Sprintf("%s-inv%d-pay%d", s.gateway.Name(), invoiceID, p.ID),
-		Amount:          inv.Amount,
-		Description:     fmt.Sprintf("Tagihan %s", inv.InvoiceNumber),
-		CustomerName:    cust.FullName,
-		CustomerPhone:   cust.Phone,
-		SuccessURL:      successURL,
-		FailureURL:      failureURL,
-		InvoiceDuration: duration,
+		ExternalID:    fmt.Sprintf("xendit-inv%d-pay%d", invoiceID, p.ID),
+		Amount:        inv.Amount,
+		Description:   fmt.Sprintf("Tagihan %s", inv.InvoiceNumber),
+		CustomerName:  cust.FullName,
+		CustomerPhone: cust.Phone,
+		SuccessURL:    successURL,
+		FailureURL:    failureURL,
 	}
-	result, err := s.gateway.CreateInvoice(ctx, gwReq)
+	result, err := gw.CreateInvoice(ctx, gwReq)
 	if err != nil {
-		// Payment record sudah terbuat tapi gateway gagal — tandai rejected agar tidak gantung.
 		_ = s.payments.UpdateStatus(ctx, p.ID, "rejected", nil, nil, "gateway error: "+err.Error())
 		return InitiatePaymentResult{}, fmt.Errorf("payment: create gateway invoice: %w", err)
 	}
@@ -136,11 +150,7 @@ func (s *Service) InitiatePayment(ctx context.Context, invoiceID, customerID uin
 		"expires_at":       result.ExpiresAt,
 		"updated_at":       s.nowFunc(),
 	}
-	if err := s.payments.UpdateGatewayInfo(ctx, p.ID, updates); err != nil {
-		// Non-fatal: payment record ada, link sudah tersedia.
-		// Error ini hanya berarti audit trail tidak lengkap.
-		_ = err // caller tidak perlu tahu
-	}
+	_ = s.payments.UpdateGatewayInfo(ctx, p.ID, updates)
 	p.ExternalRef = result.ExternalRef
 	p.InvoiceURL = result.InvoiceURL
 	p.ExpiresAt = &result.ExpiresAt
@@ -152,22 +162,16 @@ func (s *Service) InitiatePayment(ctx context.Context, invoiceID, customerID uin
 	}, nil
 }
 
-// Gateway mengembalikan nama gateway yang sedang aktif.
-func (s *Service) GatewayName() string {
-	if s.gateway == nil {
-		return ""
+// BuildGatewayForWebhook membuat adapter untuk memproses webhook.
+// Dipanggil oleh webhook handler — tidak perlu payment.xendit_enabled = true
+// karena webhook bisa datang sebelum admin mengaktifkan dari UI.
+func (s *Service) BuildGatewayForWebhook(ctx context.Context) (*XenditAdapter, error) {
+	secretKey := s.settingStr(ctx, "payment.xendit_secret_key", "")
+	webhookToken := s.settingStr(ctx, "payment.xendit_webhook_token", "")
+	if strings.TrimSpace(secretKey) == "" && strings.TrimSpace(webhookToken) == "" {
+		return nil, fmt.Errorf("xendit not configured")
 	}
-	return s.gateway.Name()
-}
-
-// VerifyWebhookSignature mendelegasikan ke gateway adapter.
-func (s *Service) VerifyWebhookSignature(rawBody []byte, headers map[string]string) error {
-	return s.gateway.VerifyWebhookSignature(rawBody, headers)
-}
-
-// ParseWebhookEvent mendelegasikan ke gateway adapter.
-func (s *Service) ParseWebhookEvent(rawBody []byte) (PaymentEvent, error) {
-	return s.gateway.ParseWebhookEvent(rawBody)
+	return NewXenditAdapter(secretKey, webhookToken, 0), nil
 }
 
 func (s *Service) settingStr(ctx context.Context, key, def string) string {

@@ -41,6 +41,32 @@ func NewXenditAdapter(secretKey, webhookToken string, invoiceDurationSec int) *X
 
 func (a *XenditAdapter) Name() string { return "xendit" }
 
+// Ping melakukan test koneksi ke Xendit API menggunakan secret key yang dikonfigurasi.
+// Menggunakan GET /v2/invoices?limit=1 — call ringan tanpa side effect.
+func (a *XenditAdapter) Ping(ctx context.Context) error {
+	if a.secretKey == "" {
+		return fmt.Errorf("secret key tidak dikonfigurasi")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		a.baseURL+"/v2/invoices?limit=1", nil)
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
+	req.SetBasicAuth(a.secretKey, "")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("http error: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return fmt.Errorf("autentikasi gagal — periksa secret key")
+	}
+	if resp.StatusCode >= 500 {
+		return fmt.Errorf("Xendit server error (HTTP %d)", resp.StatusCode)
+	}
+	return nil
+}
+
 // xenditInvoicePayload adalah payload POST /v2/invoices.
 type xenditInvoicePayload struct {
 	ExternalID      string            `json:"external_id"`
