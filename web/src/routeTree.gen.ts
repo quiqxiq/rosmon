@@ -48,8 +48,8 @@ import { Route as PortalAppPaymentsRouteImport } from './routes/portal/_app/paym
 import { Route as AuthenticatedVoucherSalesRouteImport } from './routes/_authenticated/voucher/sales'
 import { Route as AuthenticatedVoucherPrintRouteImport } from './routes/_authenticated/voucher/print'
 import { Route as AuthenticatedVoucherGenerateRouteImport } from './routes/_authenticated/voucher/generate'
-import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings/notifications'
 import { Route as AuthenticatedSettingsPaymentGatewayRouteImport } from './routes/_authenticated/settings/payment-gateway'
+import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings/notifications'
 import { Route as AuthenticatedSettingsDisplayRouteImport } from './routes/_authenticated/settings/display'
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
@@ -285,16 +285,16 @@ const AuthenticatedVoucherGenerateRoute =
     path: '/voucher/generate',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedSettingsNotificationsRoute =
-  AuthenticatedSettingsNotificationsRouteImport.update({
-    id: '/notifications',
-    path: '/notifications',
-    getParentRoute: () => AuthenticatedSettingsRouteRoute,
-  } as any)
 const AuthenticatedSettingsPaymentGatewayRoute =
   AuthenticatedSettingsPaymentGatewayRouteImport.update({
     id: '/payment-gateway',
     path: '/payment-gateway',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsNotificationsRoute =
+  AuthenticatedSettingsNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 const AuthenticatedSettingsDisplayRoute =
@@ -471,6 +471,7 @@ export interface FileRoutesByFullPath {
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/settings/payment-gateway': typeof AuthenticatedSettingsPaymentGatewayRoute
   '/voucher/generate': typeof AuthenticatedVoucherGenerateRoute
   '/voucher/print': typeof AuthenticatedVoucherPrintRoute
   '/voucher/sales': typeof AuthenticatedVoucherSalesRoute
@@ -533,6 +534,7 @@ export interface FileRoutesByTo {
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/settings/payment-gateway': typeof AuthenticatedSettingsPaymentGatewayRoute
   '/voucher/generate': typeof AuthenticatedVoucherGenerateRoute
   '/voucher/print': typeof AuthenticatedVoucherPrintRoute
   '/voucher/sales': typeof AuthenticatedVoucherSalesRoute
@@ -668,6 +670,7 @@ export interface FileRouteTypes {
     | '/settings/appearance'
     | '/settings/display'
     | '/settings/notifications'
+    | '/settings/payment-gateway'
     | '/voucher/generate'
     | '/voucher/print'
     | '/voucher/sales'
@@ -730,6 +733,7 @@ export interface FileRouteTypes {
     | '/settings/appearance'
     | '/settings/display'
     | '/settings/notifications'
+    | '/settings/payment-gateway'
     | '/voucher/generate'
     | '/voucher/print'
     | '/voucher/sales'
@@ -1121,18 +1125,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVoucherGenerateRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/settings/notifications': {
-      id: '/_authenticated/settings/notifications'
-      path: '/notifications'
-      fullPath: '/settings/notifications'
-      preLoaderRoute: typeof AuthenticatedSettingsNotificationsRouteImport
-      parentRoute: typeof AuthenticatedSettingsRouteRoute
-    }
     '/_authenticated/settings/payment-gateway': {
       id: '/_authenticated/settings/payment-gateway'
       path: '/payment-gateway'
       fullPath: '/settings/payment-gateway'
       preLoaderRoute: typeof AuthenticatedSettingsPaymentGatewayRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/notifications': {
+      id: '/_authenticated/settings/notifications'
+      path: '/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof AuthenticatedSettingsNotificationsRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
     '/_authenticated/settings/display': {

@@ -200,6 +200,11 @@ export const sidebarData: SidebarData = {
               url: '/settings/display',
               icon: Monitor,
             },
+            {
+              title: 'Payment Gateway',
+              url: '/settings/payment-gateway',
+              icon: CreditCard,
+            },
           ],
         },
         {

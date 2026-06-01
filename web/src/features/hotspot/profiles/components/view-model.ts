@@ -1,4 +1,5 @@
 import type { ProfileWithMeta } from '../api/schema'
+import type { ExpMode } from '../data/schema'
 import { parseRouterOSNumber, routerOSBool } from '../../_shared/format'
 import { hasExpiredMonitor } from '../../_shared/derive'
 
@@ -14,7 +15,7 @@ export type HotspotProfileViewModel = {
   addressPool: string
   parentQueue: string
   validity: string
-  expMode: string
+  expMode: ExpMode
   price: number
   sellingPrice: number
   lockUser: boolean
@@ -33,7 +34,7 @@ export function toProfileViewModel(raw: ProfileWithMeta): HotspotProfileViewMode
     addressPool: raw.address_pool ?? '',
     parentQueue: raw.parent_queue ?? '',
     validity: raw.validity ?? '',
-    expMode: raw.exp_mode ?? '',
+    expMode: (raw.exp_mode as ExpMode) || 'none',
     price: parseRouterOSNumber(raw.price),
     sellingPrice: parseRouterOSNumber(raw.selling_price),
     lockUser: routerOSBool(raw.lock_user),

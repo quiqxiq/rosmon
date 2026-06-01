@@ -180,6 +180,46 @@ func (f *fakePaymentStore) UpdateStatus(_ context.Context, id uint, status strin
 	return nil
 }
 
+func (f *fakePaymentStore) GetByExternalRef(_ context.Context, gatewayName, externalRef string) (*model.Payment, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, p := range f.rows {
+		if p.GatewayName == gatewayName && p.ExternalRef == externalRef {
+			cp := p
+			return &cp, nil
+		}
+	}
+	return nil, store.ErrPaymentNotFound
+}
+
+func (f *fakePaymentStore) UpdateGatewayInfo(_ context.Context, id uint, updates map[string]any) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	p, ok := f.rows[id]
+	if !ok {
+		return store.ErrPaymentNotFound
+	}
+	if extRef, ok := updates["external_ref"].(string); ok {
+		p.ExternalRef = extRef
+	}
+	if invURL, ok := updates["invoice_url"].(string); ok {
+		p.InvoiceURL = invURL
+	}
+	if expiresAt, ok := updates["expires_at"].(*time.Time); ok {
+		p.ExpiresAt = expiresAt
+	} else if expiresAtTime, ok := updates["expires_at"].(time.Time); ok {
+		p.ExpiresAt = &expiresAtTime
+	}
+	if rawResp, ok := updates["gateway_response"].(string); ok {
+		p.GatewayResponse = rawResp
+	}
+	if gatewayName, ok := updates["gateway_name"].(string); ok {
+		p.GatewayName = gatewayName
+	}
+	f.rows[id] = p
+	return nil
+}
+
 var _ store.PaymentStore = (*fakePaymentStore)(nil)
 
 // ── tests: settle-by-code (Collect) ──────────────────────────────────────────

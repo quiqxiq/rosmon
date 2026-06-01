@@ -5,6 +5,7 @@ import { useGenerateVoucher } from '@/features/voucher/generate/api/queries'
 import { type VoucherGenerateParams } from '@/features/voucher/generate/api/schema'
 import { useActiveRouterId } from '@/stores/active-router-store'
 import { useHotspotProfiles } from '@/features/hotspot/profiles/api/queries'
+import { toProfileViewModel } from '@/features/hotspot/profiles/components/view-model'
 import { Main } from '@/components/layout/main'
 import { VoucherGenerateFormPanel } from './components/voucher-generate-form'
 import { VoucherResultTable } from './components/voucher-result-table'
@@ -36,7 +37,7 @@ export function VoucherGenerate() {
   const routerId = useActiveRouterId()
   const generateMutation = useGenerateVoucher(routerId ?? 0)
   const profilesQuery = useHotspotProfiles(routerId ?? 0)
-  const profiles = profilesQuery.data ?? []
+  const profiles = (profilesQuery.data ?? []).map(toProfileViewModel)
 
   const [form, setForm] = useState<VoucherGenerateForm>(defaultGenerateForm)
   const [vouchers, setVouchers] = useState<GeneratedVoucher[]>([])
