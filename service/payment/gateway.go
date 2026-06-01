@@ -1,8 +1,8 @@
 // Package payment menyediakan abstraksi payment gateway dan service layer
-// untuk inisiasi pembayaran online (Xendit, Tripay, dll.).
+// untuk inisiasi pembayaran online (Xendit, dll.).
 //
 // Arsitektur:
-//   - Gateway interface: adapter per-provider (xendit.go, tripay.go, dsb.)
+//   - Gateway interface: adapter per-provider (xendit.go, dsb.)
 //   - Service: orkestrasi — buat Payment record di DB, panggil gateway, kembalikan URL.
 //   - Webhook: handler publik memanggil applySettlement (di api/handler/payments.go).
 package payment
@@ -13,9 +13,9 @@ import (
 )
 
 // Gateway adalah abstraksi adapter payment gateway.
-// Satu implementasi per provider: XenditAdapter, TripayAdapter, dsb.
+// Satu implementasi per provider: XenditAdapter, dsb.
 type Gateway interface {
-	// Name mengembalikan identifier provider, contoh: "xendit", "tripay".
+	// Name mengembalikan identifier provider, contoh: "xendit".
 	Name() string
 
 	// CreateInvoice membuat link pembayaran di sisi gateway.
@@ -80,6 +80,6 @@ type PaymentEvent struct {
 	Amount int64
 	PaidAt *time.Time
 
-	// GatewayName adalah nama provider ("xendit", "tripay", dsb.).
+	// GatewayName adalah nama provider ("xendit", dsb.).
 	GatewayName string
 }

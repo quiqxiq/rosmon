@@ -56,7 +56,7 @@ export interface PortalInvoice {
   updated_at: string
 }
 
-export type PaymentMethod = 'cash' | 'manual_transfer' | 'xendit' | 'tripay'
+export type PaymentMethod = 'cash' | 'manual_transfer' | 'xendit'
 export type PaymentStatus = 'pending' | 'confirmed' | 'rejected'
 
 export interface PortalPayment {
