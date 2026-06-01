@@ -34,8 +34,8 @@ const paymentStatusMap: Record<PaymentStatus, StatusInfo> = {
 const paymentMethodMap: Record<PaymentMethod, string> = {
   cash: 'Tunai',
   manual_transfer: 'Transfer Manual',
-  xendit: 'Xendit',
-  tripay: 'TriPay',
+  xendit: 'Transfer Otomatis',
+  tripay: 'Transfer Otomatis',
 }
 
 export function invoiceStatus(s: InvoiceStatus): StatusInfo {
