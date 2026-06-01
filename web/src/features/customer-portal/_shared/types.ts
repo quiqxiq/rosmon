@@ -56,7 +56,7 @@ export interface PortalInvoice {
   updated_at: string
 }
 
-export type PaymentMethod = 'cash' | 'manual_transfer'
+export type PaymentMethod = 'cash' | 'manual_transfer' | 'xendit' | 'tripay'
 export type PaymentStatus = 'pending' | 'confirmed' | 'rejected'
 
 export interface PortalPayment {
@@ -67,6 +67,10 @@ export interface PortalPayment {
   method: PaymentMethod
   status: PaymentStatus
   confirmed_at: string | null
+  // Gateway fields (populated for online payments)
+  gateway_name?: string
+  invoice_url?: string
+  expires_at?: string
   created_at: string
   updated_at?: string
 }
@@ -86,4 +90,11 @@ export interface CustomerLoginResponse {
 export interface ChangePasswordRequest {
   old_password: string
   new_password: string
+}
+
+/** Response dari POST /customer/invoices/:id/pay */
+export interface InitiatePaymentResponse {
+  payment_id: number
+  invoice_url: string
+  expires_at: string
 }

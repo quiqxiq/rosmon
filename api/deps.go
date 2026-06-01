@@ -12,6 +12,7 @@ import (
 	"github.com/quiqxiq/rosmon/service/devmgr"
 	"github.com/quiqxiq/rosmon/service/notification"
 	"github.com/quiqxiq/rosmon/service/notification/whatsapp"
+	paymentSvc "github.com/quiqxiq/rosmon/service/payment"
 	"github.com/quiqxiq/rosmon/service/portal"
 	"github.com/quiqxiq/rosmon/store"
 	"github.com/sirupsen/logrus"
@@ -51,6 +52,10 @@ type Deps struct {
 
 	// Customer portal (Fase 3). Nil → zona /api/customer/* tidak di-mount.
 	PortalAuth *portal.CustomerAuth
+
+	// Payment gateway (Fase 4). Nil → endpoint /customer/invoices/:id/pay mengembalikan 503
+	// dan webhook /public/webhooks/xendit tidak di-mount.
+	XenditGateway *paymentSvc.Service
 
 	// Auth (Phase 2). Nil → routes /auth/* tidak di-mount dan
 	// proteksi route lain di-skip. Production wajib set.

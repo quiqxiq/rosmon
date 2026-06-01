@@ -4,6 +4,7 @@ import "time"
 
 // Payment adalah record pembayaran untuk Invoice.
 // Method manual: 'manual_transfer' | 'cash'.
+// Method gateway: 'xendit' | 'tripay'.
 type Payment struct {
 	ID              uint     `gorm:"primaryKey"`
 	InvoiceID       uint     `gorm:"not null;index"`
@@ -21,6 +22,15 @@ type Payment struct {
 	ConfirmedAt     *time.Time
 	RejectionReason string `gorm:"type:text"`
 	IdempotencyKey  string `gorm:"size:200;uniqueIndex"`
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+
+	// Gateway fields (nullable — backward compatible dengan pembayaran manual lama).
+	// GatewayName: 'xendit' | 'tripay' | '' (manual cash/transfer).
+	GatewayName     string     `gorm:"size:30;index"`
+	ExternalRef     string     `gorm:"size:200;index"` // ID invoice/transaksi di sisi gateway
+	GatewayResponse string     `gorm:"type:text"`      // raw JSON response dari gateway (untuk audit)
+	InvoiceURL      string     `gorm:"type:text"`      // checkout URL yang diberikan ke pelanggan
+	ExpiresAt       *time.Time // waktu kadaluarsa link pembayaran gateway
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }

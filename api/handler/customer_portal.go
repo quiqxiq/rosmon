@@ -9,6 +9,7 @@ import (
 	"github.com/quiqxiq/rosmon/api/dto"
 	"github.com/quiqxiq/rosmon/api/middleware"
 	"github.com/quiqxiq/rosmon/service/auth"
+	"github.com/quiqxiq/rosmon/service/payment"
 	"github.com/quiqxiq/rosmon/service/portal"
 	"github.com/quiqxiq/rosmon/store"
 )
@@ -16,11 +17,13 @@ import (
 // CustomerPortal handler — endpoint self-service pelanggan (/api/customer/*).
 // Semua di-scope ke CustomerID dari token (anti-IDOR).
 type CustomerPortal struct {
-	Portal    *portal.CustomerAuth
-	Customers store.CustomerStore
-	Subs      store.SubscriptionStore
-	Invoices  store.InvoiceStore
-	Payments  store.PaymentStore
+	Portal     *portal.CustomerAuth
+	Customers  store.CustomerStore
+	Subs       store.SubscriptionStore
+	Invoices   store.InvoiceStore
+	Payments   store.PaymentStore
+	// PaymentSvc nil jika Xendit tidak dikonfigurasi → endpoint /pay mengembalikan 503.
+	PaymentSvc *payment.Service
 }
 
 func NewCustomerPortal(
@@ -40,6 +43,7 @@ func (h *CustomerPortal) Register(g *gin.RouterGroup) {
 	r.GET("/subscriptions/:id/status", h.SubscriptionStatus)
 	r.GET("/invoices", h.ListInvoices)
 	r.GET("/invoices/:id", h.GetInvoice)
+	r.POST("/invoices/:id/pay", h.PayInvoice)
 	r.GET("/payments", h.PaymentHistory)
 	r.POST("/change-password", h.ChangePassword)
 }
@@ -173,6 +177,64 @@ func (h *CustomerPortal) PaymentHistory(c *gin.Context) {
 	}
 	WriteList(c, out, len(out))
 }
+
+// PayInvoice memulai pembayaran online untuk invoice milik customer.
+// POST /customer/invoices/:id/pay
+// Response: {payment_id, invoice_url, expires_at} untuk redirect ke halaman checkout gateway.
+func (h *CustomerPortal) PayInvoice(c *gin.Context) {
+	cid, ok := currentCustomerID(c)
+	if !ok {
+		return
+	}
+	invoiceID, ok := parseUintParam(c, "id")
+	if !ok {
+		return
+	}
+
+	// Cek apakah payment gateway dikonfigurasi.
+	if h.PaymentSvc == nil {
+		c.AbortWithStatusJSON(http.StatusServiceUnavailable,
+			dto.Err("SERVICE_UNAVAILABLE", "payment gateway tidak dikonfigurasi", c.Request.URL.Path))
+		return
+	}
+
+	result, err := h.PaymentSvc.InitiatePayment(c.Request.Context(), invoiceID, cid)
+	if err != nil {
+		msg := err.Error()
+		switch {
+		case containsAny(msg, "sudah lunas", "sudah dibatalkan"):
+			c.AbortWithStatusJSON(http.StatusConflict,
+				dto.Err("CONFLICT", msg, c.Request.URL.Path))
+		case containsAny(msg, "bukan milik customer"):
+			c.AbortWithStatusJSON(http.StatusNotFound,
+				dto.Err("NOT_FOUND", "invoice not found", c.Request.URL.Path))
+		default:
+			c.AbortWithStatusJSON(http.StatusInternalServerError,
+				dto.Err("INTERNAL", "gagal membuat link pembayaran", c.Request.URL.Path))
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.OK(dto.InitiatePaymentResponse{
+		PaymentID:  result.PaymentID,
+		InvoiceURL: result.InvoiceURL,
+		ExpiresAt:  result.ExpiresAt.Format("2006-01-02T15:04:05Z07:00"),
+	}))
+}
+
+func containsAny(s string, subs ...string) bool {
+	for _, sub := range subs {
+		if len(s) >= len(sub) {
+			for i := 0; i <= len(s)-len(sub); i++ {
+				if s[i:i+len(sub)] == sub {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 
 func (h *CustomerPortal) ChangePassword(c *gin.Context) {
 	cid, ok := currentCustomerID(c)

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams } from '@tanstack/react-router'
-import { Check, Copy, QrCode } from 'lucide-react'
+import { Check, Copy, CreditCard, ExternalLink, Loader2, QrCode } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { formatIDR } from '@/lib/format'
 import { formatIDDate, formatPeriod, invoiceStatus } from '../_shared/format'
 import { PortalHeader } from '../_shared/portal-header'
-import { usePortalInvoice } from './api/queries'
+import { useInitiateOnlinePayment, usePortalInvoice } from './api/queries'
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -28,6 +28,8 @@ export function InvoiceDetail() {
   const { data: invoice, isLoading } = usePortalInvoice(invoiceId)
   const [copied, setCopied] = useState(false)
 
+  const { mutate: initiatePayment, isPending: isInitiating } = useInitiateOnlinePayment()
+
   async function handleCopy() {
     if (!invoice?.payment_code) return
     try {
@@ -38,6 +40,28 @@ export function InvoiceDetail() {
     } catch {
       toast.error('Gagal menyalin kode')
     }
+  }
+
+  function handlePayOnline() {
+    initiatePayment(invoiceId, {
+      onSuccess: (result) => {
+        toast.success('Mengarahkan ke halaman pembayaran...')
+        // Buka URL checkout Xendit di tab baru agar user bisa kembali jika perlu.
+        window.open(result.invoice_url, '_blank', 'noopener,noreferrer')
+      },
+      onError: (err: unknown) => {
+        const msg =
+          err instanceof Error ? err.message : 'Gagal membuat link pembayaran. Coba lagi.'
+        // Jika gateway tidak dikonfigurasi, tampilkan pesan yang helpful.
+        if (msg.includes('503') || msg.includes('SERVICE_UNAVAILABLE')) {
+          toast.error('Pembayaran online belum tersedia. Silakan bayar via kasir atau transfer.')
+        } else if (msg.includes('CONFLICT') || msg.includes('lunas')) {
+          toast.info('Tagihan ini sudah lunas.')
+        } else {
+          toast.error(msg)
+        }
+      },
+    })
   }
 
   if (isLoading) {
@@ -102,13 +126,50 @@ export function InvoiceDetail() {
           </CardContent>
         </Card>
 
+        {/* Tombol Bayar Online — hanya untuk invoice belum lunas */}
+        {isUnpaid && (
+          <Card className='border-primary/40 bg-primary/5'>
+            <CardContent className='flex flex-col gap-3 p-4'>
+              <div className='flex items-center gap-2'>
+                <CreditCard className='size-5 text-primary' />
+                <p className='font-semibold text-primary'>Bayar Online</p>
+              </div>
+              <p className='text-sm text-muted-foreground'>
+                Bayar tagihan ini secara online menggunakan transfer bank, QRIS, e-wallet,
+                atau kartu kredit. Pembayaran dikonfirmasi otomatis.
+              </p>
+              <Button
+                id='btn-pay-online'
+                className='w-full gap-2 font-semibold'
+                onClick={handlePayOnline}
+                disabled={isInitiating}
+              >
+                {isInitiating ? (
+                  <>
+                    <Loader2 className='size-4 animate-spin' />
+                    Menyiapkan pembayaran...
+                  </>
+                ) : (
+                  <>
+                    <ExternalLink className='size-4' />
+                    Bayar Sekarang
+                  </>
+                )}
+              </Button>
+              <p className='text-center text-xs text-muted-foreground'>
+                Anda akan diarahkan ke halaman pembayaran aman
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* QR Code / Payment Code — only for unpaid invoices */}
         {isUnpaid && invoice.qr_content && invoice.payment_code ? (
           <Card className='border-primary/30'>
             <CardHeader className='pb-2 pt-4'>
               <CardTitle className='flex items-center gap-2 text-sm'>
                 <QrCode className='size-4' />
-                Kode Pembayaran
+                Bayar via Kasir (Tunai)
               </CardTitle>
             </CardHeader>
             <CardContent className='flex flex-col items-center gap-4 pb-5'>

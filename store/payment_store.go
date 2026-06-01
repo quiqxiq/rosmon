@@ -20,8 +20,14 @@ type PaymentListFilter struct {
 type PaymentStore interface {
 	Create(ctx context.Context, p *model.Payment) error
 	GetByID(ctx context.Context, id uint) (*model.Payment, error)
+	// GetByExternalRef mencari payment berdasarkan gateway name + ID transaksi di gateway.
+	// Dipakai oleh webhook handler untuk idempotency check.
+	GetByExternalRef(ctx context.Context, gatewayName, externalRef string) (*model.Payment, error)
 	List(ctx context.Context, f PaymentListFilter) ([]model.Payment, error)
 	UpdateStatus(ctx context.Context, id uint, status string, confirmedBy *uint, confirmedAt *time.Time, rejectionReason string) error
+	// UpdateGatewayInfo menyimpan info gateway (ExternalRef, InvoiceURL, ExpiresAt, GatewayResponse)
+	// setelah CreateInvoice berhasil. updates adalah map kolom → nilai.
+	UpdateGatewayInfo(ctx context.Context, id uint, updates map[string]any) error
 }
 
 type gormPaymentStore struct{ db *gorm.DB }
@@ -37,6 +43,17 @@ func (s *gormPaymentStore) Create(ctx context.Context, p *model.Payment) error {
 func (s *gormPaymentStore) GetByID(ctx context.Context, id uint) (*model.Payment, error) {
 	var p model.Payment
 	err := s.db.WithContext(ctx).First(&p, id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrPaymentNotFound
+	}
+	return &p, err
+}
+
+func (s *gormPaymentStore) GetByExternalRef(ctx context.Context, gatewayName, externalRef string) (*model.Payment, error) {
+	var p model.Payment
+	err := s.db.WithContext(ctx).
+		Where("gateway_name = ? AND external_ref = ?", gatewayName, externalRef).
+		First(&p).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrPaymentNotFound
 	}
@@ -69,6 +86,20 @@ func (s *gormPaymentStore) UpdateStatus(ctx context.Context, id uint, status str
 	}
 	if confirmedAt != nil {
 		updates["confirmed_at"] = *confirmedAt
+	}
+	res := s.db.WithContext(ctx).Model(&model.Payment{}).Where("id = ?", id).Updates(updates)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrPaymentNotFound
+	}
+	return nil
+}
+
+func (s *gormPaymentStore) UpdateGatewayInfo(ctx context.Context, id uint, updates map[string]any) error {
+	if len(updates) == 0 {
+		return nil
 	}
 	res := s.db.WithContext(ctx).Model(&model.Payment{}).Where("id = ?", id).Updates(updates)
 	if res.Error != nil {

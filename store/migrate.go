@@ -73,6 +73,12 @@ func seedSystemSettings(db *gorm.DB) error {
 		{Key: "notification.wa_enabled", Value: "false", ValueType: "bool", GroupName: "notification", Description: "Aktifkan notifikasi WhatsApp (whatsmeow embedded; login via QR di /whatsapp/qr)"},
 		{Key: "notification.admin_phone", Value: "", ValueType: "string", GroupName: "notification", Description: "Nomor WA admin untuk notifikasi internal (registrasi baru, dll)"},
 		{Key: "general.company_name", Value: "", ValueType: "string", GroupName: "general", Description: "Nama perusahaan ISP"},
+		// Payment gateway — Xendit.
+		// CATATAN: API secret key disimpan di env var XENDIT_SECRET_KEY (bukan di DB).
+		// Hanya flag non-secret yang disimpan di sini.
+		{Key: "payment.xendit_enabled", Value: "false", ValueType: "bool", GroupName: "payment", Description: "Aktifkan payment gateway Xendit (butuh XENDIT_SECRET_KEY di env)"},
+		{Key: "payment.xendit_invoice_duration", Value: "86400", ValueType: "int", GroupName: "payment", Description: "Durasi link pembayaran Xendit dalam detik (default: 86400 = 24 jam)"},
+		{Key: "payment.app_url", Value: "", ValueType: "string", GroupName: "payment", Description: "URL publik aplikasi untuk redirect setelah bayar (contoh: https://isp.example.com)"},
 	}
 	for _, s := range defaults {
 		s := s
@@ -80,3 +86,4 @@ func seedSystemSettings(db *gorm.DB) error {
 	}
 	return nil
 }
+

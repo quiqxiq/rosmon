@@ -33,6 +33,21 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 			Register(hookGroup)
 	}
 
+	// ── Public webhook Xendit (Fase 4) ────────────────────────────────────
+	// POST /public/webhooks/xendit — diproteksi x-callback-token dari Xendit.
+	// Tidak butuh JWT. Di-rate-limit per IP untuk mencegah flood.
+	if deps.XenditGateway != nil {
+		xenditWebhookGroup := g.Group("")
+		if deps.IPLimiter != nil {
+			xenditWebhookGroup.Use(middleware.RequirePerIPRate(deps.IPLimiter))
+		}
+		handler.NewXenditWebhook(
+			deps.XenditGateway, deps.PaymentStore, deps.InvoiceStore,
+			deps.SubscriptionStore, deps.CustomerStore,
+			deps.NotificationService, deps.SettingStore, deps.Logger,
+		).Register(xenditWebhookGroup)
+	}
+
 	// ── Auth public endpoints (login/refresh/logout) ──────────────────────
 	// Pasang IP rate limit (anon) di scope public auth.
 	if deps.AuthService != nil {
@@ -312,10 +327,13 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		// Endpoint portal (butuh customer access token).
 		custScope := g.Group("")
 		custScope.Use(middleware.RequireCustomerAuth(deps.AuthSigner))
-		handler.NewCustomerPortal(
+		portalHandler := handler.NewCustomerPortal(
 			deps.PortalAuth, deps.CustomerStore, deps.SubscriptionStore,
 			deps.InvoiceStore, deps.PaymentStore,
-		).Register(custScope)
+		)
+		// Wire payment gateway jika dikonfigurasi (Fase 4).
+		portalHandler.PaymentSvc = deps.XenditGateway
+		portalHandler.Register(custScope)
 	}
 }
 
