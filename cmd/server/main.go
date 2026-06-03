@@ -22,6 +22,7 @@ import (
 	"syscall"
 	"time"
 
+	influxdb3 "github.com/InfluxCommunity/influxdb3-go/v2/influxdb3"
 	"github.com/joho/godotenv"
 	roslibcfg "github.com/quiqxiq/roslib/config"
 	roslibinflux "github.com/quiqxiq/roslib/metrics/influx"
@@ -35,7 +36,9 @@ import (
 	"github.com/quiqxiq/rosmon/service/devmgr"
 	"github.com/quiqxiq/rosmon/service/expiry"
 	"github.com/quiqxiq/rosmon/service/metrics"
+	"github.com/quiqxiq/rosmon/service/netstream"
 	"github.com/quiqxiq/rosmon/service/notification"
+	"github.com/quiqxiq/rosmon/service/notification/telegram"
 	"github.com/quiqxiq/rosmon/service/notification/whatsapp"
 	paymentSvc "github.com/quiqxiq/rosmon/service/payment"
 	"github.com/quiqxiq/rosmon/service/portal"
@@ -114,6 +117,7 @@ func main() {
 	customerStore := store.NewCustomerStore(db)
 	pppProfileStore := store.NewPPPProfileStore(db)
 	hotspotProfileStore := store.NewHotspotProfileStore(db)
+	quickPrintStore := store.NewQuickPrintStore(db)
 	subscriptionStore := store.NewSubscriptionStore(db)
 	settingStore := store.NewSettingStore(db)
 	sequenceStore := store.NewSequenceStore(db)
@@ -123,6 +127,7 @@ func main() {
 	templateStore := store.NewTemplateStore(db)
 	notificationStore := store.NewNotificationLogStore(db)
 	registrationStore := store.NewRegistrationStore(db)
+	ticketStore := store.NewTicketStore(db)
 
 	// ── Auth Service ──────────────────────────────────────────────────────
 	authSigner := auth.NewSigner(authCfg.JWTSecret, authCfg.AccessTTL, authCfg.RefreshTTL)
@@ -171,9 +176,28 @@ func main() {
 			log.WithError(err).Warn("notification: whatsapp manager start gagal (lanjut tanpa WA)")
 		}
 	}
+	// Telegram sender (opsional — paralel dengan WhatsApp).
+	var tgSender notification.Sender
+	if db2, err2 := db.DB(); err2 == nil {
+		_ = db2 // used for sqlstore above
+	}
+	// Baca config telegram dari DB setelah migrate selesai.
+	if tgEnabled, _ := settingStore.Get(rootCtx, "notification.telegram_enabled"); tgEnabled == "true" {
+		tgToken, _ := settingStore.Get(rootCtx, "notification.telegram_bot_token")
+		tgChatID, _ := settingStore.Get(rootCtx, "notification.telegram_chat_id")
+		if tgToken != "" && tgChatID != "" {
+			tgSender = telegram.New(tgToken, tgChatID)
+			log.Info("telegram notification sender enabled")
+		}
+	}
+
 	var notifSender notification.Sender
-	if waManager != nil {
-		notifSender = waManager
+	if waManager != nil || tgSender != nil {
+		var waSender notification.Sender
+		if waManager != nil {
+			waSender = waManager
+		}
+		notifSender = notification.NewMultiSender(waSender, tgSender)
 	}
 	notifSvc := notification.New(notification.Deps{
 		Sender:    notifSender,
@@ -185,6 +209,7 @@ func main() {
 
 	// ── Background Jobs ──────────────────────────────────────────────────
 	outboxJob := job.NewOutboxJob(subscriptionStore, pppProfileStore, hotspotProfileStore, settingStore, devMgr, log)
+	outboxJob.NotifSvc = notifSvc
 	outboxJob.Start(rootCtx)
 	log.Info("outbox job started")
 
@@ -204,6 +229,17 @@ func main() {
 	notifRetry.Start(rootCtx)
 	log.Info("notif_retry job started")
 
+	reconJob := job.NewReconcilerJob(subscriptionStore, auditLogStore, devMgr, log)
+	reconJob.Start(rootCtx)
+	log.Info("reconciler job started")
+
+	backupJob := job.NewBackupJob(settingStore, dbCfg.DSN(), log)
+	startDailyJob(rootCtx, 3, 0, "backup", backupJob.Run, log)
+
+	// SSE Hub dibuat lebih awal karena netstream (sumber tunggal stream
+	// queue/interface) butuh referensinya untuk lifecycle device.
+	hub := sse.NewHubWithCaps(rateCfg.SSEMaxPerTopic, rateCfg.SSEMaxPerDevice)
+
 	// ── InfluxDB3 + Metrics Service ───────────────────────────────────────
 	influxCfg := roslibcfg.InfluxConfig{
 		Enabled:  os.Getenv("INFLUX_ENABLED") == "true",
@@ -213,11 +249,13 @@ func main() {
 	}
 	var metricsSvc *metrics.Service
 	var influxReader *roslibinflux.Reader
+	var influxCli *influxdb3.Client
 	if influxCfg.Enabled {
-		influxCli, err := roslibinflux.NewClient(influxCfg)
-		if err != nil {
-			log.WithError(err).Fatal("init influx client")
+		cli, ierr := roslibinflux.NewClient(influxCfg)
+		if ierr != nil {
+			log.WithError(ierr).Fatal("init influx client")
 		}
+		influxCli = cli
 		defer influxCli.Close()
 		influxReader = roslibinflux.NewReader(influxCli)
 		metricsSvc = metrics.New(influxCli, devMgr, log)
@@ -225,11 +263,21 @@ func main() {
 		log.Info("influx metrics started")
 	}
 
-	// Wire device lifecycle hooks — expiry + metrics keduanya
+	// netstream = SATU stream queue/interface per device, sumber bersama untuk
+	// live SSE + writer Influx (queue/interface). influxCli nil = historis off.
+	netstreamMgr := netstream.New(hub, influxCli, log)
+	for id, cs := range devMgr.ListActive() {
+		netstreamMgr.StartDevice(id, cs.Net)
+	}
+
+	// Wire device lifecycle hooks — expiry + metrics + netstream.
 	devMgr.OnDeviceConnected = func(d model.MikrotikDevice) {
 		expSvc.StartDevice(d)
 		if metricsSvc != nil {
 			metricsSvc.StartDevice(d)
+		}
+		if cs, gerr := devMgr.Get(d.ID); gerr == nil {
+			netstreamMgr.StartDevice(d.ID, cs.Net)
 		}
 	}
 	devMgr.OnDeviceRemoved = func(deviceID uint) {
@@ -237,6 +285,7 @@ func main() {
 		if metricsSvc != nil {
 			metricsSvc.StopDevice(deviceID)
 		}
+		netstreamMgr.StopDevice(deviceID)
 	}
 
 	// ── Rate limiters & SSE hub caps ──────────────────────────────────────
@@ -247,8 +296,6 @@ func main() {
 	defer userLim.Close()
 	defer ipLim.Close()
 	defer heavyLim.Close()
-
-	hub := sse.NewHubWithCaps(rateCfg.SSEMaxPerTopic, rateCfg.SSEMaxPerDevice)
 
 	// GO_SERVICE_URL: URL absolut Go service yang reachable dari MikroTik
 	// router. Dipakai untuk membentuk webhook URL di on-login script.
@@ -293,6 +340,7 @@ func main() {
 		CustomerStore:     customerStore,
 		PPPProfileStore:   pppProfileStore,
 		HotspotStore:      hotspotProfileStore,
+		QuickPrintStore:   quickPrintStore,
 		SubscriptionStore: subscriptionStore,
 		SettingStore:      settingStore,
 		SequenceStore:     sequenceStore,
@@ -304,6 +352,7 @@ func main() {
 		WhatsApp:          waManager,
 
 		RegistrationStore:   registrationStore,
+		TicketStore:         ticketStore,
 		NotificationService: notifSvc,
 		BillingService:      billingSvc,
 		PortalAuth:          portalAuth,
@@ -315,6 +364,7 @@ func main() {
 		HeavyLimiter:        heavyLim,
 		DevMgr:              devMgr,
 		Hub:                 hub,
+		NetStream:           netstreamMgr,
 		InfluxReader:        influxReader,
 		GoServiceURL:        goServiceURL,
 		HookSharedSecret:    hookSecret,

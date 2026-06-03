@@ -77,6 +77,45 @@ export const PoolRecordSchema = z
   .passthrough()
 export type PoolRecord = z.infer<typeof PoolRecordSchema>
 
+// SSE `event: stats` payloads from /stream/network/interfaces/stats and
+// /stream/network/queues[/parents]/stats. Cumulative counters; the UI derives
+// bps from deltas. Mirrors api/dto/stream.go InterfaceStatsEvent / QueueStatsEvent.
+export type InterfaceStatsEvent = {
+  id: string
+  name: string
+  type: string
+  rx_byte: number
+  tx_byte: number
+  rx_packet: number
+  tx_packet: number
+  running: boolean
+  disabled: boolean
+}
+
+export type QueueStatsEvent = {
+  id: string
+  name: string
+  target: string
+  parent?: string
+  disabled: boolean
+  dynamic: boolean
+  comment?: string
+  bytes: string // "upload/download" cumulative
+  rate?: string // "upload/download" instant bps
+  max_limit?: string
+}
+
+// Historis: HistoryRow adalah map dinamis (api/dto/history.go). Kolom relevan:
+//   interfaces: { time, iface, rx_delta, tx_delta }
+//   queues:     { time, queue, bytes_in_delta, bytes_out_delta }
+export type HistoryRow = Record<string, unknown>
+
+export type HistoryRange = {
+  from: string // RFC3339
+  to: string // RFC3339
+  interval: string // Go duration, mis. "30s"
+}
+
 // Mirror of docs/openapi/components/schemas/sse.yaml#/TelemetryEvent
 export const TrafficTelemetryEventSchema = z.object({
   measurement: z.string(),

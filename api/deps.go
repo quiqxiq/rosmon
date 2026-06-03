@@ -10,6 +10,7 @@ import (
 	"github.com/quiqxiq/rosmon/service/auth"
 	"github.com/quiqxiq/rosmon/service/billing"
 	"github.com/quiqxiq/rosmon/service/devmgr"
+	"github.com/quiqxiq/rosmon/service/netstream"
 	"github.com/quiqxiq/rosmon/service/notification"
 	"github.com/quiqxiq/rosmon/service/notification/whatsapp"
 	paymentSvc "github.com/quiqxiq/rosmon/service/payment"
@@ -32,6 +33,7 @@ type Deps struct {
 	CustomerStore     store.CustomerStore
 	PPPProfileStore   store.PPPProfileStore
 	HotspotStore      store.HotspotProfileStore
+	QuickPrintStore   store.QuickPrintStore
 	SubscriptionStore store.SubscriptionStore
 	SettingStore      store.SettingStore
 	SequenceStore     store.SequenceStore
@@ -40,6 +42,7 @@ type Deps struct {
 	AuditLogStore     store.AuditLogStore
 	TemplateStore     store.TemplateStore
 	NotificationStore store.NotificationLogStore
+	TicketStore       store.TicketStore
 
 	// WhatsApp gateway manager (embedded whatsmeow). Nil → endpoint
 	// /whatsapp/* mengembalikan 503 dan notifikasi di-skip/failed.
@@ -72,6 +75,9 @@ type Deps struct {
 
 	// SSE Hub — shared real-time broker
 	Hub *sse.Hub
+
+	// NetStream — sumber tunggal stream queue/interface (live SSE + Influx).
+	NetStream *netstream.Manager
 
 	// InfluxReader untuk history query API. Nil jika INFLUX_ENABLED=false.
 	InfluxReader *roslibinflux.Reader

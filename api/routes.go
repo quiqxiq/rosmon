@@ -142,7 +142,7 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 	handler.NewPPPProfile(nil).Register(dev)
 	handler.NewPPPActive(nil).Register(dev)
 
-	handler.NewStream(deps.Hub, nil, nil, nil, nil, nil, nil).Register(dev)
+	handler.NewStream(deps.Hub, nil, nil, nil, nil, nil, nil, deps.NetStream).Register(dev)
 
 	if deps.InfluxReader != nil {
 		handler.NewHistory(deps.InfluxReader).Register(dev)
@@ -159,6 +159,16 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 			reportScope.Use(mw)
 		}
 		handler.NewReport(deps.DeviceStore, deps.TxStore).Register(reportScope)
+	}
+
+	// Financial reports — global scope (tidak per-device).
+	// GET /reports/financial, /reports/aging, /reports/churn, /reports/dashboard
+	if deps.InvoiceStore != nil && deps.SubscriptionStore != nil {
+		finScope := g.Group("")
+		for _, mw := range authChain {
+			finScope.Use(mw)
+		}
+		handler.NewReportFinancial(deps.InvoiceStore, deps.SubscriptionStore).Register(finScope)
 	}
 
 	// ProfileConfig API: scope per-device tanpa DeviceMiddleware
@@ -189,6 +199,16 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		handler.NewHotspotProfiles(deps.HotspotStore, deps.DevMgr, deps.GoServiceURL, deps.Logger).Register(hsScope)
 	}
 
+	// Quick Print presets (DB-backed per-device, tanpa DeviceMiddleware —
+	// tidak menyentuh router; hanya CRUD konfigurasi cetak voucher).
+	if deps.QuickPrintStore != nil {
+		qpScope := g.Group("/devices/:device_id")
+		for _, mw := range authChain {
+			qpScope.Use(mw)
+		}
+		handler.NewQuickPrint(deps.QuickPrintStore, deps.Logger).Register(qpScope)
+	}
+
 	// Customer / Subscription API — business layer.
 	if deps.CustomerStore != nil {
 		bizScope := g.Group("")
@@ -198,6 +218,7 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		ch := handler.NewCustomers(deps.CustomerStore)
 		ch.PortalAuth = deps.PortalAuth
 		ch.Audit = deps.AuditLogStore
+		ch.Log = deps.Logger
 		ch.Register(bizScope)
 		// set-portal-password + DELETE /customers/:id = admin+operator.
 		adminOp := g.Group("")
@@ -215,11 +236,13 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		for _, mw := range authChain {
 			subScope.Use(mw)
 		}
-		handler.NewSubscriptions(
+		sh := handler.NewSubscriptions(
 			deps.SubscriptionStore, deps.CustomerStore,
 			deps.PPPProfileStore, deps.HotspotStore,
 			deps.SettingStore, deps.DevMgr, deps.Logger,
-		).Register(subScope)
+		)
+		sh.Audit = deps.AuditLogStore
+		sh.Register(subScope)
 	}
 
 	// Settings, Invoices, Payments — business layer billing.
@@ -237,6 +260,9 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 			invRead.Use(mw)
 		}
 		h := handler.NewInvoices(deps.InvoiceStore, deps.SequenceStore)
+		h.Audit = deps.AuditLogStore
+		h.SubStore = deps.SubscriptionStore
+		h.Billing = deps.BillingService
 		h.RegisterRead(invRead)
 		// POST /invoices/generate, POST /invoices/:id/cancel — admin+operator saja.
 		invWrite := g.Group("")
@@ -334,6 +360,23 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		// Wire payment gateway jika dikonfigurasi (Fase 4).
 		portalHandler.PaymentSvc = deps.XenditGateway
 		portalHandler.Register(custScope)
+
+		// Tiket dukungan — customer portal (buat & lihat tiket sendiri).
+		if deps.TicketStore != nil {
+			handler.NewTickets(deps.TicketStore).RegisterCustomer(custScope)
+		}
+	}
+
+	// Tiket dukungan — staff endpoints (list, assign, resolve, delete).
+	if deps.TicketStore != nil {
+		ticketStaff := g.Group("")
+		for _, mw := range authChain {
+			ticketStaff.Use(mw)
+		}
+		if deps.AuthSigner != nil {
+			ticketStaff.Use(middleware.RequireRole(roleAdmin, roleOperator))
+		}
+		handler.NewTickets(deps.TicketStore).RegisterStaff(ticketStaff)
 	}
 }
 

@@ -15,6 +15,7 @@ import (
 	"github.com/quiqxiq/rosmon/api/sse"
 	"github.com/quiqxiq/rosmon/internal/tcpmock"
 	"github.com/quiqxiq/rosmon/internal/testutil"
+	"github.com/quiqxiq/rosmon/service/netstream"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,7 +32,9 @@ func setupStreamEngine(t *testing.T) (*gin.Engine, *tcpmock.Server) {
 		c.Next()
 	})
 
-	handler.NewStream(sse.NewHub(), cs.Hot, cs.Sys, cs.Net, cs.PPP, cs.Log, cs.WF).Register(r.Group("/api"))
+	hub := sse.NewHub()
+	ns := netstream.New(hub, nil, nil) // influx nil = live-only (cukup untuk test SSE)
+	handler.NewStream(hub, cs.Hot, cs.Sys, cs.Net, cs.PPP, cs.Log, cs.WF, ns).Register(r.Group("/api"))
 	return r, srv
 }
 
@@ -154,23 +157,24 @@ func TestStream_PPPInactive_emitsSSE(t *testing.T) {
 func TestStream_QueueStats_emitsParsedSSE(t *testing.T) {
 	skipHandlerRace(t)
 	r, srv := setupStreamEngine(t)
-	srv.OnStream(tcpmock.MatchCommand("/queue/simple/print"))
+	// Queue stats = streaming (Listen) via netstream; mock balas !re+!done.
+	srv.OnSentence(tcpmock.MatchCommand("/queue/simple/print"),
+		tcpmock.ReReply(
+			"=.id=*5",
+			"=name=q1",
+			"=target=10.0.0.0/24",
+			"=bytes=100/200",
+			"=packets=1/2",
+			"=rate=10/20",
+			"=total-rate=30",
+		),
+		tcpmock.DoneReply(),
+	)
 
-	res := openSSE(t, r, "/api/stream/network/queues/stats?interval=1s")
+	res := openSSE(t, r, "/api/stream/network/queues/stats?interval=500ms")
 	require.Equal(t, http.StatusOK, res.StatusCode)
 
-	tag := awaitHandlerStreamTag(t, srv, "/queue/simple/print", time.Second)
-	require.NoError(t, srv.EmitToStream(tag,
-		"=.id=*5",
-		"=name=q1",
-		"=target=10.0.0.0/24",
-		"=bytes=100/200",
-		"=packets=1/2",
-		"=rate=10/20",
-		"=total-rate=30",
-	))
-
-	got := readSSEEvent(t, res.Body, 2*time.Second)
+	got := readSSEEvent(t, res.Body, 3*time.Second)
 	require.Contains(t, got, "event: stats")
 	require.Contains(t, got, `"name":"q1"`)
 	require.Contains(t, got, `"bytes":"100/200"`)
