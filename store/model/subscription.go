@@ -38,8 +38,9 @@ type Subscription struct {
 	NextInvoiceDate *time.Time `gorm:"type:date"`
 	// SyncStatus adalah outbox flag untuk background outbox goroutine.
 	// 'synced' = tidak ada pending. Nilai lain = perlu eksekusi MikroTik.
-	SyncStatus   string `gorm:"size:30;not null;default:synced"`
-	SyncNotes    string `gorm:"type:text"`
+	SyncStatus     string `gorm:"size:30;not null;default:synced"`
+	SyncNotes      string `gorm:"type:text"`
+	SyncRetryCount int    `gorm:"not null;default:0"` // jumlah retry gagal berturut-turut; reset saat synced
 	ActivatedAt  *time.Time
 	TerminatedAt *time.Time
 	Notes        string `gorm:"type:text"`

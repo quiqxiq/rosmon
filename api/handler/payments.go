@@ -10,7 +10,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/quiqxiq/rosmon/api/dto"
-	"github.com/quiqxiq/rosmon/api/middleware"
 	"github.com/quiqxiq/rosmon/service/audit"
 	"github.com/quiqxiq/rosmon/service/notification"
 	"github.com/quiqxiq/rosmon/store"
@@ -393,13 +392,8 @@ func rupiah(amount int64) string {
 	return "Rp " + string(out)
 }
 
-func actorUserID(c *gin.Context) *uint {
-	if claims, ok := middleware.ClaimsFrom(c); ok {
-		uid := claims.UserID
-		return &uid
-	}
-	return nil
-}
+// actorUserID adalah alias untuk actorFromCtx (backward-compat dalam package).
+func actorUserID(c *gin.Context) *uint { return actorFromCtx(c) }
 
 func parsePaymentID(c *gin.Context) (uint, bool) {
 	raw := c.Param("id")

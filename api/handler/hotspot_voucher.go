@@ -2,7 +2,9 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/quiqxiq/rosmon/api/dto"
@@ -59,9 +61,12 @@ func (h *HotspotVoucher) Generate(c *gin.Context) {
 		return
 	}
 
+	gencode := fmt.Sprintf("G%d", time.Now().UnixMilli())
 	WriteOK(c, dto.VoucherGenerateResponse{
 		Vouchers: fromGenerated(created),
 		Count:    len(created),
+		Gencode:  gencode,
+		Profile:  spec.Profile,
 	})
 }
 

@@ -161,6 +161,39 @@ func (f *fakeSubscriptionStore) UpdateNextInvoiceDate(_ context.Context, id uint
 	return nil
 }
 
+func (f *fakeSubscriptionStore) IncrSyncRetry(_ context.Context, id uint, notes string) (int, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	s, ok := f.rows[id]
+	if !ok {
+		return 0, store.ErrSubscriptionNotFound
+	}
+	s.SyncRetryCount++
+	s.SyncNotes = notes
+	f.rows[id] = s
+	return s.SyncRetryCount, nil
+}
+
+func (f *fakeSubscriptionStore) ResetSyncRetry(_ context.Context, id uint) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	s, ok := f.rows[id]
+	if !ok {
+		return store.ErrSubscriptionNotFound
+	}
+	s.SyncRetryCount = 0
+	f.rows[id] = s
+	return nil
+}
+
+func (f *fakeSubscriptionStore) ChurnByMonth(_ context.Context, _ int) ([]store.ChurnEntry, error) {
+	return nil, nil
+}
+func (f *fakeSubscriptionStore) StatusCounts(_ context.Context) (*store.SubscriptionStatusCounts, error) {
+	return &store.SubscriptionStatusCounts{}, nil
+}
+func (f *fakeSubscriptionStore) CountCustomers(_ context.Context) (int, error) { return 0, nil }
+
 var _ store.SubscriptionStore = (*fakeSubscriptionStore)(nil)
 
 // fakePPPProfileStore — in-memory implementasi store.PPPProfileStore.

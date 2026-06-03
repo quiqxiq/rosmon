@@ -36,8 +36,10 @@ import { Route as AuthenticatedSubscriptionsIndexRouteImport } from './routes/_a
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedReportsIndexRouteImport } from './routes/_authenticated/reports/index'
 import { Route as AuthenticatedRegistrationsIndexRouteImport } from './routes/_authenticated/registrations/index'
+import { Route as AuthenticatedPaymentsIndexRouteImport } from './routes/_authenticated/payments/index'
 import { Route as AuthenticatedNetworkIndexRouteImport } from './routes/_authenticated/network/index'
 import { Route as AuthenticatedLogIndexRouteImport } from './routes/_authenticated/log/index'
+import { Route as AuthenticatedInvoicesIndexRouteImport } from './routes/_authenticated/invoices/index'
 import { Route as AuthenticatedHotspotIndexRouteImport } from './routes/_authenticated/hotspot/index'
 import { Route as AuthenticatedHelpCenterIndexRouteImport } from './routes/_authenticated/help-center/index'
 import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authenticated/customers/index'
@@ -50,7 +52,11 @@ import { Route as AuthenticatedVoucherPrintRouteImport } from './routes/_authent
 import { Route as AuthenticatedVoucherGenerateRouteImport } from './routes/_authenticated/voucher/generate'
 import { Route as AuthenticatedSettingsPaymentGatewayRouteImport } from './routes/_authenticated/settings/payment-gateway'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings/notifications'
+import { Route as AuthenticatedSettingsNotificationConfigRouteImport } from './routes/_authenticated/settings/notification-config'
+import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated/settings/general'
 import { Route as AuthenticatedSettingsDisplayRouteImport } from './routes/_authenticated/settings/display'
+import { Route as AuthenticatedSettingsBillingRouteImport } from './routes/_authenticated/settings/billing'
+import { Route as AuthenticatedSettingsBackupRouteImport } from './routes/_authenticated/settings/backup'
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
 import { Route as AuthenticatedReportMonthlyRouteImport } from './routes/_authenticated/report/monthly'
@@ -68,7 +74,6 @@ import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenti
 import { Route as PortalAppInvoicesIndexRouteImport } from './routes/portal/_app/invoices/index'
 import { Route as AuthenticatedAdminWhatsappIndexRouteImport } from './routes/_authenticated/admin/whatsapp/index'
 import { Route as AuthenticatedAdminUsersIndexRouteImport } from './routes/_authenticated/admin/users/index'
-import { Route as AuthenticatedAdminSettingsIndexRouteImport } from './routes/_authenticated/admin/settings/index'
 import { Route as AuthenticatedAdminRoutersIndexRouteImport } from './routes/_authenticated/admin/routers/index'
 import { Route as AuthenticatedAdminNotificationsIndexRouteImport } from './routes/_authenticated/admin/notifications/index'
 import { Route as AuthenticatedAdminMessageTemplatesIndexRouteImport } from './routes/_authenticated/admin/message-templates/index'
@@ -218,6 +223,12 @@ const AuthenticatedRegistrationsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedRegistrationsRouteRoute,
   } as any)
+const AuthenticatedPaymentsIndexRoute =
+  AuthenticatedPaymentsIndexRouteImport.update({
+    id: '/payments/',
+    path: '/payments/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedNetworkIndexRoute =
   AuthenticatedNetworkIndexRouteImport.update({
     id: '/network/',
@@ -229,6 +240,12 @@ const AuthenticatedLogIndexRoute = AuthenticatedLogIndexRouteImport.update({
   path: '/log/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedInvoicesIndexRoute =
+  AuthenticatedInvoicesIndexRouteImport.update({
+    id: '/invoices/',
+    path: '/invoices/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedHotspotIndexRoute =
   AuthenticatedHotspotIndexRouteImport.update({
     id: '/hotspot/',
@@ -297,10 +314,34 @@ const AuthenticatedSettingsNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedSettingsNotificationConfigRoute =
+  AuthenticatedSettingsNotificationConfigRouteImport.update({
+    id: '/notification-config',
+    path: '/notification-config',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsGeneralRoute =
+  AuthenticatedSettingsGeneralRouteImport.update({
+    id: '/general',
+    path: '/general',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
 const AuthenticatedSettingsDisplayRoute =
   AuthenticatedSettingsDisplayRouteImport.update({
     id: '/display',
     path: '/display',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsBillingRoute =
+  AuthenticatedSettingsBillingRouteImport.update({
+    id: '/billing',
+    path: '/billing',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsBackupRoute =
+  AuthenticatedSettingsBackupRouteImport.update({
+    id: '/backup',
+    path: '/backup',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 const AuthenticatedSettingsAppearanceRoute =
@@ -401,12 +442,6 @@ const AuthenticatedAdminUsersIndexRoute =
     path: '/users/',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
-const AuthenticatedAdminSettingsIndexRoute =
-  AuthenticatedAdminSettingsIndexRouteImport.update({
-    id: '/settings/',
-    path: '/settings/',
-    getParentRoute: () => AuthenticatedAdminRouteRoute,
-  } as any)
 const AuthenticatedAdminRoutersIndexRoute =
   AuthenticatedAdminRoutersIndexRouteImport.update({
     id: '/routers/',
@@ -469,7 +504,11 @@ export interface FileRoutesByFullPath {
   '/report/monthly': typeof AuthenticatedReportMonthlyRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
+  '/settings/backup': typeof AuthenticatedSettingsBackupRoute
+  '/settings/billing': typeof AuthenticatedSettingsBillingRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
+  '/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/settings/notification-config': typeof AuthenticatedSettingsNotificationConfigRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/payment-gateway': typeof AuthenticatedSettingsPaymentGatewayRoute
   '/voucher/generate': typeof AuthenticatedVoucherGenerateRoute
@@ -482,8 +521,10 @@ export interface FileRoutesByFullPath {
   '/customers/': typeof AuthenticatedCustomersIndexRoute
   '/help-center/': typeof AuthenticatedHelpCenterIndexRoute
   '/hotspot/': typeof AuthenticatedHotspotIndexRoute
+  '/invoices/': typeof AuthenticatedInvoicesIndexRoute
   '/log/': typeof AuthenticatedLogIndexRoute
   '/network/': typeof AuthenticatedNetworkIndexRoute
+  '/payments/': typeof AuthenticatedPaymentsIndexRoute
   '/registrations/': typeof AuthenticatedRegistrationsIndexRoute
   '/reports/': typeof AuthenticatedReportsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
@@ -498,7 +539,6 @@ export interface FileRoutesByFullPath {
   '/admin/message-templates/': typeof AuthenticatedAdminMessageTemplatesIndexRoute
   '/admin/notifications/': typeof AuthenticatedAdminNotificationsIndexRoute
   '/admin/routers/': typeof AuthenticatedAdminRoutersIndexRoute
-  '/admin/settings/': typeof AuthenticatedAdminSettingsIndexRoute
   '/admin/users/': typeof AuthenticatedAdminUsersIndexRoute
   '/admin/whatsapp/': typeof AuthenticatedAdminWhatsappIndexRoute
   '/portal/invoices/': typeof PortalAppInvoicesIndexRoute
@@ -532,7 +572,11 @@ export interface FileRoutesByTo {
   '/report/monthly': typeof AuthenticatedReportMonthlyRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
+  '/settings/backup': typeof AuthenticatedSettingsBackupRoute
+  '/settings/billing': typeof AuthenticatedSettingsBillingRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
+  '/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/settings/notification-config': typeof AuthenticatedSettingsNotificationConfigRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/payment-gateway': typeof AuthenticatedSettingsPaymentGatewayRoute
   '/voucher/generate': typeof AuthenticatedVoucherGenerateRoute
@@ -545,8 +589,10 @@ export interface FileRoutesByTo {
   '/customers': typeof AuthenticatedCustomersIndexRoute
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
   '/hotspot': typeof AuthenticatedHotspotIndexRoute
+  '/invoices': typeof AuthenticatedInvoicesIndexRoute
   '/log': typeof AuthenticatedLogIndexRoute
   '/network': typeof AuthenticatedNetworkIndexRoute
+  '/payments': typeof AuthenticatedPaymentsIndexRoute
   '/registrations': typeof AuthenticatedRegistrationsIndexRoute
   '/reports': typeof AuthenticatedReportsIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
@@ -561,7 +607,6 @@ export interface FileRoutesByTo {
   '/admin/message-templates': typeof AuthenticatedAdminMessageTemplatesIndexRoute
   '/admin/notifications': typeof AuthenticatedAdminNotificationsIndexRoute
   '/admin/routers': typeof AuthenticatedAdminRoutersIndexRoute
-  '/admin/settings': typeof AuthenticatedAdminSettingsIndexRoute
   '/admin/users': typeof AuthenticatedAdminUsersIndexRoute
   '/admin/whatsapp': typeof AuthenticatedAdminWhatsappIndexRoute
   '/portal/invoices': typeof PortalAppInvoicesIndexRoute
@@ -600,7 +645,11 @@ export interface FileRoutesById {
   '/_authenticated/report/monthly': typeof AuthenticatedReportMonthlyRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
+  '/_authenticated/settings/backup': typeof AuthenticatedSettingsBackupRoute
+  '/_authenticated/settings/billing': typeof AuthenticatedSettingsBillingRoute
   '/_authenticated/settings/display': typeof AuthenticatedSettingsDisplayRoute
+  '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/_authenticated/settings/notification-config': typeof AuthenticatedSettingsNotificationConfigRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/_authenticated/settings/payment-gateway': typeof AuthenticatedSettingsPaymentGatewayRoute
   '/_authenticated/voucher/generate': typeof AuthenticatedVoucherGenerateRoute
@@ -613,8 +662,10 @@ export interface FileRoutesById {
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
   '/_authenticated/help-center/': typeof AuthenticatedHelpCenterIndexRoute
   '/_authenticated/hotspot/': typeof AuthenticatedHotspotIndexRoute
+  '/_authenticated/invoices/': typeof AuthenticatedInvoicesIndexRoute
   '/_authenticated/log/': typeof AuthenticatedLogIndexRoute
   '/_authenticated/network/': typeof AuthenticatedNetworkIndexRoute
+  '/_authenticated/payments/': typeof AuthenticatedPaymentsIndexRoute
   '/_authenticated/registrations/': typeof AuthenticatedRegistrationsIndexRoute
   '/_authenticated/reports/': typeof AuthenticatedReportsIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
@@ -629,7 +680,6 @@ export interface FileRoutesById {
   '/_authenticated/admin/message-templates/': typeof AuthenticatedAdminMessageTemplatesIndexRoute
   '/_authenticated/admin/notifications/': typeof AuthenticatedAdminNotificationsIndexRoute
   '/_authenticated/admin/routers/': typeof AuthenticatedAdminRoutersIndexRoute
-  '/_authenticated/admin/settings/': typeof AuthenticatedAdminSettingsIndexRoute
   '/_authenticated/admin/users/': typeof AuthenticatedAdminUsersIndexRoute
   '/_authenticated/admin/whatsapp/': typeof AuthenticatedAdminWhatsappIndexRoute
   '/portal/_app/invoices/': typeof PortalAppInvoicesIndexRoute
@@ -668,7 +718,11 @@ export interface FileRouteTypes {
     | '/report/monthly'
     | '/settings/account'
     | '/settings/appearance'
+    | '/settings/backup'
+    | '/settings/billing'
     | '/settings/display'
+    | '/settings/general'
+    | '/settings/notification-config'
     | '/settings/notifications'
     | '/settings/payment-gateway'
     | '/voucher/generate'
@@ -681,8 +735,10 @@ export interface FileRouteTypes {
     | '/customers/'
     | '/help-center/'
     | '/hotspot/'
+    | '/invoices/'
     | '/log/'
     | '/network/'
+    | '/payments/'
     | '/registrations/'
     | '/reports/'
     | '/settings/'
@@ -697,7 +753,6 @@ export interface FileRouteTypes {
     | '/admin/message-templates/'
     | '/admin/notifications/'
     | '/admin/routers/'
-    | '/admin/settings/'
     | '/admin/users/'
     | '/admin/whatsapp/'
     | '/portal/invoices/'
@@ -731,7 +786,11 @@ export interface FileRouteTypes {
     | '/report/monthly'
     | '/settings/account'
     | '/settings/appearance'
+    | '/settings/backup'
+    | '/settings/billing'
     | '/settings/display'
+    | '/settings/general'
+    | '/settings/notification-config'
     | '/settings/notifications'
     | '/settings/payment-gateway'
     | '/voucher/generate'
@@ -744,8 +803,10 @@ export interface FileRouteTypes {
     | '/customers'
     | '/help-center'
     | '/hotspot'
+    | '/invoices'
     | '/log'
     | '/network'
+    | '/payments'
     | '/registrations'
     | '/reports'
     | '/settings'
@@ -760,7 +821,6 @@ export interface FileRouteTypes {
     | '/admin/message-templates'
     | '/admin/notifications'
     | '/admin/routers'
-    | '/admin/settings'
     | '/admin/users'
     | '/admin/whatsapp'
     | '/portal/invoices'
@@ -798,7 +858,11 @@ export interface FileRouteTypes {
     | '/_authenticated/report/monthly'
     | '/_authenticated/settings/account'
     | '/_authenticated/settings/appearance'
+    | '/_authenticated/settings/backup'
+    | '/_authenticated/settings/billing'
     | '/_authenticated/settings/display'
+    | '/_authenticated/settings/general'
+    | '/_authenticated/settings/notification-config'
     | '/_authenticated/settings/notifications'
     | '/_authenticated/settings/payment-gateway'
     | '/_authenticated/voucher/generate'
@@ -811,8 +875,10 @@ export interface FileRouteTypes {
     | '/_authenticated/customers/'
     | '/_authenticated/help-center/'
     | '/_authenticated/hotspot/'
+    | '/_authenticated/invoices/'
     | '/_authenticated/log/'
     | '/_authenticated/network/'
+    | '/_authenticated/payments/'
     | '/_authenticated/registrations/'
     | '/_authenticated/reports/'
     | '/_authenticated/settings/'
@@ -827,7 +893,6 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/message-templates/'
     | '/_authenticated/admin/notifications/'
     | '/_authenticated/admin/routers/'
-    | '/_authenticated/admin/settings/'
     | '/_authenticated/admin/users/'
     | '/_authenticated/admin/whatsapp/'
     | '/portal/_app/invoices/'
@@ -1041,6 +1106,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRegistrationsIndexRouteImport
       parentRoute: typeof AuthenticatedRegistrationsRouteRoute
     }
+    '/_authenticated/payments/': {
+      id: '/_authenticated/payments/'
+      path: '/payments'
+      fullPath: '/payments/'
+      preLoaderRoute: typeof AuthenticatedPaymentsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/network/': {
       id: '/_authenticated/network/'
       path: '/network'
@@ -1053,6 +1125,13 @@ declare module '@tanstack/react-router' {
       path: '/log'
       fullPath: '/log/'
       preLoaderRoute: typeof AuthenticatedLogIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/invoices/': {
+      id: '/_authenticated/invoices/'
+      path: '/invoices'
+      fullPath: '/invoices/'
+      preLoaderRoute: typeof AuthenticatedInvoicesIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/hotspot/': {
@@ -1139,11 +1218,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsNotificationsRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/settings/notification-config': {
+      id: '/_authenticated/settings/notification-config'
+      path: '/notification-config'
+      fullPath: '/settings/notification-config'
+      preLoaderRoute: typeof AuthenticatedSettingsNotificationConfigRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/general': {
+      id: '/_authenticated/settings/general'
+      path: '/general'
+      fullPath: '/settings/general'
+      preLoaderRoute: typeof AuthenticatedSettingsGeneralRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
     '/_authenticated/settings/display': {
       id: '/_authenticated/settings/display'
       path: '/display'
       fullPath: '/settings/display'
       preLoaderRoute: typeof AuthenticatedSettingsDisplayRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/billing': {
+      id: '/_authenticated/settings/billing'
+      path: '/billing'
+      fullPath: '/settings/billing'
+      preLoaderRoute: typeof AuthenticatedSettingsBillingRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/backup': {
+      id: '/_authenticated/settings/backup'
+      path: '/backup'
+      fullPath: '/settings/backup'
+      preLoaderRoute: typeof AuthenticatedSettingsBackupRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
     '/_authenticated/settings/appearance': {
@@ -1265,13 +1372,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminUsersIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
-    '/_authenticated/admin/settings/': {
-      id: '/_authenticated/admin/settings/'
-      path: '/settings'
-      fullPath: '/admin/settings/'
-      preLoaderRoute: typeof AuthenticatedAdminSettingsIndexRouteImport
-      parentRoute: typeof AuthenticatedAdminRouteRoute
-    }
     '/_authenticated/admin/routers/': {
       id: '/_authenticated/admin/routers/'
       path: '/routers'
@@ -1315,7 +1415,6 @@ interface AuthenticatedAdminRouteRouteChildren {
   AuthenticatedAdminMessageTemplatesIndexRoute: typeof AuthenticatedAdminMessageTemplatesIndexRoute
   AuthenticatedAdminNotificationsIndexRoute: typeof AuthenticatedAdminNotificationsIndexRoute
   AuthenticatedAdminRoutersIndexRoute: typeof AuthenticatedAdminRoutersIndexRoute
-  AuthenticatedAdminSettingsIndexRoute: typeof AuthenticatedAdminSettingsIndexRoute
   AuthenticatedAdminUsersIndexRoute: typeof AuthenticatedAdminUsersIndexRoute
   AuthenticatedAdminWhatsappIndexRoute: typeof AuthenticatedAdminWhatsappIndexRoute
 }
@@ -1329,7 +1428,6 @@ const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren
     AuthenticatedAdminNotificationsIndexRoute:
       AuthenticatedAdminNotificationsIndexRoute,
     AuthenticatedAdminRoutersIndexRoute: AuthenticatedAdminRoutersIndexRoute,
-    AuthenticatedAdminSettingsIndexRoute: AuthenticatedAdminSettingsIndexRoute,
     AuthenticatedAdminUsersIndexRoute: AuthenticatedAdminUsersIndexRoute,
     AuthenticatedAdminWhatsappIndexRoute: AuthenticatedAdminWhatsappIndexRoute,
   }
@@ -1356,7 +1454,11 @@ const AuthenticatedRegistrationsRouteRouteWithChildren =
 interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsAccountRoute: typeof AuthenticatedSettingsAccountRoute
   AuthenticatedSettingsAppearanceRoute: typeof AuthenticatedSettingsAppearanceRoute
+  AuthenticatedSettingsBackupRoute: typeof AuthenticatedSettingsBackupRoute
+  AuthenticatedSettingsBillingRoute: typeof AuthenticatedSettingsBillingRoute
   AuthenticatedSettingsDisplayRoute: typeof AuthenticatedSettingsDisplayRoute
+  AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
+  AuthenticatedSettingsNotificationConfigRoute: typeof AuthenticatedSettingsNotificationConfigRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
   AuthenticatedSettingsPaymentGatewayRoute: typeof AuthenticatedSettingsPaymentGatewayRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
@@ -1366,7 +1468,12 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
   {
     AuthenticatedSettingsAccountRoute: AuthenticatedSettingsAccountRoute,
     AuthenticatedSettingsAppearanceRoute: AuthenticatedSettingsAppearanceRoute,
+    AuthenticatedSettingsBackupRoute: AuthenticatedSettingsBackupRoute,
+    AuthenticatedSettingsBillingRoute: AuthenticatedSettingsBillingRoute,
     AuthenticatedSettingsDisplayRoute: AuthenticatedSettingsDisplayRoute,
+    AuthenticatedSettingsGeneralRoute: AuthenticatedSettingsGeneralRoute,
+    AuthenticatedSettingsNotificationConfigRoute:
+      AuthenticatedSettingsNotificationConfigRoute,
     AuthenticatedSettingsNotificationsRoute:
       AuthenticatedSettingsNotificationsRoute,
     AuthenticatedSettingsPaymentGatewayRoute:
@@ -1402,8 +1509,10 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCustomersIndexRoute: typeof AuthenticatedCustomersIndexRoute
   AuthenticatedHelpCenterIndexRoute: typeof AuthenticatedHelpCenterIndexRoute
   AuthenticatedHotspotIndexRoute: typeof AuthenticatedHotspotIndexRoute
+  AuthenticatedInvoicesIndexRoute: typeof AuthenticatedInvoicesIndexRoute
   AuthenticatedLogIndexRoute: typeof AuthenticatedLogIndexRoute
   AuthenticatedNetworkIndexRoute: typeof AuthenticatedNetworkIndexRoute
+  AuthenticatedPaymentsIndexRoute: typeof AuthenticatedPaymentsIndexRoute
   AuthenticatedReportsIndexRoute: typeof AuthenticatedReportsIndexRoute
   AuthenticatedSubscriptionsIndexRoute: typeof AuthenticatedSubscriptionsIndexRoute
   AuthenticatedSystemIndexRoute: typeof AuthenticatedSystemIndexRoute
@@ -1436,8 +1545,10 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCustomersIndexRoute: AuthenticatedCustomersIndexRoute,
   AuthenticatedHelpCenterIndexRoute: AuthenticatedHelpCenterIndexRoute,
   AuthenticatedHotspotIndexRoute: AuthenticatedHotspotIndexRoute,
+  AuthenticatedInvoicesIndexRoute: AuthenticatedInvoicesIndexRoute,
   AuthenticatedLogIndexRoute: AuthenticatedLogIndexRoute,
   AuthenticatedNetworkIndexRoute: AuthenticatedNetworkIndexRoute,
+  AuthenticatedPaymentsIndexRoute: AuthenticatedPaymentsIndexRoute,
   AuthenticatedReportsIndexRoute: AuthenticatedReportsIndexRoute,
   AuthenticatedSubscriptionsIndexRoute: AuthenticatedSubscriptionsIndexRoute,
   AuthenticatedSystemIndexRoute: AuthenticatedSystemIndexRoute,

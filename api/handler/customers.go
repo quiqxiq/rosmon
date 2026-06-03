@@ -13,6 +13,7 @@ import (
 	"github.com/quiqxiq/rosmon/service/portal"
 	"github.com/quiqxiq/rosmon/store"
 	"github.com/quiqxiq/rosmon/store/model"
+	"github.com/sirupsen/logrus"
 )
 
 // Customers handler untuk endpoint /customers (top-level, tidak per-device).
@@ -23,9 +24,10 @@ type Customers struct {
 	// set-portal-password (onboarding pelanggan ke customer portal).
 	PortalAuth *portal.CustomerAuth
 	Audit      store.AuditLogStore
+	Log        *logrus.Logger
 }
 
-func NewCustomers(s store.CustomerStore) *Customers { return &Customers{Store: s} }
+func NewCustomers(s store.CustomerStore) *Customers { return &Customers{Store: s, Log: logrus.New()} }
 
 func (h *Customers) Register(g *gin.RouterGroup) {
 	r := g.Group("/customers")
@@ -200,12 +202,24 @@ func (h *Customers) Update(c *gin.Context) {
 		WriteErr(c, err)
 		return
 	}
+	audit.Log(c.Request.Context(), h.Audit, h.Log, actorFromCtx(c), "customer_updated", "customer", id,
+		map[string]string{"status": ""}, dto.FromModelCustomer(cust))
 	WriteOK(c, dto.FromModelCustomer(cust))
 }
 
 func (h *Customers) Delete(c *gin.Context) {
 	id, ok := parseCustomerID(c)
 	if !ok {
+		return
+	}
+	cust, err := h.Store.Get(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, store.ErrCustomerNotFound) {
+			c.AbortWithStatusJSON(http.StatusNotFound,
+				dto.Err("NOT_FOUND", "customer not found", c.Request.URL.Path))
+			return
+		}
+		WriteErr(c, err)
 		return
 	}
 	if err := h.Store.Delete(c.Request.Context(), id); err != nil {
@@ -217,6 +231,8 @@ func (h *Customers) Delete(c *gin.Context) {
 		WriteErr(c, err)
 		return
 	}
+	audit.Log(c.Request.Context(), h.Audit, h.Log, actorFromCtx(c), "customer_deleted", "customer", id,
+		dto.FromModelCustomer(cust), nil)
 	WriteNoContent(c)
 }
 

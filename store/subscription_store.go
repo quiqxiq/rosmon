@@ -25,6 +25,20 @@ type SubscriptionListFilter struct {
 	ServiceType string
 }
 
+// ChurnEntry adalah jumlah subscription terminated per bulan.
+type ChurnEntry struct {
+	Year  int
+	Month int
+	Count int
+}
+
+// SubscriptionStatusCounts adalah jumlah subscription per status.
+type SubscriptionStatusCounts struct {
+	Active    int
+	Isolir    int
+	Suspended int
+}
+
 type SubscriptionStore interface {
 	List(ctx context.Context, f SubscriptionListFilter) ([]model.Subscription, error)
 	Get(ctx context.Context, id uint) (model.Subscription, error)
@@ -32,6 +46,12 @@ type SubscriptionStore interface {
 	Update(ctx context.Context, s *model.Subscription) error
 	UpdateStatus(ctx context.Context, id uint, status string, activatedAt, terminatedAt *time.Time) error
 	UpdateSyncStatus(ctx context.Context, id uint, syncStatus, syncNotes string) error
+	// IncrSyncRetry menambah sync_retry_count +1 dan menyimpan sync_notes.
+	// Tidak mengubah sync_status — biarkan status tetap pending_* agar outbox
+	// masih bisa retry. Mengembalikan nilai retry count terbaru.
+	IncrSyncRetry(ctx context.Context, id uint, notes string) (retryCount int, err error)
+	// ResetSyncRetry mereset sync_retry_count ke 0. Dipanggil saat sync berhasil.
+	ResetSyncRetry(ctx context.Context, id uint) error
 	// ListPendingSync returns rows where sync_status != 'synced', up to limit,
 	// using FOR UPDATE SKIP LOCKED to avoid double-processing by concurrent workers.
 	ListPendingSync(ctx context.Context, limit int) ([]model.Subscription, error)
@@ -39,6 +59,12 @@ type SubscriptionStore interface {
 	// billing_cron untuk menghindari Save partial yang menimpa field lain.
 	UpdateNextInvoiceDate(ctx context.Context, id uint, next time.Time) error
 	Delete(ctx context.Context, id uint) error
+	// ChurnByMonth mengembalikan jumlah subscription terminated per bulan untuk tahun tertentu.
+	ChurnByMonth(ctx context.Context, year int) ([]ChurnEntry, error)
+	// StatusCounts mengembalikan jumlah subscription per status aktif.
+	StatusCounts(ctx context.Context) (*SubscriptionStatusCounts, error)
+	// CountCustomers mengembalikan total customer aktif.
+	CountCustomers(ctx context.Context) (int, error)
 }
 
 type gormSubscriptionStore struct{ db *gorm.DB }
@@ -164,11 +190,16 @@ func (s *gormSubscriptionStore) UpdateStatus(ctx context.Context, id uint, statu
 }
 
 func (s *gormSubscriptionStore) UpdateSyncStatus(ctx context.Context, id uint, syncStatus, syncNotes string) error {
-	res := s.db.WithContext(ctx).Model(&model.Subscription{}).Where("id = ?", id).Updates(map[string]any{
+	updates := map[string]any{
 		"sync_status": syncStatus,
 		"sync_notes":  syncNotes,
 		"updated_at":  time.Now(),
-	})
+	}
+	// Reset retry counter saat berhasil sync.
+	if syncStatus == "synced" {
+		updates["sync_retry_count"] = 0
+	}
+	res := s.db.WithContext(ctx).Model(&model.Subscription{}).Where("id = ?", id).Updates(updates)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -176,6 +207,33 @@ func (s *gormSubscriptionStore) UpdateSyncStatus(ctx context.Context, id uint, s
 		return ErrSubscriptionNotFound
 	}
 	return nil
+}
+
+func (s *gormSubscriptionStore) IncrSyncRetry(ctx context.Context, id uint, notes string) (int, error) {
+	res := s.db.WithContext(ctx).Model(&model.Subscription{}).Where("id = ?", id).Updates(map[string]any{
+		"sync_retry_count": gorm.Expr("sync_retry_count + 1"),
+		"sync_notes":       notes,
+		"updated_at":       time.Now(),
+	})
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return 0, ErrSubscriptionNotFound
+	}
+	// Baca kembali nilai terbaru.
+	var sub model.Subscription
+	if err := s.db.WithContext(ctx).Select("sync_retry_count").First(&sub, id).Error; err != nil {
+		return 0, err
+	}
+	return sub.SyncRetryCount, nil
+}
+
+func (s *gormSubscriptionStore) ResetSyncRetry(ctx context.Context, id uint) error {
+	return s.db.WithContext(ctx).Model(&model.Subscription{}).Where("id = ?", id).Updates(map[string]any{
+		"sync_retry_count": 0,
+		"updated_at":       time.Now(),
+	}).Error
 }
 
 func (s *gormSubscriptionStore) ListPendingSync(ctx context.Context, limit int) ([]model.Subscription, error) {
@@ -217,6 +275,68 @@ func (s *gormSubscriptionStore) Delete(ctx context.Context, id uint) error {
 		return ErrSubscriptionNotFound
 	}
 	return nil
+}
+
+func (s *gormSubscriptionStore) ChurnByMonth(ctx context.Context, year int) ([]ChurnEntry, error) {
+	type row struct {
+		Month int
+		Count int
+	}
+	var rows []row
+	err := s.db.WithContext(ctx).
+		Model(&model.Subscription{}).
+		Select("EXTRACT(MONTH FROM terminated_at) as month, COUNT(*) as count").
+		Where("EXTRACT(YEAR FROM terminated_at) = ?", year).
+		Where("terminated_at IS NOT NULL").
+		Group("month").
+		Order("month").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ChurnEntry, len(rows))
+	for i, r := range rows {
+		out[i] = ChurnEntry{Year: year, Month: r.Month, Count: r.Count}
+	}
+	return out, nil
+}
+
+func (s *gormSubscriptionStore) StatusCounts(ctx context.Context) (*SubscriptionStatusCounts, error) {
+	type row struct {
+		Status string
+		Count  int
+	}
+	var rows []row
+	err := s.db.WithContext(ctx).
+		Model(&model.Subscription{}).
+		Select("status, COUNT(*) as count").
+		Where("status IN ?", []string{"active", "isolir", "suspended"}).
+		Group("status").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	sc := &SubscriptionStatusCounts{}
+	for _, r := range rows {
+		switch r.Status {
+		case "active":
+			sc.Active = r.Count
+		case "isolir":
+			sc.Isolir = r.Count
+		case "suspended":
+			sc.Suspended = r.Count
+		}
+	}
+	return sc, nil
+}
+
+func (s *gormSubscriptionStore) CountCustomers(ctx context.Context) (int, error) {
+	var count int64
+	err := s.db.WithContext(ctx).
+		Table("customers").
+		Where("deleted_at IS NULL AND status = 'aktif'").
+		Count(&count).Error
+	return int(count), err
 }
 
 func isSubscriptionUniqueErr(err error) bool {

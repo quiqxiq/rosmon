@@ -4,12 +4,14 @@ package job
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/quiqxiq/rosmon/mikrotik"
 	"github.com/quiqxiq/rosmon/mikrotik/hotspot"
 	"github.com/quiqxiq/rosmon/mikrotik/ppp"
 	"github.com/quiqxiq/rosmon/service/devmgr"
+	"github.com/quiqxiq/rosmon/service/notification"
 	"github.com/quiqxiq/rosmon/store"
 	"github.com/quiqxiq/rosmon/store/model"
 	"github.com/sirupsen/logrus"
@@ -17,16 +19,18 @@ import (
 
 const outboxBatchSize = 20
 const outboxSyncTimeout = 10 * time.Second
+const outboxEscalationThreshold = 5
 
 // OutboxJob memproses subscriptions dengan sync_status != 'synced' dan
 // mengeksekusi perintah MikroTik yang sesuai. Idempotent — aman dijalankan ulang.
 type OutboxJob struct {
-	SubStore      store.SubscriptionStore
-	PPPStore      store.PPPProfileStore
-	HotspotStore  store.HotspotProfileStore
-	SettingStore  store.SettingStore
-	DevMgr        *devmgr.Manager
-	Log           *logrus.Logger
+	SubStore     store.SubscriptionStore
+	PPPStore     store.PPPProfileStore
+	HotspotStore store.HotspotProfileStore
+	SettingStore store.SettingStore
+	NotifSvc     *notification.Service // nil = eskalasi hanya di-log
+	DevMgr       *devmgr.Manager
+	Log          *logrus.Logger
 }
 
 func NewOutboxJob(sub store.SubscriptionStore, ppp store.PPPProfileStore, hs store.HotspotProfileStore, settings store.SettingStore, dm *devmgr.Manager, log *logrus.Logger) *OutboxJob {
@@ -61,17 +65,50 @@ func (j *OutboxJob) Run(ctx context.Context) error {
 	}
 	for _, sub := range subs {
 		sub := sub
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		if err := j.applySync(ctx, sub); err != nil {
 			j.Log.WithError(err).WithFields(logrus.Fields{
 				"subscription_id": sub.ID,
 				"sync_status":     sub.SyncStatus,
 			}).Warn("outbox: sync failed")
-			_ = j.SubStore.UpdateSyncStatus(ctx, sub.ID, "error", err.Error())
+			retryCount, _ := j.SubStore.IncrSyncRetry(ctx, sub.ID, err.Error())
+			if retryCount >= outboxEscalationThreshold {
+				_ = j.SubStore.UpdateSyncStatus(ctx, sub.ID, "error", err.Error())
+				j.escalate(ctx, sub, err, retryCount)
+			}
 		} else {
 			_ = j.SubStore.UpdateSyncStatus(ctx, sub.ID, "synced", "")
 		}
 	}
 	return nil
+}
+
+// escalate mengirim notifikasi ke admin saat outbox gagal melebihi threshold.
+func (j *OutboxJob) escalate(ctx context.Context, sub model.Subscription, syncErr error, retryCount int) {
+	j.Log.WithFields(logrus.Fields{
+		"subscription_id": sub.ID,
+		"retry_count":     retryCount,
+		"error":           syncErr.Error(),
+	}).Error("outbox: escalation — sync gagal melebihi threshold")
+
+	if j.NotifSvc == nil || j.SettingStore == nil {
+		return
+	}
+	adminPhone, _ := j.SettingStore.Get(ctx, "notification.admin_phone")
+	if adminPhone == "" {
+		return
+	}
+	j.NotifSvc.NotifyAsync(nil, adminPhone, "outbox_escalation", map[string]string{
+		"subscription_id":   fmt.Sprintf("%d", sub.ID),
+		"service_type":      sub.ServiceType,
+		"mikrotik_username": sub.MikrotikUsername,
+		"error":             syncErr.Error(),
+		"retry_count":       fmt.Sprintf("%d", retryCount),
+	})
 }
 
 func (j *OutboxJob) applySync(ctx context.Context, sub model.Subscription) error {

@@ -1,5 +1,16 @@
 import { Outlet } from '@tanstack/react-router'
-import { CreditCard, Monitor, Bell, Palette, Wrench, UserCog } from 'lucide-react'
+import {
+  Bell,
+  Building2,
+  CreditCard,
+  Database,
+  MessageSquare,
+  Monitor,
+  Palette,
+  Receipt,
+  UserCog,
+  Wrench,
+} from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { Main } from '@/components/layout/main'
 import { SidebarNav } from './components/sidebar-nav'
@@ -11,17 +22,17 @@ const sidebarNavItems = [
     icon: <UserCog size={18} />,
   },
   {
-    title: 'Account',
+    title: 'Akun',
     href: '/settings/account',
     icon: <Wrench size={18} />,
   },
   {
-    title: 'Appearance',
+    title: 'Tampilan',
     href: '/settings/appearance',
     icon: <Palette size={18} />,
   },
   {
-    title: 'Notifications',
+    title: 'Notifikasi',
     href: '/settings/notifications',
     icon: <Bell size={18} />,
   },
@@ -31,9 +42,29 @@ const sidebarNavItems = [
     icon: <Monitor size={18} />,
   },
   {
+    title: 'Umum',
+    href: '/settings/general',
+    icon: <Building2 size={18} />,
+  },
+  {
+    title: 'Billing',
+    href: '/settings/billing',
+    icon: <Receipt size={18} />,
+  },
+  {
+    title: 'WA & Telegram',
+    href: '/settings/notification-config',
+    icon: <MessageSquare size={18} />,
+  },
+  {
     title: 'Payment Gateway',
     href: '/settings/payment-gateway',
     icon: <CreditCard size={18} />,
+  },
+  {
+    title: 'Backup',
+    href: '/settings/backup',
+    icon: <Database size={18} />,
   },
 ]
 
@@ -46,7 +77,7 @@ export function Settings() {
             Settings
           </h1>
           <p className='text-muted-foreground'>
-            Manage your account settings and set e-mail preferences.
+            Kelola akun dan konfigurasi sistem.
           </p>
         </div>
         <Separator className='my-4 lg:my-6' />

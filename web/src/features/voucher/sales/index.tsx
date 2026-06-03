@@ -75,7 +75,9 @@ export function VoucherSales() {
     PAGE_SIZE_OPTIONS.includes(
       (search.page_size ?? DEFAULT_PAGE_SIZE) as 25 | 50 | 100,
     )
-      ? (search.page_size as number)
+      ? // Fallback ke DEFAULT_PAGE_SIZE saat page_size tidak ada di URL —
+        // tanpa ini pageSize bisa undefined → "Page 1 of NaN".
+        ((search.page_size ?? DEFAULT_PAGE_SIZE) as number)
       : DEFAULT_PAGE_SIZE,
   )
 

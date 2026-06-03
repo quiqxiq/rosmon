@@ -66,3 +66,47 @@ type ReportTodayResponse struct {
 	Count        int                   `json:"count"`
 	Transactions []TransactionResponse `json:"transactions"`
 }
+
+// FinancialMonthlyResponse adalah response untuk GET /reports/financial.
+type FinancialMonthlyResponse struct {
+	Year          int   `json:"year"`
+	Month         int   `json:"month"`
+	TotalBilled   int64 `json:"total_billed"`   // sum amount invoice issued+paid+overdue
+	TotalCollected int64 `json:"total_collected"` // sum amount invoice paid
+	Outstanding   int64 `json:"outstanding"`     // billed - collected
+	InvoiceCount  int   `json:"invoice_count"`
+	PaidCount     int   `json:"paid_count"`
+	OverdueCount  int   `json:"overdue_count"`
+}
+
+// AgingBucket adalah satu bucket aging invoice.
+type AgingBucket struct {
+	Label       string `json:"label"`        // mis. "0-7 hari"
+	Count       int    `json:"count"`
+	TotalAmount int64  `json:"total_amount"`
+}
+
+// AgingReportResponse adalah response untuk GET /reports/aging.
+type AgingReportResponse struct {
+	AsOf    string        `json:"as_of"` // tanggal laporan, RFC3339
+	Buckets []AgingBucket `json:"buckets"`
+}
+
+// ChurnEntry adalah churn per bulan.
+type ChurnEntry struct {
+	Year  int `json:"year"`
+	Month int `json:"month"`
+	Count int `json:"count"` // jumlah subscription terminated pada bulan ini
+}
+
+// DashboardSummaryResponse adalah response untuk GET /reports/dashboard.
+type DashboardSummaryResponse struct {
+	ActiveSubscriptions int   `json:"active_subscriptions"`
+	IsolirCount         int   `json:"isolir_count"`
+	SuspendedCount      int   `json:"suspended_count"`
+	OverdueInvoices     int   `json:"overdue_invoices"`
+	OverdueAmount       int64 `json:"overdue_amount"`
+	MonthlyRevenue      int64 `json:"monthly_revenue"`       // invoice paid bulan ini
+	PendingPayments     int   `json:"pending_payments"`      // payment pending confirmation
+	TotalCustomers      int   `json:"total_customers"`
+}

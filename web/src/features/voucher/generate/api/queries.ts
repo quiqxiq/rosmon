@@ -12,6 +12,15 @@ const voucherSessionPrefix = (routerId: number) =>
 
 // ─────────────────── Queries ───────────────────
 
+export function useHotspotServers(routerId: number) {
+  return useQuery({
+    queryKey: ['hotspot', 'servers', routerId],
+    queryFn: () => svc.listHotspotServers(routerId),
+    enabled: routerId > 0,
+    staleTime: 60_000,
+  })
+}
+
 // Fetch a previously generated voucher batch by `gencode`. Exposed as a
 // query (not a mutation) because print-render consumers typically read
 // this reactively after a navigation. The `gencode` gate disables the

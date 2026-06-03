@@ -1,104 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ServerOff } from 'lucide-react'
-import { toast } from 'sonner'
-import { useGenerateVoucher } from '@/features/voucher/generate/api/queries'
-import { type VoucherGenerateParams } from '@/features/voucher/generate/api/schema'
 import { useActiveRouterId } from '@/stores/active-router-store'
-import { useHotspotProfiles } from '@/features/hotspot/profiles/api/queries'
-import { toProfileViewModel } from '@/features/hotspot/profiles/components/view-model'
 import { Main } from '@/components/layout/main'
 import { VoucherGenerateFormPanel } from './components/voucher-generate-form'
 import { VoucherResultTable } from './components/voucher-result-table'
-import { dataLimitToBytes, defaultGenerateForm } from './data/data'
-import {
-  type GeneratedVoucher,
-  type VoucherGenerateForm,
-} from './data/schema'
-
-// Map the camelCase UI form to the snake_case backend params. Stays inline
-// here (not in api/) because the form's `dataLimit + dataLimitUnit` split
-// is purely a UI concern — backend only knows total bytes.
-function formToBackendParams(form: VoucherGenerateForm): VoucherGenerateParams {
-  return {
-    qty: form.qty,
-    server: form.server === 'all' ? undefined : form.server,
-    user_type: form.userType,
-    name_length: form.nameLength,
-    prefix: form.prefix || undefined,
-    char_set: form.charSet,
-    profile: form.profile,
-    time_limit: form.timeLimit || undefined,
-    data_limit: dataLimitToBytes(form.dataLimit, form.dataLimitUnit),
-    comment: form.comment || undefined,
-  }
-}
+import type { GeneratedVoucher } from './data/schema'
 
 export function VoucherGenerate() {
   const routerId = useActiveRouterId()
-  const generateMutation = useGenerateVoucher(routerId ?? 0)
-  const profilesQuery = useHotspotProfiles(routerId ?? 0)
-  const profiles = (profilesQuery.data ?? []).map(toProfileViewModel)
 
-  const [form, setForm] = useState<VoucherGenerateForm>(defaultGenerateForm)
   const [vouchers, setVouchers] = useState<GeneratedVoucher[]>([])
   const [resultProfile, setResultProfile] = useState<string>('')
   const [resultServer, setResultServer] = useState<string>('')
 
-  // When real profiles load, set the first one as default if not already set
-  useEffect(() => {
-    if (profiles.length > 0 && !form.profile) {
-      setForm((prev) => ({ ...prev, profile: profiles[0].name }))
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profiles.length])
-
-  const handleGenerate = () => {
-    if (routerId == null) {
-      toast.error('Select a router first')
-      return
-    }
-    if (!form.profile) {
-      toast.error('Profile is required')
-      return
-    }
-    generateMutation.mutate(formToBackendParams(form), {
-      onSuccess: (data) => {
-        // Backend returns `{ username, password }`. The result table needs
-        // `id`, `profile`, `comment` for display — synthesize from context.
-        const enriched: GeneratedVoucher[] = data.vouchers.map((v, i) => ({
-          id: `${data.gencode}-${i + 1}`,
-          username: v.username,
-          password: v.password,
-          profile: data.profile,
-          comment: form.comment || '',
-        }))
-        setVouchers(enriched)
-        setResultProfile(data.profile)
-        setResultServer(form.server)
-        toast.success(
-          `Generated ${data.count} voucher${data.count > 1 ? 's' : ''}`,
-          {
-            description: `Profile: ${data.profile} · Gencode: ${data.gencode}`,
-          },
-        )
-      },
-      onError: (err) => {
-        toast.error('Failed to generate vouchers', {
-          description: err.message,
-        })
-      },
-    })
-  }
-
-  const handleReset = () => {
-    setForm(defaultGenerateForm)
-    setVouchers([])
-    setResultProfile('')
-    setResultServer('')
-  }
-
-  // No-router-selected state — covers both "user just landed" and
-  // "selected router got deleted by an admin while this tab was open".
   if (routerId == null) {
     return (
       <Main className='flex flex-1 flex-col items-center justify-center gap-3 text-center'>
@@ -124,13 +38,11 @@ export function VoucherGenerate() {
       </div>
       <div className='grid grid-cols-1 gap-4 lg:grid-cols-[420px_1fr]'>
         <VoucherGenerateFormPanel
-          form={form}
-          onChange={setForm}
-          onGenerate={handleGenerate}
-          onReset={handleReset}
-          isGenerating={generateMutation.isPending}
-          profiles={profiles}
-          isLoadingProfiles={profilesQuery.isLoading}
+          onSuccess={(vs, profile, server) => {
+            setVouchers(vs)
+            setResultProfile(profile)
+            setResultServer(server)
+          }}
         />
         <VoucherResultTable
           vouchers={vouchers}

@@ -4,8 +4,6 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   CheckCircle2,
-  Eye,
-  EyeOff,
   Loader2,
   RefreshCw,
   XCircle,
@@ -24,8 +22,10 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
+import { PasswordInput } from '@/components/password-input'
 import { useSystemSettings, useTestPaymentGateway, useUpdateSetting } from './api/queries'
 
 // ── Schema ──────────────────────────────────────────────────────────────────
@@ -72,8 +72,6 @@ export function PaymentGatewayForm() {
   const { mutate: updateSetting, isPending: isSaving } = useUpdateSetting()
   const { mutate: testGateway, isPending: isTesting } = useTestPaymentGateway()
 
-  const [showSecretKey, setShowSecretKey] = useState(false)
-  const [showWebhookToken, setShowWebhookToken] = useState(false)
   const [testStatus, setTestStatus] = useState<TestStatus>('idle')
   const [testMessage, setTestMessage] = useState('')
 
@@ -227,29 +225,13 @@ export function PaymentGatewayForm() {
             <FormItem>
               <FormLabel>API Secret Key</FormLabel>
               <FormControl>
-                <div className='relative'>
-                  <Input
-                    id='xendit-secret-key-input'
-                    type={showSecretKey ? 'text' : 'password'}
-                    autoComplete='new-password'
-                    placeholder={getSecretPlaceholder('payment.xendit_secret_key') || 'xnd_production_xxxxx...'}
-                    className='pr-10 font-mono text-sm'
-                    {...field}
-                  />
-                  <Button
-                    type='button'
-                    variant='ghost'
-                    size='icon'
-                    className='absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent'
-                    onClick={() => setShowSecretKey((v) => !v)}
-                    tabIndex={-1}
-                  >
-                    {showSecretKey
-                      ? <EyeOff className='size-4 text-muted-foreground' />
-                      : <Eye className='size-4 text-muted-foreground' />
-                    }
-                  </Button>
-                </div>
+                <PasswordInput
+                  id='xendit-secret-key-input'
+                  autoComplete='new-password'
+                  placeholder={getSecretPlaceholder('payment.xendit_secret_key') || 'xnd_production_xxxxx...'}
+                  className='font-mono text-sm'
+                  {...field}
+                />
               </FormControl>
               <FormDescription>
                 Dari{' '}
@@ -276,29 +258,13 @@ export function PaymentGatewayForm() {
             <FormItem>
               <FormLabel>X-CALLBACK-TOKEN</FormLabel>
               <FormControl>
-                <div className='relative'>
-                  <Input
-                    id='xendit-webhook-token-input'
-                    type={showWebhookToken ? 'text' : 'password'}
-                    autoComplete='new-password'
-                    placeholder={getSecretPlaceholder('payment.xendit_webhook_token') || 'Token dari Xendit Settings → Webhooks'}
-                    className='pr-10 font-mono text-sm'
-                    {...field}
-                  />
-                  <Button
-                    type='button'
-                    variant='ghost'
-                    size='icon'
-                    className='absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent'
-                    onClick={() => setShowWebhookToken((v) => !v)}
-                    tabIndex={-1}
-                  >
-                    {showWebhookToken
-                      ? <EyeOff className='size-4 text-muted-foreground' />
-                      : <Eye className='size-4 text-muted-foreground' />
-                    }
-                  </Button>
-                </div>
+                <PasswordInput
+                  id='xendit-webhook-token-input'
+                  autoComplete='new-password'
+                  placeholder={getSecretPlaceholder('payment.xendit_webhook_token') || 'Token dari Xendit Settings → Webhooks'}
+                  className='font-mono text-sm'
+                  {...field}
+                />
               </FormControl>
               <FormDescription>
                 Token untuk memvalidasi bahwa webhook berasal dari Xendit.
@@ -376,6 +342,8 @@ export function PaymentGatewayForm() {
             </FormItem>
           )}
         />
+
+        <Separator />
 
         {/* Webhook URL info */}
         <div className='rounded-lg border bg-muted/50 p-4 space-y-1'>

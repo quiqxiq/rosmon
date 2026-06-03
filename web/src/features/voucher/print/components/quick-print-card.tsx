@@ -3,6 +3,7 @@ import { Loader2, Pencil, Printer, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useGenerateVoucher } from '@/features/voucher/generate/api/queries'
 import { type GeneratedVoucher } from '@/features/voucher/generate/data/schema'
+import { useSystemSettings } from '@/features/settings/api/queries'
 import { usePrintStore } from '@/features/voucher/print-render/store/print-store'
 import { usePresetsDialogStore } from '@/features/voucher/print/store/presets-dialog-store'
 import { useActiveRouterId } from '@/stores/active-router-store'
@@ -43,6 +44,10 @@ export function QuickPrintCard({ preset }: QuickPrintCardProps) {
   const openPrint = usePrintStore((s) => s.open)
   const openDialog = usePresetsDialogStore((s) => s.open)
   const generateMutation = useGenerateVoucher(routerId ?? 0)
+  const { data: settings } = useSystemSettings()
+
+  const settingValue = (key: string) =>
+    settings?.find((s) => s.key === key)?.value ?? ''
 
   const handleOpen = () => {
     if (routerId == null) {
@@ -55,15 +60,15 @@ export function QuickPrintCard({ preset }: QuickPrintCardProps) {
     // created on RouterOS.
     generateMutation.mutate(
       {
-        qty: SAMPLE_QTY,
+        batch_size: SAMPLE_QTY,
         server: preset.server === 'all' ? undefined : preset.server,
-        user_type: preset.userMode,
-        name_length: preset.userLength,
+        user_mode: preset.userMode,
+        length: preset.userLength,
         prefix: preset.prefix || undefined,
-        char_set: preset.charSet,
+        charset: preset.charSet,
         profile: preset.profile,
         time_limit: preset.timeLimit || undefined,
-        data_limit: dataLimitBytes(preset),
+        data_limit: dataLimitBytes(preset) || undefined,
         comment: preset.name,
       },
       {
@@ -84,6 +89,10 @@ export function QuickPrintCard({ preset }: QuickPrintCardProps) {
               server: preset.server,
               validity: preset.validity,
               sellingPrice: preset.sellingPrice,
+              timeLimit: preset.timeLimit !== '0' ? preset.timeLimit : '',
+              hotspotName:
+                settingValue('general.company_name') || preset.package,
+              loginUrl: settingValue('general.hotspot_login_url'),
             },
           })
         },

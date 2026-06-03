@@ -30,6 +30,8 @@ func Migrate(db *gorm.DB) error {
 		&model.MessageTemplate{},
 		&model.NotificationLog{},
 		&model.CustomerRegistration{},
+		&model.Ticket{},
+		&model.QuickPrintPackage{},
 	); err != nil {
 		return err
 	}
@@ -73,6 +75,7 @@ func seedSystemSettings(db *gorm.DB) error {
 		{Key: "notification.wa_enabled", Value: "false", ValueType: "bool", GroupName: "notification", Description: "Aktifkan notifikasi WhatsApp (whatsmeow embedded; login via QR di /whatsapp/qr)"},
 		{Key: "notification.admin_phone", Value: "", ValueType: "string", GroupName: "notification", Description: "Nomor WA admin untuk notifikasi internal (registrasi baru, dll)"},
 		{Key: "general.company_name", Value: "", ValueType: "string", GroupName: "general", Description: "Nama perusahaan ISP"},
+		{Key: "general.hotspot_login_url", Value: "", ValueType: "string", GroupName: "general", Description: "URL login hotspot untuk dicetak di voucher (contoh: wifi.example.com)"},
 		// Payment gateway — Xendit.
 		// Semua konfigurasi Xendit disimpan di DB agar bisa diubah dari UI Settings
 		// tanpa perlu restart server. secret_key di-mask di GET response (tidak pernah
@@ -82,6 +85,14 @@ func seedSystemSettings(db *gorm.DB) error {
 		{Key: "payment.xendit_webhook_token", Value: "", ValueType: "secret", GroupName: "payment_gateway", Description: "Xendit X-CALLBACK-TOKEN untuk validasi webhook"},
 		{Key: "payment.xendit_invoice_duration", Value: "86400", ValueType: "int", GroupName: "payment_gateway", Description: "Durasi link pembayaran Xendit dalam detik (default: 86400 = 24 jam)"},
 		{Key: "payment.app_url", Value: "", ValueType: "string", GroupName: "payment_gateway", Description: "URL publik aplikasi untuk redirect setelah bayar (contoh: https://isp.example.com)"},
+		// Backup settings
+		{Key: "backup.enabled", Value: "false", ValueType: "bool", GroupName: "backup", Description: "Aktifkan backup otomatis harian"},
+		{Key: "backup.path", Value: "./backups", ValueType: "string", GroupName: "backup", Description: "Direktori output backup"},
+		{Key: "backup.retention_days", Value: "7", ValueType: "int", GroupName: "backup", Description: "Jumlah hari backup disimpan"},
+		// Telegram notification (opsional, paralel dengan WhatsApp)
+		{Key: "notification.telegram_enabled", Value: "false", ValueType: "bool", GroupName: "notification", Description: "Aktifkan notifikasi via Telegram Bot (untuk admin)"},
+		{Key: "notification.telegram_bot_token", Value: "", ValueType: "secret", GroupName: "notification", Description: "Telegram Bot Token dari @BotFather"},
+		{Key: "notification.telegram_chat_id", Value: "", ValueType: "string", GroupName: "notification", Description: "Telegram Chat ID target admin (group/channel/user)"},
 	}
 	for _, s := range defaults {
 		s := s

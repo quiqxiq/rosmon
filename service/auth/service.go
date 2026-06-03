@@ -252,6 +252,41 @@ func (s *Service) GetUser(ctx context.Context, id uint) (model.User, error) {
 	return u, err
 }
 
+// UpdateMeInput parameter untuk self-update (PUT /auth/me). Semua field opsional.
+// Jika NewPassword diisi, CurrentPassword wajib diisi dan harus cocok.
+type UpdateMeInput struct {
+	Email           string
+	CurrentPassword string
+	NewPassword     string
+}
+
+// UpdateMe update profil pengguna sendiri. Password berubah hanya jika
+// NewPassword diisi dan CurrentPassword cocok.
+func (s *Service) UpdateMe(ctx context.Context, userID uint, in UpdateMeInput) (model.User, error) {
+	u, err := s.Users.GetByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, store.ErrUserNotFound) {
+			return model.User{}, ErrUserNotFound
+		}
+		return model.User{}, err
+	}
+
+	inp := UpdateUserInput{}
+
+	if in.Email != "" {
+		inp.Email = &in.Email
+	}
+
+	if in.NewPassword != "" {
+		if err := s.Hasher.Verify(u.Password, in.CurrentPassword); err != nil {
+			return model.User{}, ErrInvalidCredentials
+		}
+		inp.Password = &in.NewPassword
+	}
+
+	return s.UpdateUser(ctx, userID, inp)
+}
+
 // ListUsers list semua user.
 func (s *Service) ListUsers(ctx context.Context) ([]model.User, error) {
 	return s.Users.List(ctx)

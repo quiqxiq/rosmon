@@ -74,7 +74,9 @@ func (h *Settings) List(c *gin.Context) {
 func (h *Settings) Update(c *gin.Context) {
 	key := c.Param("key")
 	var req struct {
-		Value string `json:"value" binding:"required"`
+		// Value sengaja TANPA binding:"required" — string kosong adalah nilai
+		// yang sah untuk setting (mengosongkan company_name, admin_phone, dll).
+		Value string `json:"value"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		WriteValidationErr(c, err)

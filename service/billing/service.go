@@ -34,10 +34,23 @@ func New(d Deps) *Service {
 // GenerateForSubscription membuat satu invoice berstatus "issued" untuk
 // periode yang dimulai periodStart. Idempoten via UNIQUE(subscription_id,
 // period_start) di tabel invoices. dueDays = jumlah hari sampai jatuh tempo.
+// Harga di-resolve dari profil paket subscription.
 func (s *Service) GenerateForSubscription(ctx context.Context, sub model.Subscription, periodStart time.Time, dueDays int) (*model.Invoice, error) {
+	return s.GenerateForSubscriptionWithAmount(ctx, sub, periodStart, dueDays, nil)
+}
+
+// GenerateForSubscriptionWithAmount sama dengan GenerateForSubscription, tetapi
+// memungkinkan override nominal: bila override != nil && *override > 0, nilai itu
+// dipakai sebagai amount invoice (mis. tagihan manual khusus). Bila override nil
+// atau <= 0, harga di-resolve dari profil paket — single source of truth untuk
+// cron, registrasi, dan generate manual.
+func (s *Service) GenerateForSubscriptionWithAmount(ctx context.Context, sub model.Subscription, periodStart time.Time, dueDays int, override *int64) (*model.Invoice, error) {
 	profileName, price, err := s.resolveProfileInfo(ctx, sub)
 	if err != nil {
 		return nil, fmt.Errorf("billing: resolve profile: %w", err)
+	}
+	if override != nil && *override > 0 {
+		price = *override
 	}
 
 	now := s.d.NowFunc()

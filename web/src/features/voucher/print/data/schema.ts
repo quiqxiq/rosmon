@@ -3,11 +3,11 @@ import { z } from 'zod'
 const charSetSchema = z.union([
   z.literal('lower'),
   z.literal('upper'),
-  z.literal('upplow'),
-  z.literal('mix'),
-  z.literal('mix1'),
-  z.literal('mix2'),
-  z.literal('num'),
+  z.literal('mixed'),
+  z.literal('number'),
+  z.literal('lower_number'),
+  z.literal('upper_number'),
+  z.literal('mixed_number'),
 ])
 
 const userModeSchema = z.union([z.literal('vc'), z.literal('up')])

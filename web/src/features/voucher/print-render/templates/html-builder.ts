@@ -1,5 +1,5 @@
 import { type PrintJob, type PrintTemplate } from '../store/print-store'
-import { defaultNote, qrImageUrl, rupiah } from './template-shared'
+import { humanizeValidity, qrImageUrl, rupiah } from './template-shared'
 
 function escapeHtml(value: string): string {
   return value
@@ -10,241 +10,188 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#039;')
 }
 
+// CSS bersama semua template — port dari <style> di web/template/header.*.txt.
 const SHARED_CSS = `
-  *, *::before, *::after { box-sizing: border-box; }
-  html, body {
-    margin: 0;
-    padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  body {
+    color: #000;
     background: #fff;
-    color: #111;
+    font-size: 14px;
+    font-family: 'Helvetica', Arial, sans-serif;
+    margin: 0;
+    padding: 8px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
-  body { padding: 12px; }
-  @page { margin: 8mm; }
+  table.voucher {
+    display: inline-block;
+    border: 2px solid #000;
+    margin: 2px;
+    vertical-align: top;
+    border-collapse: collapse;
+  }
+  table.voucher td, table.voucher th { padding: 2px 4px; }
+  .num { float: right; display: inline-block; }
+  .rotate { max-width: 15px; white-space: nowrap; vertical-align: bottom; padding-right: 5px; }
+  .rotate > div { transform: rotate(-90deg); }
+  .qrcode { height: 60px; width: 60px; }
+  @page { size: auto; margin: 8mm 3mm 3mm 7mm; }
   @media print {
     body { padding: 0; }
-    .voucher { page-break-inside: avoid; }
+    table { page-break-after: auto }
+    tr { page-break-inside: avoid; page-break-after: auto }
+    td { page-break-inside: avoid; page-break-after: auto }
   }
 `
 
-const DEFAULT_CSS = `
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-  .voucher {
-    border: 1px dashed #888;
-    border-radius: 6px;
-    padding: 10px 12px;
-    background: #fff;
-  }
-  .voucher .package {
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .04em;
-    color: #444;
-  }
-  .voucher .price {
-    float: right;
-    font-size: 12px;
-    font-weight: 700;
-    color: #047857;
-  }
-  .voucher .creds {
-    margin-top: 6px;
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-  }
-  .voucher .creds .col { flex: 1; }
-  .voucher .creds .label {
-    font-size: 9px;
-    color: #666;
-    text-transform: uppercase;
-  }
-  .voucher .creds .value {
-    font-family: ui-monospace, monospace;
-    font-size: 16px;
-    font-weight: 700;
-    letter-spacing: .04em;
-  }
-  .voucher .meta {
-    margin-top: 6px;
-    font-size: 10px;
-    color: #555;
-    display: flex;
-    justify-content: space-between;
-  }
-  .voucher .note {
-    margin-top: 6px;
-    border-top: 1px dashed #bbb;
-    padding-top: 4px;
-    font-size: 9px;
-    color: #555;
-    line-height: 1.3;
-  }
-`
-
-const QR_CSS = `
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-  .voucher {
-    border: 1px solid #444;
-    border-radius: 6px;
-    padding: 10px;
-    background: #fff;
-    display: flex;
-    gap: 10px;
-    align-items: center;
-  }
-  .voucher .qr {
-    width: 110px;
-    height: 110px;
-    flex: 0 0 110px;
-  }
-  .voucher .qr img { width: 110px; height: 110px; display: block; }
-  .voucher .info { flex: 1; min-width: 0; }
-  .voucher .info .package {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: #444;
-  }
-  .voucher .info .username {
-    font-family: ui-monospace, monospace;
-    font-size: 16px;
-    font-weight: 700;
-  }
-  .voucher .info .password {
-    font-family: ui-monospace, monospace;
-    font-size: 13px;
-    color: #444;
-  }
-  .voucher .info .meta {
-    margin-top: 4px;
-    font-size: 10px;
-    color: #555;
-  }
-  .voucher .info .price {
-    margin-top: 4px;
-    font-size: 11px;
-    font-weight: 700;
-    color: #047857;
-  }
-`
-
-const SMALL_CSS = `
-  body { padding: 4px; }
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 4px;
-  }
-  .voucher {
-    border: 1px dashed #444;
-    border-radius: 4px;
-    padding: 6px 8px;
-    background: #fff;
-    text-align: center;
-  }
-  .voucher .package {
-    font-size: 9px;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: #555;
-  }
-  .voucher .username {
-    font-family: ui-monospace, monospace;
-    font-size: 13px;
-    font-weight: 700;
-    margin-top: 2px;
-  }
-  .voucher .password {
-    font-family: ui-monospace, monospace;
-    font-size: 11px;
-    color: #444;
-  }
-  .voucher .meta {
-    font-size: 8px;
-    color: #666;
-    margin-top: 3px;
-  }
-`
-
+// ── default (web/template/*.default.txt) ─────────────────────────────────────
 function renderDefault(job: PrintJob): string {
-  const note = escapeHtml(defaultNote(job.meta))
+  const m = job.meta
+  const priceStr = `Rp ${rupiah(m.sellingPrice)}`
+  const validity = escapeHtml(humanizeValidity(m.validity))
+  const timeLimit = escapeHtml(m.timeLimit ?? '')
+  const dataLimit = escapeHtml(m.dataLimit ?? '')
+  const hotspotName = escapeHtml(m.hotspotName || m.title || m.profile)
+  const loginUrl = escapeHtml(m.loginUrl ?? '')
+
   const cards = job.vouchers
-    .map((v) => {
+    .map((v, i) => {
       const username = escapeHtml(v.username)
       const password = escapeHtml(v.password)
       const isVoucher = v.username === v.password
+      const qr = escapeHtml(
+        qrImageUrl(isVoucher ? v.username : `${v.username}:${v.password}`, 60),
+      )
+      const creds = isVoucher
+        ? `<td class="vc">${username}</td>`
+        : `<td class="up">User: ${username}<br>Pass: ${password}</td>`
+      const loginRow = loginUrl
+        ? `<td colspan="3" style="font-size:10px;">Login: http://${loginUrl} <span class="num">[${i + 1}]</span></td>`
+        : `<td colspan="3" style="font-size:10px;"><span class="num">[${i + 1}]</span></td>`
       return `
-        <div class="voucher">
-          <span class="price">Rp ${rupiah(job.meta.sellingPrice)}</span>
-          <div class="package">${escapeHtml(job.meta.title ?? job.meta.profile)}</div>
-          <div class="creds">
-            ${
-              isVoucher
-                ? `<div class="col"><div class="label">Voucher Code</div><div class="value">${username}</div></div>`
-                : `<div class="col"><div class="label">Username</div><div class="value">${username}</div></div>
-                   <div class="col"><div class="label">Password</div><div class="value">${password}</div></div>`
-            }
-          </div>
-          <div class="meta">
-            <span>${escapeHtml(job.meta.server)}</span>
-            <span>${escapeHtml(job.meta.validity)}</span>
-          </div>
-          <div class="note">${note}</div>
-        </div>`
+      <table class="voucher" style="width:230px;">
+        <tbody>
+          <tr>
+            <td style="font-weight:bold;border-right:2px dashed #000;" class="rotate" rowspan="4"><div>${escapeHtml(priceStr)}</div></td>
+            <td style="font-weight:bold;" colspan="2">${hotspotName}</td>
+            <td rowspan="3"><img class="qrcode" src="${qr}" alt="qr"></td>
+          </tr>
+          <tr>${creds}</tr>
+          <tr>
+            <td style="font-size:10px;">${validity} ${timeLimit} ${dataLimit}</td>
+          </tr>
+          <tr>${loginRow}</tr>
+        </tbody>
+      </table>`
     })
     .join('')
-  return wrapDocument('Voucher Print — Default', DEFAULT_CSS, cards)
+
+  const css = `
+    .vc { width:100%; font-weight:bold; font-size:18px; text-align:center; }
+    .up { width:100%; font-weight:bold; font-size:13px; text-align:left; }
+    .qrcode { height:60px; width:60px; }
+  `
+  return wrapDocument('Voucher — Default', css, cards)
 }
 
-function renderQr(job: PrintJob): string {
-  const cards = job.vouchers
-    .map((v) => {
-      const username = escapeHtml(v.username)
-      const password = escapeHtml(v.password)
-      const qrPayload = `${v.username}:${v.password}`
-      const qrUrl = qrImageUrl(qrPayload, 110)
-      return `
-        <div class="voucher">
-          <div class="qr"><img src="${escapeHtml(qrUrl)}" alt="qr" /></div>
-          <div class="info">
-            <div class="package">${escapeHtml(job.meta.title ?? job.meta.profile)}</div>
-            <div class="username">${username}</div>
-            <div class="password">${password}</div>
-            <div class="meta">${escapeHtml(job.meta.server)} · ${escapeHtml(job.meta.validity)}</div>
-            <div class="price">Rp ${rupiah(job.meta.sellingPrice)}</div>
-          </div>
-        </div>`
-    })
-    .join('')
-  return wrapDocument('Voucher Print — QR', QR_CSS, cards)
-}
-
+// ── small (web/template/*.small.txt) ─────────────────────────────────────────
 function renderSmall(job: PrintJob): string {
+  const m = job.meta
+  const priceStr = `Rp ${rupiah(m.sellingPrice)}`
+  const validity = escapeHtml(humanizeValidity(m.validity))
+  const timeLimit = escapeHtml(m.timeLimit ?? '')
+  const dataLimit = escapeHtml(m.dataLimit ?? '')
+  const hotspotName = escapeHtml(m.hotspotName || m.title || m.profile)
+
+  const cards = job.vouchers
+    .map((v, i) => {
+      const username = escapeHtml(v.username)
+      const password = escapeHtml(v.password)
+      const isVoucher = v.username === v.password
+      const headRow = isVoucher
+        ? `<td colspan="2" style="font-size:10px;">Voucher</td>`
+        : `<td style="font-size:10px;">Username</td><td style="font-size:10px;">Password</td>`
+      const credRow = isVoucher
+        ? `<td colspan="2" style="border:1px solid #000;font-weight:bold;">${username}</td>`
+        : `<td style="border:1px solid #000;font-weight:bold;">${username}</td><td style="border:1px solid #000;font-weight:bold;">${password}</td>`
+      return `
+      <table class="voucher" style="width:140px;">
+        <thead>
+          <tr>
+            <th colspan="2" style="width:100%;text-align:left;font-size:12px;font-weight:bold;border-bottom:1px solid #000;">${hotspotName}<span class="num">${i + 1}</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="font-size:10px;text-align:center;">${headRow}</tr>
+          <tr style="font-size:12px;text-align:center;">${credRow}</tr>
+        </tbody>
+        <tfoot>
+          <tr style="font-size:10px;text-align:center;">
+            <th colspan="2">${validity} ${timeLimit} ${dataLimit} ${escapeHtml(priceStr)}</th>
+          </tr>
+        </tfoot>
+      </table>`
+    })
+    .join('')
+
+  return wrapDocument('Voucher — Small', '', cards)
+}
+
+// ── thermal (web/template/*.thermal.txt) ─────────────────────────────────────
+function renderThermal(job: PrintJob): string {
+  const m = job.meta
+  const priceStr = `Rp ${rupiah(m.sellingPrice)}`
+  const validity = escapeHtml(humanizeValidity(m.validity))
+  const timeLimit = escapeHtml(m.timeLimit ?? '')
+  const dataLimit = escapeHtml(m.dataLimit ?? '')
+  const hotspotName = escapeHtml(m.hotspotName || m.title || m.profile)
+  const loginUrl = escapeHtml(m.loginUrl ?? '')
+  const stamp = escapeHtml(new Date().toLocaleString('id-ID'))
+
   const cards = job.vouchers
     .map((v) => {
       const username = escapeHtml(v.username)
       const password = escapeHtml(v.password)
       const isVoucher = v.username === v.password
+      const qr = escapeHtml(
+        qrImageUrl(isVoucher ? v.username : `${v.username}:${v.password}`, 100),
+      )
+      const comment = escapeHtml(v.comment ?? '')
+      const credBlock = isVoucher
+        ? `<tr><td style="font-size:12px;">Kode Voucher</td></tr>
+           <tr><td style="border:1px solid #000;font-weight:bold;font-size:16px;">${username}</td></tr>`
+        : `<tr><td style="width:50%;">Username</td><td>Password</td></tr>
+           <tr style="font-size:14px;"><td style="border:1px solid #000;font-weight:bold;">${username}</td><td style="border:1px solid #000;font-weight:bold;">${password}</td></tr>`
+      const loginRow = loginUrl
+        ? `<tr><td colspan="2" style="font-weight:bold;font-size:12px;">Login: http://${loginUrl}</td></tr>`
+        : ''
       return `
-        <div class="voucher">
-          <div class="package">${escapeHtml(job.meta.title ?? job.meta.profile)}</div>
-          <div class="username">${username}</div>
-          ${isVoucher ? '' : `<div class="password">${password}</div>`}
-          <div class="meta">${escapeHtml(job.meta.validity)} · Rp ${rupiah(job.meta.sellingPrice)}</div>
-        </div>`
+      <table class="voucher" style="width:180px;">
+        <tbody>
+          <tr><td style="text-align:center;font-size:14px;font-weight:bold;">${hotspotName}</td></tr>
+          <tr><td style="text-align:center;font-size:12px;border-bottom:1px solid #000;"><span>${stamp}</span></td></tr>
+          <tr>
+            <td>
+              <table style="text-align:center;width:170px;font-size:12px;">
+                <tbody>
+                  <tr><td><table style="width:100%;"><tbody>${credBlock}</tbody></table></td></tr>
+                  <tr><td colspan="2" style="border-top:1px solid #000;font-weight:bold;font-size:14px;">${validity} ${timeLimit} ${dataLimit}</td></tr>
+                  <tr><td><span class="price">${escapeHtml(priceStr)}</span></td></tr>
+                  <tr><td colspan="2"><img class="qrcode" style="height:100px;width:100px;" src="${qr}" alt="qr"><br>${comment}</td></tr>
+                  ${loginRow}
+                </tbody>
+              </table>
+            </td>
+          </tr>
+        </tbody>
+      </table>`
     })
     .join('')
-  return wrapDocument('Voucher Print — Small', SMALL_CSS, cards)
+
+  const css = `
+    .price { font-size: 20px; }
+    .qrcode { height:100px; width:100px; }
+  `
+  return wrapDocument('Voucher — Thermal', css, cards)
 }
 
 function wrapDocument(title: string, css: string, body: string): string {
@@ -256,9 +203,7 @@ function wrapDocument(title: string, css: string, body: string): string {
 <style>${SHARED_CSS}${css}</style>
 </head>
 <body>
-<div class="grid">
 ${body}
-</div>
 </body>
 </html>`
 }
@@ -266,8 +211,8 @@ ${body}
 export function buildPrintHtml(job: PrintJob): string {
   const renderers: Record<PrintTemplate, (j: PrintJob) => string> = {
     default: renderDefault,
-    qr: renderQr,
     small: renderSmall,
+    thermal: renderThermal,
   }
   return renderers[job.template](job)
 }

@@ -30,15 +30,13 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useHotspotProfiles } from '@/features/hotspot/profiles/api/queries'
+import { useHotspotServers } from '@/features/voucher/generate/api/queries'
 import { useAddHotspotUser, useUpdateHotspotUser } from '../api/queries'
 import { type HotspotUserViewModel } from '../components/view-model'
 import { useUsersDialogStore } from '../store/users-dialog-store'
-
-// The list of known hotspot servers is not exposed as a hook yet.
-// We hardcode the common defaults plus `all` (implicit "any server").
-const SERVERS = ['all', 'HS-01', 'HS-02', 'HS-03']
 
 // ── Schema ──────────────────────────────────────────────────────────────────
 
@@ -105,6 +103,12 @@ function UserForm({ mode, target, onClose }: UserFormProps) {
   const profilesQuery = useHotspotProfiles(routerId)
   const profiles = profilesQuery.data ?? []
   const profileFallback = profiles[0]?.name ?? ''
+
+  const serversQuery = useHotspotServers(routerId)
+  const activeServers: { name: string }[] = [
+    { name: 'all' },
+    ...(serversQuery.data ?? []).filter((s) => !s.disabled),
+  ]
 
   const addMutation = useAddHotspotUser(routerId)
   const updateMutation = useUpdateHotspotUser(routerId)
@@ -248,20 +252,24 @@ function UserForm({ mode, target, onClose }: UserFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Server</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {SERVERS.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {serversQuery.isLoading ? (
+                  <Skeleton className='h-9 w-full' />
+                ) : (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {activeServers.map((s) => (
+                        <SelectItem key={s.name} value={s.name}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <FormMessage />
               </FormItem>
             )}

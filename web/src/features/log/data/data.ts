@@ -1,4 +1,4 @@
-import { type LogEvent } from '../api/schema'
+import { type LogEvent, type RestLogEntry } from '../api/schema'
 import { type LogEntry } from './schema'
 
 export const LOG_MAX_ENTRIES = 500
@@ -85,5 +85,18 @@ export function sseLogToLogEntry(event: LogEvent): LogEntry {
       .map((t) => t.trim())
       .filter(Boolean),
     message: fields.message,
+  }
+}
+
+// Adapter untuk backlog REST (GET /devices/:id/log).
+export function restLogToLogEntry(r: RestLogEntry): LogEntry {
+  return {
+    id: r.id || `rest-${++_id}`,
+    time: parseLogTime(r.time ?? ''),
+    topics: (r.topics ?? '')
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean),
+    message: r.message,
   }
 }

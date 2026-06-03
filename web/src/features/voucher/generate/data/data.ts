@@ -12,16 +12,16 @@ export const userTypeOptions: Array<{ label: string; value: UserType }> = [
 ]
 
 export const charSetOptions: Array<{ label: string; value: CharSet }> = [
-  { label: 'Lower (abcd)', value: 'lower' },
-  { label: 'Upper (ABCD)', value: 'upper' },
-  { label: 'Upper + Lower (aBcD)', value: 'upplow' },
-  { label: 'Number + Lower (5ab2c)', value: 'mix' },
-  { label: 'Number + Upper (5AB2C)', value: 'mix1' },
-  { label: 'Number + Upper + Lower (5aB2C)', value: 'mix2' },
-  { label: 'Number Only (1234)', value: 'num' },
+  { label: 'Huruf Kecil (abcd)', value: 'lower' },
+  { label: 'Huruf Besar (ABCD)', value: 'upper' },
+  { label: 'Huruf Besar+Kecil (aBcD)', value: 'mixed' },
+  { label: 'Angka Saja (1234)', value: 'number' },
+  { label: 'Angka+Huruf Kecil (5ab2c)', value: 'lower_number' },
+  { label: 'Angka+Huruf Besar (5AB2C)', value: 'upper_number' },
+  { label: 'Angka+Besar+Kecil (5aB2C)', value: 'mixed_number' },
 ]
 
-export const nameLengthOptions = [3, 4, 5, 6, 7, 8].map((n) => ({
+export const nameLengthOptions = [4, 5, 6, 7, 8, 10, 12].map((n) => ({
   label: String(n),
   value: n,
 }))
@@ -34,12 +34,6 @@ export const dataLimitUnitOptions: Array<{
   { label: 'GB', value: 'GB' },
 ]
 
-export const serverGenerateOptions = [
-  { label: 'all', value: 'all' },
-  { label: 'HS-01', value: 'HS-01' },
-  { label: 'HS-02', value: 'HS-02' },
-  { label: 'HS-03', value: 'HS-03' },
-]
 
 export const defaultGenerateForm: VoucherGenerateForm = {
   qty: 1,
@@ -49,7 +43,7 @@ export const defaultGenerateForm: VoucherGenerateForm = {
   profile: '',
   userType: 'up',
   nameLength: 6,
-  charSet: 'mix',
+  charSet: 'lower_number',
   prefix: '',
   timeLimit: '0',
   dataLimit: 0,
@@ -58,13 +52,13 @@ export const defaultGenerateForm: VoucherGenerateForm = {
 }
 
 const CHARSETS: Record<CharSet, string> = {
-  lower: 'abcdefghijklmnopqrstuvwxyz',
-  upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-  upplow: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
-  mix: '0123456789abcdefghijklmnopqrstuvwxyz',
-  mix1: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-  mix2: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
-  num: '0123456789',
+  lower: 'abcdefghjkmnpqrstuvwxyz',
+  upper: 'ABCDEFGHJKLMNPQRSTUVWXYZ',
+  mixed: 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ',
+  number: '23456789',
+  lower_number: 'abcdefghjkmnpqrstuvwxyz23456789',
+  upper_number: 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789',
+  mixed_number: 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789',
 }
 
 function randomString(charset: string, length: number): string {
@@ -113,7 +107,7 @@ export function generateBatch(form: VoucherGenerateForm): GeneratedVoucher[] {
       password = username
     } else {
       const passLen = Math.max(3, Math.min(8, form.nameLength))
-      password = randomString(CHARSETS.num, passLen)
+      password = randomString(CHARSETS.number, passLen)
     }
 
     result.push({

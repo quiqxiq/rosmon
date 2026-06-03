@@ -1,4 +1,6 @@
 import { useMemo } from 'react'
+import { useHotspotServers } from '@/features/voucher/generate/api/queries'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -57,17 +59,16 @@ const COLOR_OPTIONS: PresetColor[] = [
 ]
 
 const CHAR_SETS: Array<{ label: string; value: QuickPrintPreset['charSet'] }> = [
-  { label: 'Lower (abcd)', value: 'lower' },
-  { label: 'Upper (ABCD)', value: 'upper' },
-  { label: 'Upper + Lower (aBcD)', value: 'upplow' },
-  { label: 'Number + Lower (5ab2c)', value: 'mix' },
-  { label: 'Number + Upper (5AB2C)', value: 'mix1' },
-  { label: 'Number + Upper + Lower (5aB2C)', value: 'mix2' },
-  { label: 'Number Only (1234)', value: 'num' },
+  { label: 'Huruf Kecil (abcd)', value: 'lower' },
+  { label: 'Huruf Besar (ABCD)', value: 'upper' },
+  { label: 'Huruf Besar+Kecil (aBcD)', value: 'mixed' },
+  { label: 'Angka Saja (1234)', value: 'number' },
+  { label: 'Angka+Huruf Kecil (5ab2c)', value: 'lower_number' },
+  { label: 'Angka+Huruf Besar (5AB2C)', value: 'upper_number' },
+  { label: 'Angka+Besar+Kecil (5aB2C)', value: 'mixed_number' },
 ]
 
-const SERVERS = ['all', 'HS-01', 'HS-02', 'HS-03']
-const USER_LENGTHS = [3, 4, 5, 6, 7, 8]
+const USER_LENGTHS = [4, 5, 6, 7, 8, 10, 12]
 const DATA_UNITS: Array<QuickPrintPreset['dataLimitUnit']> = ['MB', 'GB']
 
 // ── Schema ──────────────────────────────────────────────────────────────────
@@ -80,7 +81,7 @@ const presetFormSchema = z.object({
   profile: z.string(),
   userMode: z.enum(['up', 'vc']),
   userLength: z.number(),
-  charSet: z.enum(['lower', 'upper', 'upplow', 'mix', 'mix1', 'mix2', 'num']),
+  charSet: z.enum(['lower', 'upper', 'mixed', 'number', 'lower_number', 'upper_number', 'mixed_number']),
   prefix: z.string(),
   timeLimit: z.string(),
   dataLimit: z.number(),
@@ -121,11 +122,11 @@ function defaultValues(
     name: 'QPNew',
     package: 'New Package',
     color: 'blue',
-    server: 'HS-01',
+    server: 'all',
     profile: profileFallback,
     userMode: 'up',
-    userLength: 5,
-    charSet: 'mix',
+    userLength: 6,
+    charSet: 'lower_number',
     prefix: '',
     timeLimit: '1h',
     dataLimit: 0,
@@ -171,6 +172,12 @@ function PresetForm({ mode, target, onClose }: PresetFormProps) {
     () => profilesQuery.data ?? [],
     [profilesQuery.data],
   )
+
+  const serversQuery = useHotspotServers(routerId ?? 0)
+  const activeServers: { name: string }[] = useMemo(() => [
+    { name: 'all' },
+    ...(serversQuery.data ?? []).filter((s) => !s.disabled),
+  ], [serversQuery.data])
   const setMeta = useQuickPrintPresetsMetaStore((s) => s.set)
   const renameMeta = useQuickPrintPresetsMetaStore((s) => s.rename)
 
@@ -334,20 +341,24 @@ function PresetForm({ mode, target, onClose }: PresetFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Server</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {SERVERS.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {serversQuery.isLoading ? (
+                  <Skeleton className='h-9 w-full' />
+                ) : (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {activeServers.map((s) => (
+                        <SelectItem key={s.name} value={s.name}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <FormMessage />
               </FormItem>
             )}

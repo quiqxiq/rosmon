@@ -1,9 +1,27 @@
+import { useEffect } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, Plus, RotateCcw } from 'lucide-react'
-import { formatIDR } from '@/features/hotspot/profiles/data/data'
-import { type HotspotProfile } from '@/features/hotspot/profiles/data/schema'
+import { toast } from 'sonner'
+import { useActiveRouterId } from '@/stores/active-router-store'
+import { useHotspotDbProfiles } from '@/features/hotspot/billing/api/queries'
+import { useGenerateVoucher, useHotspotServers } from '@/features/voucher/generate/api/queries'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from '@/components/ui/input-group'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -11,58 +29,99 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { formatIDR } from '@/features/hotspot/profiles/data/data'
 import {
   charSetOptions,
+  dataLimitToBytes,
   dataLimitUnitOptions,
+  defaultGenerateForm,
   nameLengthOptions,
-  serverGenerateOptions,
   userTypeOptions,
 } from '../data/data'
 import {
-  type CharSet,
-  type DataLimitUnit,
-  type UserType,
+  voucherGenerateFormSchema,
+  type GeneratedVoucher,
   type VoucherGenerateForm,
 } from '../data/schema'
+import type { VoucherGenerateParams } from '../api/schema'
 
-type VoucherGenerateFormProps = {
-  form: VoucherGenerateForm
-  onChange: (form: VoucherGenerateForm) => void
-  onGenerate: () => void
-  onReset: () => void
-  isGenerating?: boolean
-  /** Real profiles fetched from the active router */
-  profiles?: HotspotProfile[]
-  isLoadingProfiles?: boolean
+type Props = {
+  onSuccess: (
+    vouchers: GeneratedVoucher[],
+    profile: string,
+    server: string,
+  ) => void
 }
 
-export function VoucherGenerateFormPanel({
-  form,
-  onChange,
-  onGenerate,
-  onReset,
-  isGenerating = false,
-  profiles = [],
-  isLoadingProfiles = false,
-}: VoucherGenerateFormProps) {
-  const update = <K extends keyof VoucherGenerateForm>(
-    key: K,
-    value: VoucherGenerateForm[K]
-  ) => {
-    onChange({ ...form, [key]: value })
+function formToBackendParams(form: VoucherGenerateForm): VoucherGenerateParams {
+  const dataLimit = dataLimitToBytes(form.dataLimit, form.dataLimitUnit)
+  return {
+    batch_size: form.qty,
+    server: form.server === 'all' ? undefined : form.server,
+    user_mode: form.userType,
+    length: form.nameLength,
+    prefix: form.prefix || undefined,
+    charset: form.charSet,
+    profile: form.profile,
+    time_limit: form.timeLimit && form.timeLimit !== '0' ? form.timeLimit : undefined,
+    data_limit: dataLimit > 0 ? dataLimit : undefined,
+    comment: form.comment || undefined,
+  }
+}
+
+export function VoucherGenerateFormPanel({ onSuccess }: Props) {
+  const routerId = useActiveRouterId() ?? 0
+
+  // Tampilkan semua profile tanpa filter role — billing role adalah
+  // klasifikasi internal, bukan konsep MikroTik. Sync dari billing page
+  // menggunakan role=permanent secara default.
+  const profilesQuery = useHotspotDbProfiles(routerId)
+  const serversQuery = useHotspotServers(routerId)
+  const generateMutation = useGenerateVoucher(routerId)
+
+  const profiles = profilesQuery.data ?? []
+  const activeServers: { name: string }[] = [
+    { name: 'all' },
+    ...(serversQuery.data ?? []).filter((s) => !s.disabled),
+  ]
+
+  const form = useForm<VoucherGenerateForm>({
+    resolver: zodResolver(voucherGenerateFormSchema),
+    defaultValues: defaultGenerateForm,
+  })
+
+  // Auto-select first voucher profile when data arrives
+  useEffect(() => {
+    if (profiles.length > 0 && !form.getValues('profile')) {
+      form.setValue('profile', profiles[0].name)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profiles.length])
+
+  function onSubmit(values: VoucherGenerateForm) {
+    generateMutation.mutate(formToBackendParams(values), {
+      onSuccess: (data) => {
+        const enriched: GeneratedVoucher[] = data.vouchers.map((v, i) => ({
+          id: `${data.gencode}-${i + 1}`,
+          username: v.username,
+          password: v.password,
+          profile: data.profile,
+          comment: values.comment || '',
+        }))
+        onSuccess(enriched, data.profile, values.server)
+        toast.success(
+          `Generated ${data.count} voucher${data.count > 1 ? 's' : ''}`,
+          { description: `Profile: ${data.profile} · Gencode: ${data.gencode}` },
+        )
+      },
+      onError: (err) => {
+        toast.error('Failed to generate vouchers', { description: err.message })
+      },
+    })
   }
 
-  const handleSubmit = (event: React.FormEvent) => {
-    event.preventDefault()
-    onGenerate()
-  }
+  const isPending = generateMutation.isPending
 
   return (
     <Card>
@@ -70,228 +129,313 @@ export function VoucherGenerateFormPanel({
         <CardTitle className='text-base'>Generate Configuration</CardTitle>
       </CardHeader>
       <CardContent>
-        <form className='flex flex-col gap-4' onSubmit={handleSubmit}>
-          <div className='grid grid-cols-2 gap-3'>
-            <Field label='Quantity'>
-              <Input
-                type='number'
-                min={1}
-                max={500}
-                value={form.qty}
-                onChange={(e) =>
-                  update('qty', Math.max(1, Math.min(500, +e.target.value || 1)))
-                }
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className='flex flex-col gap-4'
+          >
+            {/* Quantity + Server */}
+            <div className='grid grid-cols-2 gap-3'>
+              <FormField
+                control={form.control}
+                name='qty'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Quantity</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={1}
+                        max={500}
+                        {...field}
+                        onChange={(e) =>
+                          field.onChange(
+                            Math.max(1, Math.min(500, +e.target.value || 1)),
+                          )
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </Field>
-            <Field label='Server'>
-              <Select
-                value={form.server}
-                onValueChange={(v) => update('server', v)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {serverGenerateOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
 
-          <Field label='Profile'>
-            {isLoadingProfiles ? (
-              <Skeleton className='h-9 w-full' />
-            ) : (
-              <Select
-                value={form.profile}
-                onValueChange={(v) => update('profile', v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder='Pilih profile' />
-                </SelectTrigger>
-                <SelectContent>
-                  {profiles.length === 0 ? (
-                    <SelectItem value='__none' disabled>
-                      Belum ada profile di router ini
-                    </SelectItem>
+              <FormField
+                control={form.control}
+                name='server'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Server</FormLabel>
+                    {serversQuery.isLoading ? (
+                      <Skeleton className='h-9 w-full' />
+                    ) : (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {activeServers.map((s) => (
+                            <SelectItem key={s.name} value={s.name}>
+                              {s.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Profile */}
+            <FormField
+              control={form.control}
+              name='profile'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Profile</FormLabel>
+                  {profilesQuery.isLoading ? (
+                    <Skeleton className='h-9 w-full' />
                   ) : (
-                    profiles.map((p) => (
-                      <SelectItem key={p.id} value={p.name}>
-                        <span className='flex items-center justify-between gap-3 w-full'>
-                          <span>{p.name}</span>
-                          <span className='text-xs text-muted-foreground tabular-nums'>
-                            {p.sellingPrice ? formatIDR(p.sellingPrice) : ''}
-                            {p.validity ? ` · ${p.validity}` : ''}
-                          </span>
-                        </span>
-                      </SelectItem>
-                    ))
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder='Pilih profile' />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {profiles.length === 0 ? (
+                          <SelectItem value='__none' disabled>
+                            Belum ada profile voucher di router ini
+                          </SelectItem>
+                        ) : (
+                          profiles.map((p) => (
+                            <SelectItem key={p.id} value={p.name}>
+                              <span className='flex items-center justify-between gap-3 w-full'>
+                                <span>{p.name}</span>
+                                <span className='text-xs text-muted-foreground tabular-nums'>
+                                  {p.sell_price ? formatIDR(p.sell_price) : ''}
+                                  {p.validity ? ` · ${p.validity}` : ''}
+                                </span>
+                              </span>
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
                   )}
-                </SelectContent>
-              </Select>
-            )}
-          </Field>
-
-          <Field label='User Mode'>
-            <Select
-              value={form.userType}
-              onValueChange={(v) => update('userType', v as UserType)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {userTypeOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-
-          <div className='grid grid-cols-2 gap-3'>
-            <Field label='Name Length'>
-              <Select
-                value={String(form.nameLength)}
-                onValueChange={(v) => update('nameLength', +v)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {nameLengthOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={String(opt.value)}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label='Char Set'>
-              <Select
-                value={form.charSet}
-                onValueChange={(v) => update('charSet', v as CharSet)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {charSetOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
-
-          <Field label='Prefix'>
-            <Input
-              value={form.prefix}
-              placeholder='Optional, e.g. wifi-'
-              onChange={(e) => update('prefix', e.target.value)}
-            />
-          </Field>
-
-          <Field label='Time Limit'>
-            <Input
-              value={form.timeLimit}
-              placeholder='e.g. 1h, 30m, or 0 for unlimited'
-              onChange={(e) => update('timeLimit', e.target.value)}
-            />
-          </Field>
-
-          <div className='grid grid-cols-[1fr_90px] gap-3'>
-            <Field label='Data Limit'>
-              <Input
-                type='number'
-                min={0}
-                value={form.dataLimit}
-                onChange={(e) =>
-                  update('dataLimit', Math.max(0, +e.target.value || 0))
-                }
-              />
-            </Field>
-            <Field label='Unit'>
-              <Select
-                value={form.dataLimitUnit}
-                onValueChange={(v) =>
-                  update('dataLimitUnit', v as DataLimitUnit)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {dataLimitUnitOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
-
-          <Field label='Comment'>
-            <Input
-              value={form.comment}
-              placeholder='Optional batch comment'
-              onChange={(e) => update('comment', e.target.value)}
-            />
-          </Field>
-
-          <div className='flex flex-wrap gap-2 pt-2'>
-            <Button
-              type='submit'
-              size='sm'
-              className='gap-1.5'
-              disabled={isGenerating}
-            >
-              {isGenerating ? (
-                <Loader2 className='size-4 animate-spin' />
-              ) : (
-                <Plus className='size-4' />
+                  <FormMessage />
+                </FormItem>
               )}
-              {isGenerating ? 'Generating…' : 'Generate'}
-            </Button>
-            <Button
-              type='button'
-              variant='outline'
-              size='sm'
-              className='gap-1.5'
-              onClick={onReset}
-              disabled={isGenerating}
-            >
-              <RotateCcw className='size-4' />
-              Reset
-            </Button>
-          </div>
-        </form>
+            />
+
+            {/* User Mode */}
+            <FormField
+              control={form.control}
+              name='userType'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>User Mode</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {userTypeOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Name Length + Char Set */}
+            <div className='grid grid-cols-2 gap-3'>
+              <FormField
+                control={form.control}
+                name='nameLength'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name Length</FormLabel>
+                    <Select
+                      value={String(field.value)}
+                      onValueChange={(v) => field.onChange(+v)}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {nameLengthOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={String(opt.value)}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='charSet'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Char Set</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {charSetOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Prefix */}
+            <FormField
+              control={form.control}
+              name='prefix'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Prefix</FormLabel>
+                  <FormControl>
+                    <Input placeholder='Optional, e.g. wifi-' {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Time Limit */}
+            <FormField
+              control={form.control}
+              name='timeLimit'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Time Limit</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder='e.g. 1h, 30m, or 0 for unlimited'
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Data Limit + Unit — InputGroup */}
+            <div className='space-y-1.5'>
+              <FormLabel>Data Limit</FormLabel>
+              <InputGroup>
+                <FormField
+                  control={form.control}
+                  name='dataLimit'
+                  render={({ field }) => (
+                    <InputGroupInput
+                      type='number'
+                      min={0}
+                      placeholder='0 = unlimited'
+                      value={field.value}
+                      onChange={(e) =>
+                        field.onChange(Math.max(0, +e.target.value || 0))
+                      }
+                    />
+                  )}
+                />
+                <InputGroupAddon align='inline-end'>
+                  <FormField
+                    control={form.control}
+                    name='dataLimitUnit'
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger className='h-7 w-16 border-0 shadow-none focus:ring-0 text-xs'>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent align='end'>
+                          {dataLimitUnitOptions.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </InputGroupAddon>
+              </InputGroup>
+            </div>
+
+            {/* Comment */}
+            <FormField
+              control={form.control}
+              name='comment'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Comment</FormLabel>
+                  <FormControl>
+                    <Input placeholder='Optional batch comment' {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className='flex flex-wrap gap-2 pt-2'>
+              <Button
+                type='submit'
+                size='sm'
+                className='gap-1.5'
+                disabled={isPending || routerId === 0}
+              >
+                {isPending ? (
+                  <Loader2 className='size-4 animate-spin' />
+                ) : (
+                  <Plus className='size-4' />
+                )}
+                {isPending ? 'Generating…' : 'Generate'}
+              </Button>
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                className='gap-1.5'
+                onClick={() => form.reset(defaultGenerateForm)}
+                disabled={isPending}
+              >
+                <RotateCcw className='size-4' />
+                Reset
+              </Button>
+            </div>
+          </form>
+        </Form>
       </CardContent>
     </Card>
-  )
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className='flex flex-col gap-1.5'>
-      <Label className='text-xs font-medium text-muted-foreground'>
-        {label}
-      </Label>
-      {children}
-    </div>
   )
 }

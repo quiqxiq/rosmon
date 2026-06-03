@@ -14,3 +14,13 @@ export const logEventSchema = z.object({
 })
 
 export type LogEvent = z.infer<typeof logEventSchema>
+
+// REST GET /devices/:id/log — backlog buffer. Mirrors api/dto/log.go
+// LogEntryResponse (topics = CSV string, time = RouterOS short format).
+export const restLogEntrySchema = z.object({
+  id: z.string(),
+  time: z.string().optional(),
+  topics: z.string().optional(),
+  message: z.string(),
+})
+export type RestLogEntry = z.infer<typeof restLogEntrySchema>

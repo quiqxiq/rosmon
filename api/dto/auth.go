@@ -67,6 +67,13 @@ type MeResponse struct {
 	UserResponse
 }
 
+// UpdateMeRequest body untuk PUT /auth/me (self-update). Semua field opsional.
+type UpdateMeRequest struct {
+	Email           string `json:"email,omitempty"            binding:"omitempty,email"`
+	CurrentPassword string `json:"current_password,omitempty"`
+	NewPassword     string `json:"new_password,omitempty"     binding:"omitempty,min=8"`
+}
+
 // FromModelUser konversi model.User → UserResponse.
 func FromModelUser(u model.User) UserResponse {
 	return UserResponse{

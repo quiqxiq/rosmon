@@ -49,7 +49,9 @@ func setupSubEnv(t *testing.T) subEnv {
 
 	r := gin.New()
 	g := r.Group("/api/v1")
-	handler.NewCustomers(custStore).Register(g)
+	ch := handler.NewCustomers(custStore)
+	ch.Register(g)
+	ch.RegisterMutate(g) // DELETE /customers/:id (no auth guard in test mode)
 	handler.NewSubscriptions(subStore, custStore, pppStore, hsStore, settingStore, mgr, log).Register(g)
 
 	return subEnv{HTTP: r, Mock: srv, Device: dev, SubStore: subStore, Cust: custStore, PPP: pppStore}

@@ -66,6 +66,8 @@ type VoucherResponse struct {
 type VoucherGenerateResponse struct {
 	Vouchers []VoucherResponse `json:"vouchers"`
 	Count    int               `json:"count"`
+	Gencode  string            `json:"gencode"`
+	Profile  string            `json:"profile"`
 	Partial  bool              `json:"partial,omitempty"`
 	Error    string            `json:"error,omitempty"`
 }

@@ -1,7 +1,8 @@
-# Environment
-# .env
-# .env.*
-# !.env.example
+# Environment — never commit real secrets; only *.example / *.template
+.env
+!.env.example
+docker/mikrotik/.env
+!docker/mikrotik/.env.template
 
 # Go
 coverage.out
@@ -14,6 +15,9 @@ coverage.out
 
 # AI session tools (internal planning files, not for public repo)
 .sisyphus/
-# mikhmon/
-# billing-rtrw/
-billing-rtrw/
+mikhmon/
+.agents/
+skills-lock.json
+
+# Reference project — separate repo (177MB, own secrets), not part of rosmon
+/billing-rtrw/

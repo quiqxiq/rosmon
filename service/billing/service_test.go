@@ -42,6 +42,15 @@ func (f *fakeInvoiceStore) ListDueForBilling(context.Context, time.Time) ([]mode
 func (f *fakeInvoiceStore) ListOverdue(context.Context, time.Time) ([]model.Invoice, error) {
 	return nil, nil
 }
+func (f *fakeInvoiceStore) MonthlySummary(context.Context, int, int) (*store.FinancialSummary, error) {
+	return &store.FinancialSummary{}, nil
+}
+func (f *fakeInvoiceStore) AgingBuckets(context.Context, time.Time) ([]store.AgingBucket, error) {
+	return nil, nil
+}
+func (f *fakeInvoiceStore) CountOverdue(context.Context) (int, int64, error) { return 0, 0, nil }
+func (f *fakeInvoiceStore) SumPaidThisMonth(context.Context, int, int) (int64, error) { return 0, nil }
+func (f *fakeInvoiceStore) CountPendingPayments(context.Context) (int, error) { return 0, nil }
 
 var _ store.InvoiceStore = (*fakeInvoiceStore)(nil)
 
@@ -162,4 +171,39 @@ func TestGenerateForSubscription_MissingProfile_Error(t *testing.T) {
 	sub := model.Subscription{ID: 3, ServiceType: "pppoe"} // PPPProfileID nil
 	_, err := svc.GenerateForSubscription(context.Background(), sub, time.Now(), 7)
 	assert.Error(t, err)
+}
+
+func TestGenerateForSubscriptionWithAmount_Override(t *testing.T) {
+	inv := &fakeInvoiceStore{}
+	pid := uint(7)
+	ppp := &fakePPPStore{profiles: map[uint]model.PPPProfile{7: {ID: 7, Name: "Paket10M", PriceMonthly: 150000}}}
+	svc := newBillingSvc(inv, ppp, &fakeHotspotStore{})
+	sub := model.Subscription{ID: 1, CustomerID: 3, ServiceType: "pppoe", PPPProfileID: &pid}
+	periodStart := time.Date(2026, 5, 10, 0, 0, 0, 0, time.UTC)
+
+	// Override > 0 dipakai sebagai amount (bukan harga profil).
+	override := int64(200000)
+	got, err := svc.GenerateForSubscriptionWithAmount(context.Background(), sub, periodStart, 7, &override)
+	require.NoError(t, err)
+	assert.Equal(t, int64(200000), got.Amount)
+	require.Len(t, inv.items, 1)
+	assert.Equal(t, int64(200000), inv.items[0][0].Amount)
+	assert.Equal(t, int64(200000), inv.items[0][0].UnitPrice)
+}
+
+func TestGenerateForSubscriptionWithAmount_NilFallsBackToProfile(t *testing.T) {
+	inv := &fakeInvoiceStore{}
+	pid := uint(7)
+	ppp := &fakePPPStore{profiles: map[uint]model.PPPProfile{7: {ID: 7, Name: "Paket10M", PriceMonthly: 150000}}}
+	svc := newBillingSvc(inv, ppp, &fakeHotspotStore{})
+	sub := model.Subscription{ID: 1, CustomerID: 3, ServiceType: "pppoe", PPPProfileID: &pid}
+	periodStart := time.Date(2026, 5, 10, 0, 0, 0, 0, time.UTC)
+
+	// Override nil → harga dari profil. Override 0 juga harus fallback.
+	zero := int64(0)
+	for _, override := range []*int64{nil, &zero} {
+		got, err := svc.GenerateForSubscriptionWithAmount(context.Background(), sub, periodStart, 7, override)
+		require.NoError(t, err)
+		assert.Equal(t, int64(150000), got.Amount)
+	}
 }

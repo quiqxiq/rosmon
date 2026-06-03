@@ -103,6 +103,17 @@ func (f *fakeInvoiceStore) ListDueForBilling(context.Context, time.Time) ([]mode
 func (f *fakeInvoiceStore) ListOverdue(context.Context, time.Time) ([]model.Invoice, error) {
 	return nil, nil
 }
+func (f *fakeInvoiceStore) MonthlySummary(_ context.Context, _, _ int) (*store.FinancialSummary, error) {
+	return &store.FinancialSummary{}, nil
+}
+func (f *fakeInvoiceStore) AgingBuckets(_ context.Context, _ time.Time) ([]store.AgingBucket, error) {
+	return nil, nil
+}
+func (f *fakeInvoiceStore) CountOverdue(_ context.Context) (int, int64, error) { return 0, 0, nil }
+func (f *fakeInvoiceStore) SumPaidThisMonth(_ context.Context, _, _ int) (int64, error) {
+	return 0, nil
+}
+func (f *fakeInvoiceStore) CountPendingPayments(_ context.Context) (int, error) { return 0, nil }
 
 var _ store.InvoiceStore = (*fakeInvoiceStore)(nil)
 

@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/quiqxiq/rosmon/api/dto"
 	"github.com/quiqxiq/rosmon/mikrotik"
+	"github.com/quiqxiq/rosmon/service/audit"
 	"github.com/quiqxiq/rosmon/mikrotik/hotspot"
 	"github.com/quiqxiq/rosmon/mikrotik/ppp"
 	"github.com/quiqxiq/rosmon/service/devmgr"
@@ -26,13 +27,14 @@ import (
 // gagal, response berisi `warning` — DB tetap authoritative dan
 // operator bisa retry via POST /:id/reconcile.
 type Subscriptions struct {
-	Store        store.SubscriptionStore
+	Store         store.SubscriptionStore
 	CustomerStore store.CustomerStore
-	PPPStore     store.PPPProfileStore
-	HotspotStore store.HotspotProfileStore
-	SettingStore store.SettingStore
-	DevMgr       *devmgr.Manager
-	Log          *logrus.Logger
+	PPPStore      store.PPPProfileStore
+	HotspotStore  store.HotspotProfileStore
+	SettingStore  store.SettingStore
+	Audit         store.AuditLogStore
+	DevMgr        *devmgr.Manager
+	Log           *logrus.Logger
 }
 
 func NewSubscriptions(
@@ -173,6 +175,8 @@ func (h *Subscriptions) Create(c *gin.Context) {
 		}
 		_ = h.Store.UpdateSyncStatus(c.Request.Context(), sub.ID, "synced", "")
 	}
+	audit.Log(c.Request.Context(), h.Audit, h.Log, actorFromCtx(c), "subscription_created", "subscription", sub.ID,
+		nil, map[string]any{"customer_id": sub.CustomerID, "service_type": sub.ServiceType, "mikrotik_username": sub.MikrotikUsername, "status": sub.Status})
 
 	c.JSON(http.StatusCreated, dto.OK(dto.SubscriptionWriteResponse{
 		Subscription: dto.FromModelSubscription(*sub),
@@ -279,6 +283,8 @@ func (h *Subscriptions) Delete(c *gin.Context) {
 		WriteErr(c, err)
 		return
 	}
+	audit.Log(c.Request.Context(), h.Audit, h.Log, actorFromCtx(c), "subscription_deleted", "subscription", id,
+		map[string]any{"customer_id": sub.CustomerID, "service_type": sub.ServiceType, "mikrotik_username": sub.MikrotikUsername, "status": sub.Status}, nil)
 	warning := h.tryRemoveOnRouter(c, sub)
 	if warning != "" {
 		WriteOK(c, dto.SubscriptionWriteResponse{
@@ -313,6 +319,8 @@ func (h *Subscriptions) PatchStatus(c *gin.Context) {
 		return
 	}
 
+	prevStatus := sub.Status
+
 	// Update status di DB.
 	var activatedAt, terminatedAt *time.Time
 	now := time.Now()
@@ -341,6 +349,8 @@ func (h *Subscriptions) PatchStatus(c *gin.Context) {
 
 	// Sync ke router sesuai status target.
 	warning := h.trySyncStatus(c, sub, targetProfile, disabled)
+	audit.Log(c.Request.Context(), h.Audit, h.Log, actorFromCtx(c), "subscription_status_changed", "subscription", id,
+		map[string]string{"status": prevStatus}, map[string]string{"status": req.Status})
 	WriteOK(c, dto.SubscriptionWriteResponse{
 		Subscription: dto.FromModelSubscription(sub),
 		Warning:      warning,

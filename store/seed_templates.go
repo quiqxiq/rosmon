@@ -75,6 +75,11 @@ func seedMessageTemplates(db *gorm.DB) error {
 			Variables: `["customer_name","package_name","company_name"]`,
 			Body:      "Halo {{.customer_name}}, paket layanan Anda telah diubah menjadi *{{.package_name}}*. Perubahan kecepatan akan berlaku segera. — {{.company_name}}",
 		},
+		{
+			Slug: "outbox_escalation", Name: "Outbox Sync Gagal (Admin)",
+			Variables: `["subscription_id","service_type","mikrotik_username","error","retry_count"]`,
+			Body:      "⚠️ *Outbox Escalation*\nSubscription #{{.subscription_id}} ({{.service_type}}/{{.mikrotik_username}}) gagal disinkronkan ke router sebanyak {{.retry_count}} kali.\n\nError terakhir: {{.error}}\n\nSilakan cek koneksi router dan rekonsiliasi manual via dashboard.",
+		},
 	}
 	for _, t := range defaults {
 		t := t

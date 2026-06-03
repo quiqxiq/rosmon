@@ -285,6 +285,9 @@ func (h *PPPProfiles) Sync(c *gin.Context) {
 		if rp.Name == "" {
 			continue
 		}
+		if isSystemProfile(rp.Name) {
+			continue
+		}
 		routerNames[rp.Name] = struct{}{}
 		newP := &model.PPPProfile{
 			DeviceID:       deviceID,

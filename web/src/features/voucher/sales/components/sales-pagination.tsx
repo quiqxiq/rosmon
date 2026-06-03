@@ -29,7 +29,10 @@ export function SalesPagination({
 }: SalesPaginationProps) {
   // `pageCount` is the upper bound on `page`. Clamp at 1 so an empty
   // result set still renders "Page 1 of 1" instead of "Page 1 of 0".
-  const pageCount = Math.max(1, Math.ceil(total / pageSize))
+  // Coerce both operands so an undefined/NaN total OR pageSize falls back
+  // gracefully (Math.max(1, NaN) is NaN) → avoids "Page 1 of NaN".
+  const safeSize = Number(pageSize) || 1
+  const pageCount = Math.max(1, Math.ceil((Number(total) || 0) / safeSize))
   const canPrev = page > 1 && !disabled
   const canNext = page < pageCount && !disabled
 

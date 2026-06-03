@@ -48,6 +48,17 @@ func (s *stubInvoiceStore) ListDueForBilling(_ context.Context, _ time.Time) ([]
 func (s *stubInvoiceStore) ListOverdue(_ context.Context, _ time.Time) ([]model.Invoice, error) {
 	return nil, nil
 }
+func (s *stubInvoiceStore) MonthlySummary(_ context.Context, _, _ int) (*store.FinancialSummary, error) {
+	return &store.FinancialSummary{}, nil
+}
+func (s *stubInvoiceStore) AgingBuckets(_ context.Context, _ time.Time) ([]store.AgingBucket, error) {
+	return nil, nil
+}
+func (s *stubInvoiceStore) CountOverdue(_ context.Context) (int, int64, error) { return 0, 0, nil }
+func (s *stubInvoiceStore) SumPaidThisMonth(_ context.Context, _, _ int) (int64, error) {
+	return 0, nil
+}
+func (s *stubInvoiceStore) CountPendingPayments(_ context.Context) (int, error) { return 0, nil }
 
 // ── stub payment store ───────────────────────────────────────────────────────
 
