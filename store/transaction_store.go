@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/quiqxiq/rosmon/store/model"
@@ -16,6 +17,9 @@ type TransactionStore interface {
 	Create(ctx context.Context, tx *model.Transaction) error
 	ListByDevice(ctx context.Context, deviceID uint, month string) ([]model.Transaction, error)
 	ListByDeviceDate(ctx context.Context, deviceID uint, date string) ([]model.Transaction, error)
+	// ListByDeviceYear mengembalikan semua transaksi device untuk satu tahun
+	// kalender. Dipakai endpoint /reports/resume untuk agregasi per-bulan.
+	ListByDeviceYear(ctx context.Context, deviceID uint, year int) ([]model.Transaction, error)
 	// ExistsByUserComment cek apakah ada transaksi untuk kombinasi
 	// (device_id, username, comment) — dipakai webhook handler untuk
 	// dedup re-login (hanya first login yang ter-record).
@@ -50,6 +54,16 @@ func (s *gormTransactionStore) ListByDeviceDate(ctx context.Context, deviceID ui
 	err := s.db.WithContext(ctx).
 		Where("device_id = ? AND sale_date = ?", deviceID, date).
 		Order("created_at desc").Limit(defaultTransactionLimit).Find(&txs).Error
+	return txs, err
+}
+
+func (s *gormTransactionStore) ListByDeviceYear(ctx context.Context, deviceID uint, year int) ([]model.Transaction, error) {
+	var txs []model.Transaction
+	err := s.db.WithContext(ctx).
+		Where("device_id = ? AND sale_month LIKE ?", deviceID, "%"+strconv.Itoa(year)).
+		Order("sale_month asc, created_at asc").
+		Limit(defaultTransactionLimit * 12).
+		Find(&txs).Error
 	return txs, err
 }
 

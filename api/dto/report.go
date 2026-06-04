@@ -67,6 +67,71 @@ type ReportTodayResponse struct {
 	Transactions []TransactionResponse `json:"transactions"`
 }
 
+// VoucherSaleResponse adalah shape yang diharapkan frontend Phase-6.
+// Field name-nya berbeda dari TransactionResponse (sell_price→selling_price, dll).
+type VoucherSaleResponse struct {
+	ID             uint   `json:"id"`
+	RouterID       uint   `json:"router_id"`
+	SoldAt         string `json:"sold_at"`          // RFC3339
+	Username       string `json:"username"`
+	ProfileName    string `json:"profile_name"`
+	Price          int    `json:"price"`
+	SellingPrice   int    `json:"selling_price"`
+	Server         string `json:"server"`
+	IPAddress      string `json:"ip_address"`
+	MACAddress     string `json:"mac_address"`
+	Validity       string `json:"validity"`
+	IdempotencyKey string `json:"idempotency_key"`
+	CreatedAt      string `json:"created_at"`
+}
+
+// DailyReportResponse — GET /reports/daily
+type DailyReportResponse struct {
+	Date  string                `json:"date"`  // YYYY-MM-DD
+	Sales []VoucherSaleResponse `json:"sales"`
+	Total int                   `json:"total"` // sum selling_price
+	Count int                   `json:"count"`
+}
+
+// DailySummaryRow — satu baris agregat harian dalam monthly report.
+type DailySummaryRow struct {
+	Date  string `json:"date"`  // YYYY-MM-DD
+	Count int    `json:"count"`
+	Sum   int    `json:"sum"`
+}
+
+// MonthlyReportResponse — GET /reports/monthly
+type MonthlyReportResponse struct {
+	Year  int               `json:"year"`
+	Month int               `json:"month"`
+	Daily []DailySummaryRow `json:"daily"`
+	Total int               `json:"total"`
+	Count int               `json:"count"`
+}
+
+// MonthlySummaryRow — satu baris agregat bulanan dalam resume report.
+type MonthlySummaryRow struct {
+	Month int `json:"month"` // 1-12
+	Count int `json:"count"`
+	Sum   int `json:"sum"`
+}
+
+// ResumeReportResponse — GET /reports/resume
+type ResumeReportResponse struct {
+	Year    int                 `json:"year"`
+	Monthly []MonthlySummaryRow `json:"monthly"`
+	Total   int                 `json:"total"`
+	Count   int                 `json:"count"`
+}
+
+// VoucherDashboardSummary — GET /reports/summary
+type VoucherDashboardSummary struct {
+	TodayCount int `json:"today_count"`
+	TodaySum   int `json:"today_sum"`
+	MonthCount int `json:"month_count"`
+	MonthSum   int `json:"month_sum"`
+}
+
 // FinancialMonthlyResponse adalah response untuk GET /reports/financial.
 type FinancialMonthlyResponse struct {
 	Year          int   `json:"year"`

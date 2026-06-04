@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/csv"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -36,6 +37,11 @@ func (h *Report) Register(g *gin.RouterGroup) {
 	r.GET("/selling/today", h.SellingToday)
 	r.GET("/selling/summary", h.SellingSummary)
 	r.GET("/selling.csv", h.SellingCSV)
+	// Phase-6 endpoints — dipakai frontend /report/daily, /report/monthly, /voucher
+	r.GET("/daily", h.Daily)
+	r.GET("/monthly", h.Monthly)
+	r.GET("/resume", h.Resume)
+	r.GET("/summary", h.Summary)
 }
 
 // parseDeviceID ambil :device_id dari path (numeric). Tulis 400
@@ -184,6 +190,217 @@ func aggregate(txs []model.Transaction) dto.ReportSummary {
 		s.ByProfile = nil
 	}
 	return s
+}
+
+// ── Phase-6 handlers ──────────────────────────────────────────────────────────
+
+// Daily: GET /reports/daily?date=YYYY-MM-DD[&profile=][&search=]
+func (h *Report) Daily(c *gin.Context) {
+	deviceID, ok := h.parseDeviceID(c)
+	if !ok {
+		return
+	}
+	dateISO := c.Query("date")
+	if dateISO == "" {
+		dateISO = time.Now().Format("2006-01-02")
+	}
+	saleDate, err := isoToSaleDate(dateISO)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.Err("INVALID_DATE", "date must be YYYY-MM-DD", dateISO))
+		return
+	}
+	txs, err := h.TxStore.ListByDeviceDate(c.Request.Context(), deviceID, saleDate)
+	if err != nil {
+		WriteErr(c, err)
+		return
+	}
+	profile := strings.ToLower(c.Query("profile"))
+	search := strings.ToLower(c.Query("search"))
+	sales := make([]dto.VoucherSaleResponse, 0, len(txs))
+	total := 0
+	for _, t := range txs {
+		if profile != "" && !strings.EqualFold(t.Profile, profile) {
+			continue
+		}
+		if search != "" && !strings.Contains(strings.ToLower(t.Username), search) {
+			continue
+		}
+		sales = append(sales, toVoucherSale(t, deviceID))
+		total += t.SellPrice
+	}
+	WriteOK(c, dto.DailyReportResponse{Date: dateISO, Sales: sales, Total: total, Count: len(sales)})
+}
+
+// Monthly: GET /reports/monthly?year=YYYY&month=1-12
+func (h *Report) Monthly(c *gin.Context) {
+	deviceID, ok := h.parseDeviceID(c)
+	if !ok {
+		return
+	}
+	year, _ := strconv.Atoi(c.Query("year"))
+	month, _ := strconv.Atoi(c.Query("month"))
+	if year == 0 {
+		year = time.Now().Year()
+	}
+	if month == 0 {
+		month = int(time.Now().Month())
+	}
+	txs, err := h.TxStore.ListByDevice(c.Request.Context(), deviceID, saleMonthKey(year, month))
+	if err != nil {
+		WriteErr(c, err)
+		return
+	}
+	byDay := map[string]*dto.DailySummaryRow{}
+	total := 0
+	for _, t := range txs {
+		d := saleDateToISO(t.SaleDate)
+		if _, ok := byDay[d]; !ok {
+			byDay[d] = &dto.DailySummaryRow{Date: d}
+		}
+		byDay[d].Count++
+		byDay[d].Sum += t.SellPrice
+		total += t.SellPrice
+	}
+	daily := make([]dto.DailySummaryRow, 0, len(byDay))
+	for _, v := range byDay {
+		daily = append(daily, *v)
+	}
+	sort.Slice(daily, func(i, j int) bool { return daily[i].Date < daily[j].Date })
+	WriteOK(c, dto.MonthlyReportResponse{Year: year, Month: month, Daily: daily, Total: total, Count: len(txs)})
+}
+
+// Resume: GET /reports/resume?year=YYYY
+func (h *Report) Resume(c *gin.Context) {
+	deviceID, ok := h.parseDeviceID(c)
+	if !ok {
+		return
+	}
+	year, _ := strconv.Atoi(c.Query("year"))
+	if year == 0 {
+		year = time.Now().Year()
+	}
+	txs, err := h.TxStore.ListByDeviceYear(c.Request.Context(), deviceID, year)
+	if err != nil {
+		WriteErr(c, err)
+		return
+	}
+	byMonth := map[int]*dto.MonthlySummaryRow{}
+	total := 0
+	for _, t := range txs {
+		m := saleMonthToInt(t.SaleMonth)
+		if _, ok := byMonth[m]; !ok {
+			byMonth[m] = &dto.MonthlySummaryRow{Month: m}
+		}
+		byMonth[m].Count++
+		byMonth[m].Sum += t.SellPrice
+		total += t.SellPrice
+	}
+	monthly := make([]dto.MonthlySummaryRow, 0, len(byMonth))
+	for _, v := range byMonth {
+		monthly = append(monthly, *v)
+	}
+	sort.Slice(monthly, func(i, j int) bool { return monthly[i].Month < monthly[j].Month })
+	WriteOK(c, dto.ResumeReportResponse{Year: year, Monthly: monthly, Total: total, Count: len(txs)})
+}
+
+// Summary: GET /reports/summary — today + this month KPI counters
+func (h *Report) Summary(c *gin.Context) {
+	deviceID, ok := h.parseDeviceID(c)
+	if !ok {
+		return
+	}
+	ctx := c.Request.Context()
+	now := time.Now()
+	today := strings.ToLower(now.Format("Jan/02/2006"))
+	monthKey := strings.ToLower(now.Format("Jan2006"))
+
+	todayTxs, err := h.TxStore.ListByDeviceDate(ctx, deviceID, today)
+	if err != nil {
+		WriteErr(c, err)
+		return
+	}
+	monthTxs, err := h.TxStore.ListByDevice(ctx, deviceID, monthKey)
+	if err != nil {
+		WriteErr(c, err)
+		return
+	}
+	todaySum := 0
+	for _, t := range todayTxs {
+		todaySum += t.SellPrice
+	}
+	monthSum := 0
+	for _, t := range monthTxs {
+		monthSum += t.SellPrice
+	}
+	WriteOK(c, dto.VoucherDashboardSummary{
+		TodayCount: len(todayTxs),
+		TodaySum:   todaySum,
+		MonthCount: len(monthTxs),
+		MonthSum:   monthSum,
+	})
+}
+
+// ── date helpers ──────────────────────────────────────────────────────────────
+
+// isoToSaleDate mengkonversi "2026-06-04" → "jun/04/2026"
+func isoToSaleDate(s string) (string, error) {
+	t, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		return "", err
+	}
+	return strings.ToLower(t.Format("Jan/02/2006")), nil
+}
+
+// saleMonthKey mengkonversi year=2026, month=6 → "jun2026"
+func saleMonthKey(year, month int) string {
+	t := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	return strings.ToLower(t.Format("Jan2006"))
+}
+
+// saleDateToISO mengkonversi "jun/04/2026" → "2026-06-04"
+func saleDateToISO(saleDate string) string {
+	// SaleDate disimpan lowercase: "jun/04/2026"; time.Parse butuh title-case
+	parts := strings.SplitN(saleDate, "/", 3)
+	if len(parts) == 3 {
+		titled := strings.Title(parts[0]) + "/" + parts[1] + "/" + parts[2]
+		if t, err := time.Parse("Jan/02/2006", titled); err == nil {
+			return t.Format("2006-01-02")
+		}
+	}
+	return saleDate
+}
+
+// saleMonthToInt mengkonversi "jan2026" → 1, "dec2026" → 12
+func saleMonthToInt(s string) int {
+	if len(s) < 3 {
+		return 0
+	}
+	t, err := time.Parse("Jan", strings.Title(s[:3]))
+	if err != nil {
+		return 0
+	}
+	return int(t.Month())
+}
+
+// toVoucherSale memetakan model.Transaction ke dto.VoucherSaleResponse
+// dengan field name sesuai kontrak frontend Phase-6.
+func toVoucherSale(t model.Transaction, deviceID uint) dto.VoucherSaleResponse {
+	soldAt := t.CreatedAt.UTC().Format(time.RFC3339)
+	return dto.VoucherSaleResponse{
+		ID:             t.ID,
+		RouterID:       deviceID,
+		SoldAt:         soldAt,
+		Username:       t.Username,
+		ProfileName:    t.Profile,
+		Price:          t.Price,
+		SellingPrice:   t.SellPrice,
+		Server:         "",
+		IPAddress:      t.IP,
+		MACAddress:     t.MAC,
+		Validity:       t.Validity,
+		IdempotencyKey: t.Comment,
+		CreatedAt:      soldAt,
+	}
 }
 
 // errStr adalah helper untuk WriteValidationErr ketika error sederhana
