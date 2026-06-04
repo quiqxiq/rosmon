@@ -160,6 +160,11 @@ func (h *HotspotProfiles) Create(c *gin.Context) {
 		IsPublic:          req.IsPublic != nil && *req.IsPublic,
 	}
 	if err := h.Store.Create(c.Request.Context(), p); err != nil {
+		if store.IsUniqueViolation(err) {
+			c.AbortWithStatusJSON(http.StatusConflict,
+				dto.Err("CONFLICT", "profile name already exists on this device", c.Request.URL.Path))
+			return
+		}
 		WriteErr(c, err)
 		return
 	}
