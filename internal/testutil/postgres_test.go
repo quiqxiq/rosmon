@@ -18,7 +18,8 @@ func TestNewPostgres_migrateAndInsert(t *testing.T) {
 	ctx := context.Background()
 	d := &model.MikrotikDevice{
 		DisplayName: "smoke",
-		Address:     "127.0.0.1:8728",
+		Host:        "127.0.0.1",
+		Port:        8728,
 		Username:    "u",
 		Password:    "p",
 		Active:      true,

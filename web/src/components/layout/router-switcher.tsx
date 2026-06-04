@@ -30,7 +30,7 @@ const statusDotClass: Record<RouterPublicView['status'], string> = {
 
 function statusLabel(r: RouterPublicView): string {
   const status = r.status.charAt(0).toUpperCase() + r.status.slice(1)
-  return `${r.address} — ${status}`
+  return `${r.host}:${r.port} — ${status}`
 }
 
 export function RouterSwitcher() {

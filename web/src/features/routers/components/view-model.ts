@@ -28,7 +28,8 @@ export function toRouterViewModel(router: RouterPublicView): RouterViewModel {
   return {
     id: router.id,
     name: router.display_name,
-    address: router.address,
+    host: router.host,
+    port: router.port,
     username: router.username,
     status: router.status,
     statusLabel: routerStatusConfig[router.status]?.label ?? 'Unknown',

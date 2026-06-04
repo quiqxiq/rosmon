@@ -15,11 +15,11 @@ export const routersColumns: ColumnDef<RouterPublicView>[] = [
     enableSorting: true,
   },
   {
-    accessorKey: 'address',
+    id: 'address',
     header: 'Address',
     cell: ({ row }) => (
       <span className='font-mono text-xs text-muted-foreground'>
-        {row.original.address}
+        {row.original.host}:{row.original.port}
       </span>
     ),
   },

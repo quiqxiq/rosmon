@@ -2,6 +2,8 @@ package testutil
 
 import (
 	"context"
+	"net"
+	"strconv"
 	"testing"
 	"time"
 
@@ -97,10 +99,13 @@ func NewTestDevMgr(t *testing.T) (*devmgr.Manager, *tcpmock.Server, model.Mikrot
 	mgr := devmgr.New(nil, log)
 	mgr.RegisterForTest(MockDeviceID, cs)
 
+	host, portStr, _ := net.SplitHostPort(srv.Addr())
+	port, _ := strconv.Atoi(portStr)
 	dev := model.MikrotikDevice{
 		ID:                  MockDeviceID,
 		DisplayName:         "mock-device",
-		Address:             srv.Addr(),
+		Host:                host,
+		Port:                port,
 		Username:            "test",
 		Password:            "test",
 		Active:              true,

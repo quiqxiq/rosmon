@@ -20,7 +20,8 @@ export const routerStatusConfig: Record<
 export interface RouterViewModel {
   id: number
   name: string
-  address: string
+  host: string
+  port: number
   username: string
   status: RouterPublicView['status']
   statusLabel: string

@@ -27,7 +27,8 @@ import { useRoutersDialogStore } from '../store/routers-dialog-store'
 
 type Draft = {
   display_name: string
-  address: string
+  host: string
+  port: number
   username: string
   password: string
   use_tls: 'true' | 'false'
@@ -64,7 +65,8 @@ function RoutersMutateForm({ mode, onClose }: FormProps) {
     if (mode === 'edit' && selectedRouter) {
       return {
         display_name: selectedRouter.display_name,
-        address: selectedRouter.address,
+        host: selectedRouter.host,
+        port: selectedRouter.port ?? 8728,
         username: selectedRouter.username,
         password: '',
         use_tls: selectedRouter.use_tls ? 'true' : 'false',
@@ -72,7 +74,8 @@ function RoutersMutateForm({ mode, onClose }: FormProps) {
     }
     return {
       display_name: '',
-      address: '',
+      host: '',
+      port: 8728,
       username: 'admin',
       password: '',
       use_tls: 'false',
@@ -86,19 +89,24 @@ function RoutersMutateForm({ mode, onClose }: FormProps) {
     (e: React.ChangeEvent<HTMLInputElement>) =>
       setDraft((d) => ({ ...d, [key]: e.target.value }))
 
+  const setPort = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setDraft((d) => ({ ...d, port: Number(e.target.value) }))
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!draft.display_name.trim()) return toast.error('Name is required')
-    if (!draft.address.trim())
-      return toast.error('Address is required (host:port)')
+    if (!draft.host.trim()) return toast.error('Host is required')
+    if (!draft.port || draft.port < 1 || draft.port > 65535)
+      return toast.error('Port must be between 1 and 65535')
     if (!draft.username.trim()) return toast.error('Username is required')
 
     if (mode === 'create') {
       if (!draft.password) return toast.error('Password is required')
       const body: CreateRouterRequest = {
         display_name: draft.display_name.trim(),
-        address: draft.address.trim(),
+        host: draft.host.trim(),
+        port: draft.port,
         username: draft.username.trim(),
         password: draft.password,
         use_tls: draft.use_tls === 'true',
@@ -120,8 +128,10 @@ function RoutersMutateForm({ mode, onClose }: FormProps) {
     const body: UpdateRouterRequest = {}
     if (draft.display_name.trim() !== selectedRouter.display_name)
       body.display_name = draft.display_name.trim()
-    if (draft.address.trim() !== selectedRouter.address)
-      body.address = draft.address.trim()
+    if (draft.host.trim() !== selectedRouter.host)
+      body.host = draft.host.trim()
+    if (draft.port !== (selectedRouter.port ?? 8728))
+      body.port = draft.port
     if (draft.username.trim() !== selectedRouter.username)
       body.username = draft.username.trim()
     if (draft.password) body.password = draft.password
@@ -181,13 +191,27 @@ function RoutersMutateForm({ mode, onClose }: FormProps) {
           </div>
 
           <div className='space-y-1.5'>
-            <Label htmlFor='router-address'>Address (host:port)</Label>
+            <Label htmlFor='router-host'>Host</Label>
             <Input
-              id='router-address'
+              id='router-host'
               autoComplete='off'
-              placeholder='192.168.1.1:8728'
-              value={draft.address}
-              onChange={set('address')}
+              placeholder='192.168.1.1'
+              value={draft.host}
+              onChange={set('host')}
+              disabled={isPending}
+            />
+          </div>
+
+          <div className='space-y-1.5'>
+            <Label htmlFor='router-port'>Port</Label>
+            <Input
+              id='router-port'
+              type='number'
+              min={1}
+              max={65535}
+              placeholder='8728'
+              value={draft.port}
+              onChange={setPort}
               disabled={isPending}
             />
           </div>

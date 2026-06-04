@@ -35,6 +35,20 @@ func Migrate(db *gorm.DB) error {
 	); err != nil {
 		return err
 	}
+	// Populate host+port from legacy address column for existing rows.
+	db.Exec(`UPDATE mikrotik_devices
+		SET host = split_part(address, ':', 1),
+		    port = CAST(NULLIF(split_part(address, ':', 2), '') AS INTEGER)
+		WHERE (host = '' OR host IS NULL)
+		  AND address IS NOT NULL AND address <> ''`)
+
+	// Soft-delete-aware unique index: deleted rows don't block reuse of same host:port.
+	db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_mikrotik_host_port
+		ON mikrotik_devices (host, port) WHERE deleted_at IS NULL`)
+
+	// Drop legacy address column (idempotent).
+	db.Exec(`ALTER TABLE mikrotik_devices DROP COLUMN IF EXISTS address`)
+
 	if err := seedSystemSettings(db); err != nil {
 		return err
 	}

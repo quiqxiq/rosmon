@@ -45,7 +45,8 @@ func setupLiveExpiry(t *testing.T, mode string, profileName string) (*expiry.Ser
 	d := model.MikrotikDevice{
 		ID:                  1,
 		DisplayName:         "live-expiry",
-		Address:             "router",
+		Host:                "router",
+		Port:                8728,
 		Active:              true,
 		ExpiryCheckInterval: "100ms",
 	}
