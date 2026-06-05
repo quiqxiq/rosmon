@@ -5,6 +5,7 @@ import {
   Bell,
   Boxes,
   Building2,
+  CheckSquare,
   ClipboardList,
   Cpu,
   CreditCard,
@@ -24,6 +25,7 @@ import {
   Ticket,
   UserCog,
   Users,
+  Users2,
   Wifi,
   Wrench,
 } from 'lucide-react'
@@ -234,6 +236,21 @@ export const sidebarData: SidebarData = {
           title: 'Help Center',
           url: '/help-center',
           icon: HelpCircle,
+        },
+      ],
+    },
+    {
+      title: 'Example',
+      items: [
+        {
+          title: 'Tasks',
+          url: '/tasks',
+          icon: CheckSquare,
+        },
+        {
+          title: 'Users',
+          url: '/pengguna',
+          icon: Users2,
         },
       ],
     },

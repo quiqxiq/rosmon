@@ -1,5 +1,5 @@
 # Environment — never commit real secrets; only *.example / *.template
-.env
+# .env
 !.env.example
 docker/mikrotik/.env
 !docker/mikrotik/.env.template
