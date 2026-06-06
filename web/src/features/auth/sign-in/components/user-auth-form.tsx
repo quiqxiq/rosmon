@@ -1,8 +1,8 @@
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Link, useNavigate } from '@tanstack/react-router'
-import { Loader2, Lock, LogIn, User } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
+import { Loader2, LogIn, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { parseAPIError } from '@/lib/api/errors'
@@ -96,21 +96,12 @@ export function UserAuthForm({
           control={form.control}
           name='password'
           render={({ field }) => (
-            <FormItem className='relative'>
+            <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <div className='relative'>
-                  <Lock className='absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground' />
-                  <PasswordInput placeholder='********' {...field} />
-                </div>
+                <PasswordInput placeholder='********' {...field} />
               </FormControl>
               <FormMessage />
-              <Link
-                to='/forgot-password'
-                className='absolute inset-e-0 -top-0.5 text-sm font-medium text-muted-foreground hover:opacity-75'
-              >
-                Forgot password?
-              </Link>
             </FormItem>
           )}
         />

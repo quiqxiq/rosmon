@@ -20,17 +20,23 @@ import {
 import { parseAPIError } from '@/lib/api/errors'
 import { usePatchSubscriptionStatus } from '../api/queries'
 import { SUBSCRIPTION_STATUSES } from '../api/schema'
-import { useSubscriptionsDialogStore } from '../store/dialog-store'
+import { useSubscriptionsContext } from './subscriptions-provider'
 
 export function StatusDialog() {
-  const { mode, target, close } = useSubscriptionsDialogStore()
-  const isOpen = mode === 'status'
+  const { open, setOpen, currentRow, setCurrentRow } = useSubscriptionsContext()
+  const isOpen = open === 'status'
+  const onClose = () => {
+    setOpen(null)
+    setTimeout(() => {
+      setCurrentRow(null)
+    }, 500)
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={(o) => !o && close()}>
+    <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
-        {isOpen && target && (
-          <StatusForm key={target.id} onClose={close} />
+        {isOpen && currentRow && (
+          <StatusForm onClose={onClose} />
         )}
       </DialogContent>
     </Dialog>
@@ -38,14 +44,14 @@ export function StatusDialog() {
 }
 
 function StatusForm({ onClose }: { onClose: () => void }) {
-  const target = useSubscriptionsDialogStore((s) => s.target)
+  const { currentRow } = useSubscriptionsContext()
   const patchMutation = usePatchSubscriptionStatus()
-  const [status, setStatus] = useState<string>(target?.status ?? 'active')
+  const [status, setStatus] = useState<string>(currentRow?.status ?? 'active')
 
   const handleConfirm = () => {
-    if (!target) return
+    if (!currentRow) return
     patchMutation.mutate(
-      { id: target.id, status },
+      { id: currentRow.id, status },
       {
         onSuccess: (res) => {
           toast.success('Status updated', { description: res.warning })
@@ -64,7 +70,7 @@ function StatusForm({ onClose }: { onClose: () => void }) {
       <DialogHeader>
         <DialogTitle>Change Status</DialogTitle>
         <DialogDescription>
-          Update the lifecycle state of '{target?.mikrotik_username}'. This
+          Update the lifecycle state of '{currentRow?.mikrotik_username}'. This
           propagates to RouterOS (isolir/suspend toggles the secret).
         </DialogDescription>
       </DialogHeader>

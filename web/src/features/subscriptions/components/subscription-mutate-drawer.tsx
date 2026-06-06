@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Loader2, Wand2 } from 'lucide-react'
+import { Loader2, Wand2, ServerOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -46,13 +46,11 @@ import {
   type Subscription,
   type SubscriptionCreateInput,
 } from '../api/schema'
-import { useSubscriptionsDialogStore } from '../store/dialog-store'
+import { useSubscriptionsContext } from './subscriptions-provider'
+import { useActiveRouterId } from '@/stores/active-router-store'
 
 // ── Schema ──────────────────────────────────────────────────────────────────
 
-// user_mode hanya relevan untuk hotspot (frontend-only): 'up' = username +
-// password manual, 'vc' = username-only (password otomatis = username, gaya
-// voucher). Tidak dikirim sebagai field tersendiri ke backend.
 const baseSchema = z.object({
   customer_id: z.string(),
   device_id: z.string(),
@@ -72,7 +70,6 @@ const addSchema = baseSchema
     mikrotik_username: z.string().min(1, 'Username wajib diisi'),
   })
   .superRefine((val, ctx) => {
-    // Password wajib KECUALI hotspot mode username-only (password = username).
     const usernameOnly = val.service_type === 'hotspot' && val.user_mode === 'vc'
     if (!usernameOnly && !val.mikrotik_password) {
       ctx.addIssue({
@@ -90,8 +87,6 @@ const USER_MODE_OPTIONS = [
   { label: 'Username Only (Voucher)', value: 'vc' as const },
 ]
 
-// generateHotspotCode menghasilkan kode acak (huruf kecil + angka) memakai
-// crypto.getRandomValues. Dipakai tombol Generate pada mode username-only.
 function generateHotspotCode(len = 6): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
   const arr = new Uint32Array(len)
@@ -101,10 +96,17 @@ function generateHotspotCode(len = 6): string {
   return out
 }
 
-function defaultValues(target?: Subscription | null): SubscriptionFormValues {
+function defaultValues(
+  target?: Subscription | null,
+  activeRouterId?: number | null,
+): SubscriptionFormValues {
   return {
     customer_id: target ? String(target.customer_id) : '',
-    device_id: target ? String(target.device_id) : '',
+    device_id: target
+      ? String(target.device_id)
+      : activeRouterId
+        ? String(activeRouterId)
+        : '',
     service_type: (target?.service_type as ServiceType) ?? 'pppoe',
     user_mode: 'up',
     profile_id: target
@@ -120,16 +122,23 @@ function defaultValues(target?: Subscription | null): SubscriptionFormValues {
 // ── Root ─────────────────────────────────────────────────────────────────────
 
 export function SubscriptionMutateDrawer() {
-  const { mode, target, close } = useSubscriptionsDialogStore()
-  const isOpen = mode === 'add' || mode === 'edit'
+  const { open, setOpen, currentRow, setCurrentRow } = useSubscriptionsContext()
+  const isOpen = open === 'add' || open === 'edit'
+  const onClose = () => {
+    setOpen(null)
+    setTimeout(() => {
+      setCurrentRow(null)
+    }, 500)
+  }
+
   return (
-    <Sheet open={isOpen} onOpenChange={(o) => !o && close()}>
+    <Sheet open={isOpen} onOpenChange={(o) => !o && onClose()}>
       {isOpen && (
         <SubscriptionForm
-          key={target?.id ?? `add-${mode}`}
-          mode={mode === 'edit' ? 'edit' : 'add'}
-          target={target}
-          onClose={close}
+          key={currentRow?.id ?? `add-${open}`}
+          mode={open === 'edit' ? 'edit' : 'add'}
+          target={currentRow}
+          onClose={onClose}
         />
       )}
     </Sheet>
@@ -145,15 +154,38 @@ type SubscriptionFormProps = {
 }
 
 function SubscriptionForm({ mode, target, onClose }: SubscriptionFormProps) {
+  const activeRouterId = useActiveRouterId()
   const customersQuery = useCustomers()
   const routersQuery = useRouters()
   const createMutation = useCreateSubscription()
   const updateMutation = useUpdateSubscription()
 
   const isEdit = mode === 'edit'
+
+  if (mode === 'add' && !activeRouterId) {
+    return (
+      <SheetContent className='flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-md'>
+        <SheetHeader className='border-b px-6 py-4'>
+          <SheetTitle>New Subscription</SheetTitle>
+          <SheetDescription>
+            Links a customer to a device profile and provisions the MikroTik
+            secret/user.
+          </SheetDescription>
+        </SheetHeader>
+        <div className='flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center'>
+          <ServerOff className='size-10 text-muted-foreground' />
+          <h3 className='text-lg font-bold tracking-tight'>No router selected</h3>
+          <p className='text-sm text-muted-foreground max-w-xs'>
+            Please select a router from the sidebar switcher first.
+          </p>
+        </div>
+      </SheetContent>
+    )
+  }
+
   const form = useForm<SubscriptionFormValues>({
     resolver: zodResolver(isEdit ? baseSchema : addSchema),
-    defaultValues: defaultValues(isEdit ? target : null),
+    defaultValues: defaultValues(isEdit ? target : null, activeRouterId),
   })
 
   const isPending = createMutation.isPending || updateMutation.isPending
@@ -186,7 +218,6 @@ function SubscriptionForm({ mode, target, onClose }: SubscriptionFormProps) {
     if (mode === 'add') {
       const profileId = Number(values.profile_id) || undefined
       const username = values.mikrotik_username.trim()
-      // Mode hotspot username-only: password = username (gaya voucher mikhmon).
       const password =
         values.service_type === 'hotspot' && values.user_mode === 'vc'
           ? username
@@ -291,34 +322,36 @@ function SubscriptionForm({ mode, target, onClose }: SubscriptionFormProps) {
           />
 
           {/* Device */}
-          <FormField
-            control={form.control}
-            name='device_id'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Device</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  disabled={isEdit}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder='Select device' />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {(routersQuery.data ?? []).map((r) => (
-                      <SelectItem key={r.id} value={String(r.id)}>
-                        {r.display_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {isEdit && (
+            <FormField
+              control={form.control}
+              name='device_id'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Device</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={isEdit}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder='Select device' />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {(routersQuery.data ?? []).map((r) => (
+                        <SelectItem key={r.id} value={String(r.id)}>
+                          {r.display_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
 
           {/* Service Type */}
           <FormField
@@ -544,7 +577,7 @@ function SubscriptionForm({ mode, target, onClose }: SubscriptionFormProps) {
 
       <SheetFooter className='border-t px-6 py-4'>
         <SheetClose asChild>
-          <Button variant='outline' size='sm' disabled={isPending}>
+          <Button variant='outline' size='sm' disabled={isPending} onClick={onClose}>
             Cancel
           </Button>
         </SheetClose>

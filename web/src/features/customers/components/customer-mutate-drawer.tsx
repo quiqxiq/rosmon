@@ -45,7 +45,7 @@ import {
   type CustomerCreateInput,
   type CustomerStatus,
 } from '../api/schema'
-import { useCustomersDialogStore } from '../store/customers-dialog-store'
+import { useCustomers } from './customers-provider'
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -125,16 +125,23 @@ function StepIndicator({ step }: { step: 1 | 2 }) {
 // ── Root ─────────────────────────────────────────────────────────────────────
 
 export function CustomerMutateDrawer() {
-  const { mode, target, close } = useCustomersDialogStore()
-  const isOpen = mode === 'add' || mode === 'edit'
+  const { open, setOpen, currentRow, setCurrentRow } = useCustomers()
+  const isOpen = open === 'add' || open === 'edit'
+  const onClose = () => {
+    setOpen(null)
+    setTimeout(() => {
+      setCurrentRow(null)
+    }, 500)
+  }
+
   return (
-    <Sheet open={isOpen} onOpenChange={(o) => !o && close()}>
+    <Sheet open={isOpen} onOpenChange={(o) => !o && onClose()}>
       {isOpen && (
         <CustomerForm
-          key={target?.id ?? `add-${mode}`}
-          mode={mode === 'edit' ? 'edit' : 'add'}
-          target={target}
-          onClose={close}
+          key={currentRow?.id ?? `add-${open}`}
+          mode={open === 'edit' ? 'edit' : 'add'}
+          target={currentRow}
+          onClose={onClose}
         />
       )}
     </Sheet>
