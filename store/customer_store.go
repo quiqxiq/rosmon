@@ -36,6 +36,20 @@ type gormCustomerStore struct{ db *gorm.DB }
 
 func NewCustomerStore(db *gorm.DB) CustomerStore { return &gormCustomerStore{db: db} }
 
+// decryptCustomerPassword mendekripsi PortalPassword satu row in-place. String
+// kosong dibiarkan kosong ("belum punya password").
+func decryptCustomerPassword(c *model.Customer) error {
+	if c.PortalPassword == "" {
+		return nil
+	}
+	p, err := decryptSecret(c.PortalPassword)
+	if err != nil {
+		return err
+	}
+	c.PortalPassword = p
+	return nil
+}
+
 func (s *gormCustomerStore) List(ctx context.Context, f CustomerListFilter) ([]model.Customer, error) {
 	q := s.db.WithContext(ctx).Order("created_at DESC")
 	if f.Status != "" {
@@ -49,8 +63,15 @@ func (s *gormCustomerStore) List(ctx context.Context, f CustomerListFilter) ([]m
 		q = q.Where("LOWER(full_name) LIKE ? OR LOWER(phone) LIKE ? OR LOWER(area) LIKE ?", like, like, like)
 	}
 	var out []model.Customer
-	err := q.Find(&out).Error
-	return out, err
+	if err := q.Find(&out).Error; err != nil {
+		return nil, err
+	}
+	for i := range out {
+		if err := decryptCustomerPassword(&out[i]); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
 }
 
 func (s *gormCustomerStore) Get(ctx context.Context, id uint) (model.Customer, error) {
@@ -59,7 +80,10 @@ func (s *gormCustomerStore) Get(ctx context.Context, id uint) (model.Customer, e
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c, ErrCustomerNotFound
 	}
-	return c, err
+	if err != nil {
+		return c, err
+	}
+	return c, decryptCustomerPassword(&c)
 }
 
 func (s *gormCustomerStore) GetByPhone(ctx context.Context, phone string) (model.Customer, error) {
@@ -68,24 +92,55 @@ func (s *gormCustomerStore) GetByPhone(ctx context.Context, phone string) (model
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c, ErrCustomerNotFound
 	}
-	return c, err
+	if err != nil {
+		return c, err
+	}
+	return c, decryptCustomerPassword(&c)
+}
+
+// encryptCustomerPassword mengenkripsi PortalPassword in-place sebelum write.
+// Return nilai plaintext asli supaya caller bisa di-restore setelah operasi DB
+// (agar struct pemanggil tetap memegang plaintext). Kosong dibiarkan kosong.
+func encryptCustomerPassword(c *model.Customer) (orig string, err error) {
+	orig = c.PortalPassword
+	if orig == "" {
+		return orig, nil
+	}
+	enc, err := encryptSecret(orig)
+	if err != nil {
+		return orig, err
+	}
+	c.PortalPassword = enc
+	return orig, nil
 }
 
 func (s *gormCustomerStore) Create(ctx context.Context, c *model.Customer) error {
 	if c.Status == "" {
 		c.Status = "aktif"
 	}
+	orig, err := encryptCustomerPassword(c)
+	if err != nil {
+		return err
+	}
 	if err := s.db.WithContext(ctx).Create(c).Error; err != nil {
+		c.PortalPassword = orig
 		if isUniqueViolation(err, "idx_customer_phone") {
 			return ErrCustomerPhoneTaken
 		}
 		return err
 	}
+	c.PortalPassword = orig
 	return nil
 }
 
 func (s *gormCustomerStore) Update(ctx context.Context, c *model.Customer) error {
-	if err := s.db.WithContext(ctx).Save(c).Error; err != nil {
+	orig, err := encryptCustomerPassword(c)
+	if err != nil {
+		return err
+	}
+	err = s.db.WithContext(ctx).Save(c).Error
+	c.PortalPassword = orig
+	if err != nil {
 		if isUniqueViolation(err, "idx_customer_phone") {
 			return ErrCustomerPhoneTaken
 		}

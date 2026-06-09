@@ -11,9 +11,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/quiqxiq/rosmon/api/dto"
 	"github.com/quiqxiq/rosmon/mikrotik"
-	"github.com/quiqxiq/rosmon/service/audit"
 	"github.com/quiqxiq/rosmon/mikrotik/hotspot"
 	"github.com/quiqxiq/rosmon/mikrotik/ppp"
+	"github.com/quiqxiq/rosmon/service/audit"
 	"github.com/quiqxiq/rosmon/service/devmgr"
 	"github.com/quiqxiq/rosmon/store"
 	"github.com/quiqxiq/rosmon/store/model"
@@ -64,6 +64,34 @@ func (h *Subscriptions) Register(g *gin.RouterGroup) {
 	r.PATCH("/:id/status", h.PatchStatus)
 	r.POST("/:id/reconcile", h.Reconcile)
 	r.DELETE("/:id", h.Delete)
+}
+
+// RegisterAdmin memasang endpoint sensitif (admin+operator): reveal password
+// MikroTik pelanggan. Dipanggil dari routes.go di grup ber-RequireRole.
+func (h *Subscriptions) RegisterAdmin(g *gin.RouterGroup) {
+	g.GET("/subscriptions/:id/password", h.RevealPassword)
+}
+
+// RevealPassword mengembalikan password MikroTik (PPPoE/hotspot) plaintext.
+// Store sudah mendekripsi MikrotikPassword saat Get.
+func (h *Subscriptions) RevealPassword(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest,
+			dto.Err("INVALID_ID", "invalid subscription id", c.Param("id")))
+		return
+	}
+	sub, err := h.Store.Get(c.Request.Context(), uint(id))
+	if err != nil {
+		if errors.Is(err, store.ErrSubscriptionNotFound) {
+			c.AbortWithStatusJSON(http.StatusNotFound,
+				dto.Err("NOT_FOUND", "subscription not found", c.Request.URL.Path))
+			return
+		}
+		WriteErr(c, err)
+		return
+	}
+	WriteOK(c, dto.RevealPasswordResponse{Password: sub.MikrotikPassword})
 }
 
 func (h *Subscriptions) List(c *gin.Context) {

@@ -14,6 +14,7 @@ import (
 	"github.com/quiqxiq/rosmon/service/audit"
 	"github.com/quiqxiq/rosmon/service/billing"
 	"github.com/quiqxiq/rosmon/service/notification"
+	"github.com/quiqxiq/rosmon/service/portal"
 	"github.com/quiqxiq/rosmon/store"
 	"github.com/quiqxiq/rosmon/store/model"
 	"github.com/sirupsen/logrus"
@@ -30,7 +31,10 @@ type Registrations struct {
 	Notification *notification.Service
 	Settings     store.SettingStore
 	Audit        store.AuditLogStore
-	Log          *logrus.Logger
+	// PortalAuth opsional (nil-safe) — dipakai untuk auto-generate password portal
+	// pelanggan saat complete-install dan mengirimnya lewat notifikasi.
+	PortalAuth *portal.CustomerAuth
+	Log        *logrus.Logger
 }
 
 func NewRegistrations(
@@ -415,10 +419,19 @@ func (h *Registrations) CompleteInstall(c *gin.Context) {
 	h.audit(c, "complete_install", reg.ID, old, reg)
 
 	if cust, cErr := h.Customers.Get(ctx, *reg.CustomerID); cErr == nil {
-		h.notifyCustomer(ctx, cust, "installation_complete", map[string]string{
-			"username": sub.MikrotikUsername,
-			"password": req.MikrotikPassword,
-		})
+		vars := map[string]string{
+			"address":         cust.Address,
+			"portal_url":      h.setting(ctx, "portal.url", ""),
+			"portal_username": cust.Phone,
+		}
+		if h.PortalAuth != nil {
+			if plain, pErr := h.PortalAuth.GenerateAndSetPassword(ctx, cust.ID); pErr != nil {
+				h.Log.WithError(pErr).WithField("customer_id", cust.ID).Warn("complete-install: generate portal password failed")
+			} else {
+				vars["portal_password"] = plain
+			}
+		}
+		h.notifyCustomer(ctx, cust, "installation_complete", vars)
 	}
 	c.JSON(http.StatusCreated, dto.OK(resp))
 }

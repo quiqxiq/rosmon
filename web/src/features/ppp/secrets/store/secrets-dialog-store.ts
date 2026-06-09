@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { type PPPSecret } from '../api/schema'
 
-type DialogMode = 'add' | 'edit' | 'delete' | null
+type DialogMode = 'add' | 'edit' | 'delete' | 'password' | null
 
 type SecretsDialogState = {
   mode: DialogMode

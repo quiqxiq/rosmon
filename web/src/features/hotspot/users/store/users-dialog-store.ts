@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { type HotspotUserViewModel } from '../components/view-model'
 
-type DialogMode = 'add' | 'edit' | 'delete' | 'multi-delete' | null
+type DialogMode = 'add' | 'edit' | 'delete' | 'multi-delete' | 'password' | null
 
 type UsersDialogState = {
   mode: DialogMode

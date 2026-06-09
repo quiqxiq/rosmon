@@ -142,6 +142,14 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 	handler.NewPPPProfile(nil).Register(dev)
 	handler.NewPPPActive(nil).Register(dev)
 
+	// Reveal password (PPP secret + hotspot user) = admin+operator saja.
+	devAdminOp := dev.Group("")
+	if deps.AuthSigner != nil {
+		devAdminOp.Use(middleware.RequireRole(roleAdmin, roleOperator))
+	}
+	handler.NewPPPSecret(nil).RegisterAdmin(devAdminOp)
+	handler.NewHotspotUser(nil, nil).RegisterAdmin(devAdminOp)
+
 	handler.NewStream(deps.Hub, nil, nil, nil, nil, nil, nil, deps.NetStream).Register(dev)
 
 	if deps.InfluxReader != nil {
@@ -243,6 +251,15 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		)
 		sh.Audit = deps.AuditLogStore
 		sh.Register(subScope)
+		// Reveal password MikroTik = admin+operator.
+		subAdminOp := g.Group("")
+		for _, mw := range authChain {
+			subAdminOp.Use(mw)
+		}
+		if deps.AuthSigner != nil {
+			subAdminOp.Use(middleware.RequireRole(roleAdmin, roleOperator))
+		}
+		sh.RegisterAdmin(subAdminOp)
 	}
 
 	// Settings, Invoices, Payments — business layer billing.
@@ -315,6 +332,7 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 			deps.BillingService, deps.NotificationService, deps.SettingStore,
 			deps.AuditLogStore, deps.Logger,
 		)
+		regHandler.PortalAuth = deps.PortalAuth
 		// Zone publik (tanpa auth) — IP rate-limited.
 		pub := g.Group("")
 		if deps.IPLimiter != nil {

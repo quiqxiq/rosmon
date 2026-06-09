@@ -21,6 +21,23 @@ func (h *PPPSecret) Register(g *gin.RouterGroup) {
 	s.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
 }
 
+// RegisterAdmin memasang endpoint reveal password (admin+operator). Dipanggil
+// dari routes.go di grup device-scoped ber-RequireRole.
+func (h *PPPSecret) RegisterAdmin(g *gin.RouterGroup) {
+	mk := func(c *gin.Context) *PPPSecret { return NewPPPSecret(mustClients(c).PPP) }
+	g.GET("/ppp/secrets/:id/password", func(c *gin.Context) { mk(c).RevealPassword(c) })
+}
+
+// RevealPassword mengembalikan password plaintext sebuah PPP secret dari RouterOS.
+func (h *PPPSecret) RevealPassword(c *gin.Context) {
+	s, err := h.PPP.SecretByID(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		WriteErr(c, err)
+		return
+	}
+	WriteOK(c, dto.RevealPasswordResponse{Password: s.Password})
+}
+
 func (h *PPPSecret) List(c *gin.Context) {
 	ss, err := h.PPP.SecretList(c.Request.Context())
 	if err != nil {

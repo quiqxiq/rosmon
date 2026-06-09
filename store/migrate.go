@@ -49,6 +49,11 @@ func Migrate(db *gorm.DB) error {
 	// Drop legacy address column (idempotent).
 	db.Exec(`ALTER TABLE mikrotik_devices DROP COLUMN IF EXISTS address`)
 
+	// Portal password kini disimpan AES-encrypted di kolom portal_password
+	// (menggantikan bcrypt portal_password_hash). Nilai bcrypt lama tak bisa
+	// didekripsi → drop kolomnya; pelanggan lama perlu reset password portal.
+	db.Exec(`ALTER TABLE customers DROP COLUMN IF EXISTS portal_password_hash`)
+
 	if err := seedSystemSettings(db); err != nil {
 		return err
 	}
@@ -90,6 +95,7 @@ func seedSystemSettings(db *gorm.DB) error {
 		{Key: "notification.admin_phone", Value: "", ValueType: "string", GroupName: "notification", Description: "Nomor WA admin untuk notifikasi internal (registrasi baru, dll)"},
 		{Key: "general.company_name", Value: "", ValueType: "string", GroupName: "general", Description: "Nama perusahaan ISP"},
 		{Key: "general.hotspot_login_url", Value: "", ValueType: "string", GroupName: "general", Description: "URL login hotspot untuk dicetak di voucher (contoh: wifi.example.com)"},
+		{Key: "portal.url", Value: "http://localhost:5173/portal", ValueType: "string", GroupName: "general", Description: "URL customer portal (dipakai di notifikasi)"},
 		// Payment gateway — Xendit.
 		// Semua konfigurasi Xendit disimpan di DB agar bisa diubah dari UI Settings
 		// tanpa perlu restart server. secret_key di-mask di GET response (tidak pernah
@@ -114,4 +120,3 @@ func seedSystemSettings(db *gorm.DB) error {
 	}
 	return nil
 }
-

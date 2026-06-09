@@ -179,7 +179,8 @@ export function useItems(routerId: number) {
 - All jobs must be idempotent (DB unique constraints as guard).
 - Use `NowFunc func() time.Time` in service Deps (not `time.Now()` directly) for testability.
 - Every subscription/invoice/payment status change must emit an audit log via `audit.Log()`.
-- Never log or return `pppoe_password` or `portal_password_hash` in any DTO or log entry.
+- Never log or return passwords in normal list/detail DTOs or in any log entry. **Exception:** dedicated *reveal* endpoints gated by `RequireRole(admin, operator)` may return a plaintext password (`GET /customers/:id/portal-password`, `GET /subscriptions/:id/password`, `GET /devices/:id/ppp/secrets/:id/password`, `GET /devices/:id/hotspot/users/:id/password`). These are the only places a password leaves the backend, and the plaintext is never written to audit/app logs.
+- Customer portal password is stored **AES-encrypted at rest** (column `portal_password`, encrypt/decrypt transparently in `store/customer_store.go` via `encryptSecret`/`decryptSecret`) — same reversible scheme as `Subscription.MikrotikPassword`. It is **not** bcrypt; login compares the decrypted value (`crypto/subtle.ConstantTimeCompare`).
 - New models: update `store/migrate.go` in the same commit (AutoMigrate, not goose).
 
 ### Frontend

@@ -27,8 +27,8 @@ func seedMessageTemplates(db *gorm.DB) error {
 		},
 		{
 			Slug: "installation_complete", Name: "Pemasangan Selesai",
-			Variables: `["customer_name","company_name","username","password"]`,
-			Body:      "Halo {{.customer_name}}, layanan internet Anda sudah aktif! 🎉\nUsername: {{.username}}\nPassword: {{.password}}\nSelamat menikmati layanan {{.company_name}}.",
+			Variables: `["customer_name","company_name","address","portal_url","portal_username","portal_password"]`,
+			Body:      "Halo {{.customer_name}}, layanan internet Anda di {{.address}} sudah aktif! 🎉\n\nAkses portal pelanggan Anda:\n{{.portal_url}}\nUsername: {{.portal_username}}\nPassword: {{.portal_password}}\n\nSimpan password Anda & jangan bagikan ke siapapun.\nSelamat menikmati layanan {{.company_name}}.",
 		},
 		{
 			Slug: "invoice_issued", Name: "Tagihan Terbit",

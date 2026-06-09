@@ -34,6 +34,21 @@ func (c *Client) SecretByName(ctx context.Context, name string) (domain.PPPSecre
 	return sentenceToSecret(reply.Rows[0]), nil
 }
 
+// SecretByID → /ppp/secret/print ?.id=<id>. Dipakai endpoint reveal password.
+func (c *Client) SecretByID(ctx context.Context, id string) (domain.PPPSecret, error) {
+	if id == "" {
+		return domain.PPPSecret{}, mikrotik.ErrInvalidArgument
+	}
+	reply, err := c.dev.Path(secretPath).Print().Where(".id", id).Exec(ctx)
+	if err != nil {
+		return domain.PPPSecret{}, err
+	}
+	if len(reply.Rows) == 0 {
+		return domain.PPPSecret{}, mikrotik.ErrNotFound
+	}
+	return sentenceToSecret(reply.Rows[0]), nil
+}
+
 // SecretAddArgs adalah parameter SecretAdd.
 type SecretAddArgs struct {
 	Name          string // wajib

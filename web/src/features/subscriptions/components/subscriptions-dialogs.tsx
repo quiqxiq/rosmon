@@ -1,3 +1,5 @@
+import { PasswordRevealDialog } from '@/components/password-reveal-dialog'
+import * as svc from '../api/service'
 import { useSubscriptionsContext } from './subscriptions-provider'
 import { SubscriptionMutateDrawer } from './subscription-mutate-drawer'
 import { StatusDialog } from './status-dialog'
@@ -23,6 +25,21 @@ export function SubscriptionsDialogs() {
             }
           }}
           currentRow={currentRow}
+        />
+      )}
+
+      {currentRow && (
+        <PasswordRevealDialog
+          open={open === 'password'}
+          onOpenChange={(v) => {
+            if (!v) {
+              setOpen(null)
+              setTimeout(() => setCurrentRow(null), 500)
+            }
+          }}
+          title={`Password MikroTik — ${currentRow.mikrotik_username}`}
+          description='Password PPPoE/hotspot pelanggan. Untuk mengubah, gunakan menu Edit.'
+          reveal={() => svc.revealSubscriptionPassword(currentRow.id)}
         />
       )}
     </>

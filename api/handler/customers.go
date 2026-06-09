@@ -47,6 +47,65 @@ func (h *Customers) RegisterMutate(g *gin.RouterGroup) {
 // routes.go di grup ber-RequireRole.
 func (h *Customers) RegisterAdmin(g *gin.RouterGroup) {
 	g.POST("/customers/:id/portal-password", h.SetPortalPassword)
+	g.GET("/customers/:id/portal-password", h.RevealPortalPassword)
+	g.POST("/customers/:id/portal-password/reset", h.ResetPortalPassword)
+}
+
+// RevealPortalPassword mengembalikan password portal plaintext (admin+operator).
+func (h *Customers) RevealPortalPassword(c *gin.Context) {
+	if h.PortalAuth == nil {
+		c.AbortWithStatusJSON(http.StatusServiceUnavailable,
+			dto.Err("SERVICE_UNAVAILABLE", "customer portal not configured", c.Request.URL.Path))
+		return
+	}
+	id, ok := parseCustomerID(c)
+	if !ok {
+		return
+	}
+	pw, err := h.PortalAuth.RevealPassword(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, store.ErrCustomerNotFound) {
+			c.AbortWithStatusJSON(http.StatusNotFound,
+				dto.Err("NOT_FOUND", "customer not found", c.Request.URL.Path))
+			return
+		}
+		WriteErr(c, err)
+		return
+	}
+	WriteOK(c, dto.RevealPasswordResponse{Password: pw})
+}
+
+// ResetPortalPassword men-generate password portal baru, menyimpannya, dan
+// mengembalikan plaintext-nya sekali (admin+operator).
+func (h *Customers) ResetPortalPassword(c *gin.Context) {
+	if h.PortalAuth == nil {
+		c.AbortWithStatusJSON(http.StatusServiceUnavailable,
+			dto.Err("SERVICE_UNAVAILABLE", "customer portal not configured", c.Request.URL.Path))
+		return
+	}
+	id, ok := parseCustomerID(c)
+	if !ok {
+		return
+	}
+	pw, err := h.PortalAuth.GenerateAndSetPassword(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, store.ErrCustomerNotFound) {
+			c.AbortWithStatusJSON(http.StatusNotFound,
+				dto.Err("NOT_FOUND", "customer not found", c.Request.URL.Path))
+			return
+		}
+		WriteErr(c, err)
+		return
+	}
+	if h.Audit != nil {
+		var actor *uint
+		if claims, okC := middleware.ClaimsFrom(c); okC {
+			uid := claims.UserID
+			actor = &uid
+		}
+		audit.Log(c.Request.Context(), h.Audit, nil, actor, "reset_portal_password", "customer", id, nil, nil)
+	}
+	WriteOK(c, dto.RevealPasswordResponse{Password: pw})
 }
 
 // SetPortalPassword — admin set/reset password login portal pelanggan.

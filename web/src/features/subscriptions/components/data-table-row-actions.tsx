@@ -1,7 +1,8 @@
 import { type Row } from '@tanstack/react-table'
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
-import { Pencil, RefreshCw, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { KeyRound, Pencil, RefreshCw, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -23,6 +24,8 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const sub = row.original
   const { setOpen, setCurrentRow } = useSubscriptionsContext()
   const reconcileMutation = useReconcileSubscription()
+  const role = useAuthStore((s) => s.auth.user?.role)
+  const canRevealPassword = role === 'admin' || role === 'operator'
 
   const handleReconcile = () => {
     reconcileMutation.mutate(sub.id, {
@@ -69,6 +72,17 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           <RefreshCw className='size-4' />
           Reconcile
         </DropdownMenuItem>
+        {canRevealPassword && (
+          <DropdownMenuItem
+            onClick={() => {
+              setCurrentRow(sub)
+              setOpen('password')
+            }}
+          >
+            <KeyRound className='size-4' />
+            Lihat Password
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => {

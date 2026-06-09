@@ -3,6 +3,7 @@ package portal
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/quiqxiq/rosmon/service/auth"
@@ -143,6 +144,56 @@ func TestChangePassword(t *testing.T) {
 	// Old password fails.
 	if _, _, err := a.Login(context.Background(), "0811", "oldpassword"); !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Errorf("old password still works? err = %v", err)
+	}
+}
+
+func TestGenerateAndSetPassword(t *testing.T) {
+	a, cs := setup(t)
+	id := seedCustomer(t, a, cs, "0811", "") // belum punya password portal
+
+	plain, err := a.GenerateAndSetPassword(context.Background(), id)
+	if err != nil {
+		t.Fatalf("generate err = %v", err)
+	}
+
+	// Panjang & karakter.
+	if len(plain) != portalPwLen {
+		t.Errorf("len = %d, want %d (plain=%q)", len(plain), portalPwLen, plain)
+	}
+	const ambiguous = "0O1Il"
+	if strings.ContainsAny(plain, ambiguous) {
+		t.Errorf("password mengandung karakter ambigu: %q", plain)
+	}
+	if !strings.ContainsAny(plain, portalPwSymbols) {
+		t.Errorf("password tidak mengandung simbol: %q", plain)
+	}
+
+	// Password tersimpan & plain bisa dipakai login. Reveal mengembalikan nilai yang sama.
+	revealed, err := a.RevealPassword(context.Background(), id)
+	if err != nil {
+		t.Fatalf("reveal err = %v", err)
+	}
+	if revealed != plain {
+		t.Errorf("reveal = %q, want %q", revealed, plain)
+	}
+	if _, _, err := a.Login(context.Background(), "0811", plain); err != nil {
+		t.Errorf("login dengan password generate gagal: %v", err)
+	}
+
+	// Dua pemanggilan menghasilkan password berbeda.
+	plain2, err := a.GenerateAndSetPassword(context.Background(), id)
+	if err != nil {
+		t.Fatalf("generate kedua err = %v", err)
+	}
+	if plain == plain2 {
+		t.Error("dua generate menghasilkan password yang sama")
+	}
+}
+
+func TestGenerateAndSetPassword_UnknownCustomer(t *testing.T) {
+	a, _ := setup(t)
+	if _, err := a.GenerateAndSetPassword(context.Background(), 999); !errors.Is(err, store.ErrCustomerNotFound) {
+		t.Errorf("err = %v, want ErrCustomerNotFound", err)
 	}
 }
 

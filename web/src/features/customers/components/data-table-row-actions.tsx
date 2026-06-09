@@ -1,6 +1,7 @@
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
 import { type Row } from '@tanstack/react-table'
-import { Trash2, Pencil } from 'lucide-react'
+import { Trash2, Pencil, KeyRound } from 'lucide-react'
+import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -19,6 +20,8 @@ type DataTableRowActionsProps = {
 
 export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const { setOpen, setCurrentRow } = useCustomers()
+  const role = useAuthStore((s) => s.auth.user?.role)
+  const canRevealPassword = role === 'admin' || role === 'operator'
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
@@ -42,6 +45,19 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
             <Pencil size={16} />
           </DropdownMenuShortcut>
         </DropdownMenuItem>
+        {canRevealPassword && (
+          <DropdownMenuItem
+            onClick={() => {
+              setCurrentRow(row.original)
+              setOpen('password')
+            }}
+          >
+            Password portal
+            <DropdownMenuShortcut>
+              <KeyRound size={16} />
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => {
