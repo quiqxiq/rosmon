@@ -1,19 +1,18 @@
 services:
 
   # ─── Hotspot Client (Firefox) ─────────────────────────────────────────────
-  # Dua network interface:
-  #   - mgmt-net  (bridge): agar port 5800 bisa diakses dari browser host
-  #   - hotspot-net (macvlan): L2 langsung ke ether2 MikroTik (hotspot LAN)
-  # Docker otomatis menambah route 192.168.123.0/24 via eth1 (macvlan),
-  # sehingga Firefox di dalam container browsing via jaringan hotspot.
+  # Satu container Firefox — login/logout hotspot manual via browser.
+  # Buka: http://localhost:5800
+  # Navigasi ke http://192.168.123.1 → login dengan:
+  #   hs-perm1 / HsPerm@11
+  #   hs-perm2 / HsPerm@22
+  #   hs-perm3 / HsPerm@33
   hotspot-client1:
     image: jlesage/firefox:latest
     container_name: hotspot-client1
     hostname: hotspot-client1
     shm_size: "2gb"
     restart: unless-stopped
-    ports:
-      - "${FIREFOX_PORT:-5800}:5800"
     networks:
       mgmt-net: {}
       hotspot-net:
@@ -21,32 +20,126 @@ services:
     environment:
       - DISPLAY_WIDTH=1280
       - DISPLAY_HEIGHT=800
+      - FF_OPEN_URL=http://192.168.123.1
 
-  # ─── PPPoE Client (Alpine + rp-pppoe) ─────────────────────────────────────
-  # macvlan di atas virbr-pppoe → berada di L2 segment yang sama dengan
-  # ether3 MikroTik → PADI discovery frame bisa sampai ke PPPoE server.
+  # Proxy untuk hotspot-client1 agar port 5800 bisa dipublish ke host
+  # (karena docker tidak bisa publish port dari container yang terhubung ke macvlan)
+  hotspot-proxy:
+    image: alpine:latest
+    container_name: hotspot-proxy
+    restart: unless-stopped
+    ports:
+      - "${FIREFOX_PORT:-5800}:5800"
+    networks:
+      mgmt-net: {}
+    command: >
+      sh -c "
+        apk add --no-cache socat 2>/dev/null &&
+        echo 'Starting port forwarder to hotspot-client1:5800...' &&
+        socat TCP-LISTEN:5800,fork,reuseaddr TCP:hotspot-client1:5800
+      "
+    depends_on:
+      - hotspot-client1
+
+  # ─── PPPoE Clients (Alpine + rp-pppoe) ────────────────────────────────────
+  # 5 container, satu per seed user. Semua otomatis konek PPPoE saat start.
+  # macvlan di atas virbr-pppoe → L2 langsung ke ether3 MikroTik.
+  #
+  # Cek status : docker exec pppoe-client1 ip addr show ppp0
+  # Lihat log  : docker logs -f pppoe-client1
+  # Ping test  : docker exec pppoe-client1 ping -c 3 -I ppp0 192.168.111.1
+  #
+  # Wajib jalankan via Docker system daemon (bukan Podman):
+  #   DOCKER_HOST=unix:///run/docker.sock docker compose up -d
+
+  # ── pppoe-user1 / Pppoe@1122 / paket-bronze ────────────────────────────────
   pppoe-client1:
     image: alpine:latest
     container_name: pppoe-client1
     hostname: pppoe-client1
     privileged: true
     restart: unless-stopped
-    cap_add:
-      - NET_ADMIN
+    cap_add: [NET_ADMIN]
     networks:
       pppoe-net:
-        ipv4_address: "${PPPOE_CLIENT_IP:-192.168.111.200}"
-    command: >
+        ipv4_address: "192.168.111.200"
+    environment:
+      PPPOE_USER: "pppoe-user1"
+      PPPOE_PASS: "Pppoe@1122"
+    command: &pppoe-cmd >
       sh -c "
-        apk add --no-cache rp-pppoe ppp tcpdump 2>/dev/null &&
-        mkdir -p /etc/ppp &&
-        printf 'ETH=eth0\nUSER=${PPPOE_USER:-test}\nDEMAND=no\nDNS1=\nDNS2=\nPINGPATH=\n' > /etc/ppp/pppoe.conf &&
-        printf '${PPPOE_USER:-test} * ${PPPOE_PASS:-1122} *\n' > /etc/ppp/chap-secrets &&
+        apk add --no-cache ppp rp-pppoe 2>/dev/null &&
+        printf '%s\t*\t%s\t*\n' \"$$PPPOE_USER\" \"$$PPPOE_PASS\" > /etc/ppp/chap-secrets &&
         chmod 600 /etc/ppp/chap-secrets &&
-        echo '=== PPPoE tools ready. eth0 = macvlan on virbr-pppoe ===' &&
-        echo 'Jalankan: docker exec -it pppoe-client1 pppoe-start' &&
+        PLUGIN=$$(ls /usr/lib/pppd/*/pppoe.so 2>/dev/null | head -1) &&
+        echo \"[$$HOSTNAME] starting pppd: user=$$PPPOE_USER plugin=$$PLUGIN\" &&
+        pppd plugin $$PLUGIN eth0 user $$PPPOE_USER password $$PPPOE_PASS noauth noipdefault defaultroute persist maxfail 0 holdoff 5 lcp-echo-interval 10 lcp-echo-failure 3 nodetach &
         sleep infinity
       "
+
+  # ── pppoe-user2 / Pppoe@2233 / paket-silver ────────────────────────────────
+  pppoe-client2:
+    image: alpine:latest
+    container_name: pppoe-client2
+    hostname: pppoe-client2
+    privileged: true
+    restart: unless-stopped
+    cap_add: [NET_ADMIN]
+    networks:
+      pppoe-net:
+        ipv4_address: "192.168.111.201"
+    environment:
+      PPPOE_USER: "pppoe-user2"
+      PPPOE_PASS: "Pppoe@2233"
+    command: *pppoe-cmd
+
+  # ── pppoe-user3 / Pppoe@3344 / paket-gold ──────────────────────────────────
+  pppoe-client3:
+    image: alpine:latest
+    container_name: pppoe-client3
+    hostname: pppoe-client3
+    privileged: true
+    restart: unless-stopped
+    cap_add: [NET_ADMIN]
+    networks:
+      pppoe-net:
+        ipv4_address: "192.168.111.202"
+    environment:
+      PPPOE_USER: "pppoe-user3"
+      PPPOE_PASS: "Pppoe@3344"
+    command: *pppoe-cmd
+
+  # ── pppoe-user4 / Pppoe@4455 / paket-bronze ────────────────────────────────
+  pppoe-client4:
+    image: alpine:latest
+    container_name: pppoe-client4
+    hostname: pppoe-client4
+    privileged: true
+    restart: unless-stopped
+    cap_add: [NET_ADMIN]
+    networks:
+      pppoe-net:
+        ipv4_address: "192.168.111.203"
+    environment:
+      PPPOE_USER: "pppoe-user4"
+      PPPOE_PASS: "Pppoe@4455"
+    command: *pppoe-cmd
+
+  # ── pppoe-user5 / Pppoe@5566 / paket-silver ────────────────────────────────
+  pppoe-client5:
+    image: alpine:latest
+    container_name: pppoe-client5
+    hostname: pppoe-client5
+    privileged: true
+    restart: unless-stopped
+    cap_add: [NET_ADMIN]
+    networks:
+      pppoe-net:
+        ipv4_address: "192.168.111.204"
+    environment:
+      PPPOE_USER: "pppoe-user5"
+      PPPOE_PASS: "Pppoe@5566"
+    command: *pppoe-cmd
 
 networks:
   # Bridge internal — hanya untuk akses port 5800 dari host
