@@ -60,7 +60,22 @@ func Migrate(db *gorm.DB) error {
 	if err := seedMessageTemplates(db); err != nil {
 		return err
 	}
+	upgradeInstallationCompleteTemplate(db)
 	return backfillInvoicePaymentCodes(db)
+}
+
+// upgradeInstallationCompleteTemplate menaikkan template installation_complete
+// dari versi lama (kredensial PPPoE) ke versi portal (URL + no.HP + password
+// portal). Seeding pakai FirstOrCreate sehingga DB lama tidak ikut ter-update;
+// migrasi ini menimpa HANYA jika body masih persis default lama — editan admin
+// tetap dipertahankan. Idempotent.
+func upgradeInstallationCompleteTemplate(db *gorm.DB) {
+	const oldBody = "Halo {{.customer_name}}, layanan internet Anda sudah aktif! 🎉\nUsername: {{.username}}\nPassword: {{.password}}\nSelamat menikmati layanan {{.company_name}}."
+	const newBody = "Halo {{.customer_name}}, layanan internet Anda di {{.address}} sudah aktif! 🎉\n\nAkses portal pelanggan Anda:\n{{.portal_url}}\nUsername: {{.portal_username}}\nPassword: {{.portal_password}}\n\nSimpan password Anda & jangan bagikan ke siapapun.\nSelamat menikmati layanan {{.company_name}}."
+	const newVars = `["customer_name","company_name","address","portal_url","portal_username","portal_password"]`
+	db.Model(&model.MessageTemplate{}).
+		Where("slug = ? AND body = ?", "installation_complete", oldBody).
+		Updates(map[string]any{"body": newBody, "variables": newVars})
 }
 
 // backfillInvoicePaymentCodes assigns a unique PaymentCode to existing unpaid
