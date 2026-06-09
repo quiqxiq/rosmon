@@ -32,6 +32,7 @@ func (h *Auth) RegisterPublic(g *gin.RouterGroup) {
 // /auth/me.
 func (h *Auth) RegisterProtected(g *gin.RouterGroup) {
 	g.GET("/auth/me", h.Me)
+	g.PUT("/auth/me", h.UpdateMe)
 }
 
 func (h *Auth) Login(c *gin.Context) {
@@ -83,6 +84,35 @@ func (h *Auth) Me(c *gin.Context) {
 		return
 	}
 	u, err := h.Svc.GetUser(c.Request.Context(), claims.UserID)
+	if err != nil {
+		writeAuthErr(c, err)
+		return
+	}
+	WriteOK(c, dto.MeResponse{UserResponse: dto.FromModelUser(u)})
+}
+
+func (h *Auth) UpdateMe(c *gin.Context) {
+	claims, ok := middleware.ClaimsFrom(c)
+	if !ok {
+		c.AbortWithStatusJSON(http.StatusUnauthorized,
+			dto.Err("UNAUTHORIZED", "no auth context", c.Request.URL.Path))
+		return
+	}
+	var req dto.UpdateMeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		WriteValidationErr(c, err)
+		return
+	}
+	if req.NewPassword != "" && req.CurrentPassword == "" {
+		c.AbortWithStatusJSON(http.StatusBadRequest,
+			dto.Err("INVALID_REQUEST", "current_password wajib diisi untuk mengganti password", c.Request.URL.Path))
+		return
+	}
+	u, err := h.Svc.UpdateMe(c.Request.Context(), claims.UserID, auth.UpdateMeInput{
+		Email:           req.Email,
+		CurrentPassword: req.CurrentPassword,
+		NewPassword:     req.NewPassword,
+	})
 	if err != nil {
 		writeAuthErr(c, err)
 		return

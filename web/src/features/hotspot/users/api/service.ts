@@ -91,3 +91,14 @@ export async function resetHotspotUserCounters(
     `${base(routerId)}/${encodeURIComponent(id)}/reset-counters`,
   )
 }
+
+// GET /hotspot/users/{id}/password — admin/operator only (backend gated).
+export async function revealHotspotUserPassword(
+  routerId: number,
+  id: string,
+): Promise<string> {
+  const res = await apiClient.get<Envelope<{ password: string }>>(
+    `${base(routerId)}/${encodeURIComponent(id)}/password`,
+  )
+  return unwrap(res.data).password
+}

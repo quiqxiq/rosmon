@@ -18,42 +18,48 @@ func skipIfRace(t *testing.T) {
 	}
 }
 
+// QueueStatsStream = streaming (Listen) `/queue/simple/print stats interval=`.
+// Mock membalas !re+!done; handler menerima row → event ter-deliver.
+
 func TestQueueStatsStreamParsed_registerSendsStatsCommand(t *testing.T) {
 	skipIfRace(t)
 	cs, srv := testutil.NewTestClientSet(t)
-	srv.OnStream(tcpmock.MatchCommand("/queue/simple/print"))
+	srv.OnSentence(tcpmock.MatchCommand("/queue/simple/print"), tcpmock.DoneReply())
 
-	err := cs.Net.QueueStatsStreamParsed("queue-stats", time.Second, func(_ network.QueueSimpleWithStats) {})
+	err := cs.Net.QueueStatsStreamParsed("queue-stats", 200*time.Millisecond, func(_ network.QueueSimpleWithStats) {})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = cs.Net.StopStream("queue-stats") })
 
 	got := srv.AssertReceived(t, tcpmock.MatchCommand("/queue/simple/print"), "queue stats command")
-	require.Contains(t, got, "stats")
+	require.Contains(t, strings.Join(got, " "), "stats")
 }
 
 func TestQueueStatsStreamParsed_eventDelivered(t *testing.T) {
 	skipIfRace(t)
 	cs, srv := testutil.NewTestClientSet(t)
-	srv.OnStream(tcpmock.MatchCommand("/queue/simple/print"))
+	srv.OnSentence(tcpmock.MatchCommand("/queue/simple/print"),
+		tcpmock.ReReply(
+			"=.id=*1",
+			"=name=alice-queue",
+			"=target=10.0.0.2/32",
+			"=rate=1M/2M",
+			"=total-rate=3M",
+			"=packet-rate=10/20",
+			"=bytes=1000/2000",
+			"=total-bytes=3000",
+		),
+		tcpmock.DoneReply(),
+	)
 
 	received := make(chan network.QueueSimpleWithStats, 1)
-	err := cs.Net.QueueStatsStreamParsed("queue-stats-event", time.Second, func(q network.QueueSimpleWithStats) {
-		received <- q
+	err := cs.Net.QueueStatsStreamParsed("queue-stats-event", 200*time.Millisecond, func(q network.QueueSimpleWithStats) {
+		select {
+		case received <- q:
+		default:
+		}
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = cs.Net.StopStream("queue-stats-event") })
-
-	tag := awaitNetworkStreamTag(t, srv, "/queue/simple/print", time.Second)
-	require.NoError(t, srv.EmitToStream(tag,
-		"=.id=*1",
-		"=name=alice-queue",
-		"=target=10.0.0.2/32",
-		"=rate=1M/2M",
-		"=total-rate=3M",
-		"=packet-rate=10/20",
-		"=bytes=1000/2000",
-		"=total-bytes=3000",
-	))
 
 	select {
 	case q := <-received:
@@ -65,23 +71,4 @@ func TestQueueStatsStreamParsed_eventDelivered(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("did not receive parsed queue stats")
 	}
-}
-
-func awaitNetworkStreamTag(t *testing.T, srv *tcpmock.Server, command string, timeout time.Duration) string {
-	t.Helper()
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		for _, w := range srv.Received() {
-			if len(w) > 0 && w[0] == command {
-				for _, word := range w {
-					if strings.HasPrefix(word, ".tag=") {
-						return word[len(".tag="):]
-					}
-				}
-			}
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	t.Fatalf("did not see command %s with .tag", command)
-	return ""
 }

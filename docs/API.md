@@ -46,7 +46,11 @@ curl -X POST http://127.0.0.1:8080/api/v1/auth/logout \
 ### Public endpoints (no token)
 
 - `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`
+- `POST /public/registrations` — submit registrasi pemasangan (IP rate-limited)
+- `POST /hook/hotspot/login/:device_id` — webhook on-login MikroTik (no JWT)
 - `GET /healthz`
+
+> Registrasi staff (`/registrations/*`) butuh role **admin atau operator**.
 
 ### Error codes auth
 
@@ -301,6 +305,68 @@ CSV header: `sale_date,sale_time,username,profile,price,sell_price,validity,mac,
 | Path | Methods |
 |---|---|
 | `/log` | GET (`?topics=hotspot,info,debug`) |
+
+---
+
+## Business Layer endpoints (Manajemen ISP)
+
+Top-level (bukan device-scoped). Staff JWT kecuali ditandai. Skema lengkap di OpenAPI (`/docs`).
+
+### Customers
+
+| Path | Methods |
+|---|---|
+| `/customers` | GET (`?status=&area=&q=`), POST |
+| `/customers/:id` | GET, PUT, DELETE |
+
+### Subscriptions
+
+| Path | Methods |
+|---|---|
+| `/subscriptions` | GET (`?status=&service_type=&customer_id=&device_id=`), POST |
+| `/subscriptions/:id` | GET, PUT, DELETE |
+| `/subscriptions/:id/status` | PATCH (`active`/`isolir`/`suspended`/`terminated`) |
+| `/subscriptions/:id/reconcile` | POST (re-sync ke router) |
+
+### Billing
+
+| Path | Methods |
+|---|---|
+| `/invoices`, `/invoices/:id` | GET |
+| `/invoices/generate` | POST (generate manual) |
+| `/invoices/:id/cancel` | POST |
+| `/payments`, `/payments/:id` | GET |
+| `/payments` | POST (catat pembayaran manual) |
+| `/payments/:id/confirm`, `/payments/:id/reject` | POST |
+
+### Registrasi pemasangan (Fase 2)
+
+| Path | Methods | Zone |
+|---|---|---|
+| `/public/registrations` | POST | publik (IP rate-limit) |
+| `/registrations`, `/registrations/:id` | GET | staff (admin+operator) |
+| `/registrations/:id/approve` | POST | staff |
+| `/registrations/:id/reject` | POST | staff |
+| `/registrations/:id/assign` | PUT | staff |
+| `/registrations/:id/complete-install` | POST | staff (operator) → subscription + invoice pertama |
+
+### Settings · Templates · Audit · Notifications (admin)
+
+| Path | Methods |
+|---|---|
+| `/settings` | GET; `/settings/:key` PUT |
+| `/message-templates` | GET; `/message-templates/:slug` GET, PUT |
+| `/audit-logs` | GET (`?entity_type=&entity_id=&action=&limit=`) |
+| `/notifications` | GET (`?status=&template_slug=&customer_id=`) |
+
+### WhatsApp gateway (admin · whatsmeow embedded)
+
+| Path | Methods |
+|---|---|
+| `/whatsapp/status` | GET |
+| `/whatsapp/qr` | GET (mulai/lanjut pairing → QR untuk di-scan) |
+| `/whatsapp/logout` | POST |
+| `/whatsapp/test` | POST (kirim pesan uji) |
 
 ---
 

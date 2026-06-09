@@ -5,6 +5,21 @@ Versi pakai semantic versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **Full-Stack Dockerization (Prod & Dev)**:
+  - Dockerfile multi-stage untuk compile backend Go secara efisien dan minimal.
+  - Multi-stage `web/Dockerfile` (production) untuk compile React web frontend, disajikan menggunakan **Nginx** lengkap dengan fallback routing `nginx.conf` untuk mendukung React Router SPA.
+  - `web/Dockerfile.dev` (development) untuk menjalankan Vite development server dengan support Hot Module Replacement (HMR) dan bind `--host`.
+  - `docker/docker-compose.yml` (production) berisi PostgreSQL, InfluxDB3, Go backend server, dan React frontend server di port 80.
+  - `docker/docker-compose-dev.yml` (development) berisi PostgreSQL, InfluxDB3, Go backend server, dan React frontend server di port 5173.
+- **Skrip Go Otomatisasi Cross-Platform**:
+  - `scripts/setup/main.go` untuk setup awal (cloning file `.env`), auto-generation kunci JWT dan crypto enkripsi secara acak yang aman tanpa `openssl`, serta auto-install npm packages via `pnpm` secara multi-platform (Windows, macOS, Linux).
+  - `scripts/influx-token/main.go` untuk pembuatan admin token InfluxDB3 secara otomatis dari container Docker yang aktif dan menyimpannya langsung ke `.env`, memecahkan semua error authentication di backend Go.
+- **Revamp Makefile Cross-Platform**:
+  - Target `make setup` dan `make influx-token` dialihkan menggunakan skrip Go di atas agar bisa dijalankan di sistem operasi apapun tanpa shell dependencies.
+  - Penambahan target-target docker compose lengkap untuk development dan production: `up-dev`, `down-dev`, `build-docker-dev`, `rebuild-dev`, serta `up`, `down`, `build-docker`, `rebuild`.
+
 Refactor besar berdasarkan `ANALYSIS.md` — fase 1–4. Auth dan password
 device encryption ditunda ke fase 5 (separate plan).
 
@@ -22,6 +37,88 @@ device encryption ditunda ke fase 5 (separate plan).
 
 ### Added
 
+- **Customer Portal (Fase 3, frontend)** — portal web pelanggan + landing page publik:
+  - **Landing page** (`/`) — hero, paket real dari `GET /public/packages`, fitur, FAQ accordion,
+    form pendaftaran embedded (reuse `PublicRegister`). Navbar responsif. Admin dashboard
+    dipindah ke `/dashboard` agar root bisa jadi halaman publik.
+  - **Auth pelanggan** (`/portal/login`) — form nomor HP + password, JWT scope `customer_access`
+    disimpan di localStorage via `usePortalAuthStore` (Zustand terpisah dari admin).
+    `portalApiClient` (axios terpisah) inject token customer; 401 → clear + redirect login.
+  - **Portal shell** — layout phone-frame (`max-w-[480px] mx-auto`, `border-x md:shadow-lg`),
+    bottom tab bar sticky 4 tab (Beranda/Tagihan/Langganan/Akun) + badge tagihan belum lunas.
+  - **Beranda** (`/portal`) — status layanan (badge), hero card tagihan belum lunas, ringkasan
+    langganan, quick links.
+  - **Tagihan** (`/portal/invoices`, `/:id`) — list dengan filter chips (Semua/Belum Bayar/
+    Terlambat/Lunas); detail dengan **QR code besar** (`QRCodeSVG`) + kode monospace + tombol
+    Salin + instruksi petugas. QR/kode hanya tampil untuk tagihan unpaid.
+  - **Riwayat Pembayaran** (`/portal/payments`) — kartu per pembayaran (metode, status badge,
+    nominal, tanggal konfirmasi).
+  - **Langganan** (`/portal/subscriptions`) — detail paket, username, status (+ warning isolir),
+    tanggal tagih berikutnya, sync-status info.
+  - **Akun** (`/portal/profile`) — data diri read-only, **ganti password** (Sheet drawer),
+    toggle dark/light mode, tombol Keluar.
+  - **Tiket** (`/portal/tickets`) — mock data + banner "backend belum implementasi".
+    *(Backend endpoint tickets = roadmap Fase 4/5.)*
+  - Semua data real dari backend (endpoint `/customer/*`); skeleton loading + empty state
+    + error state di semua halaman.
+
+- **Customer Portal (Fase 3, backend) + pembayaran via kode unik/QR** — self-service pelanggan:
+  - **Scope auth terpisah**: `auth.CustomerClaims` (typ `customer_access`) + `SignCustomerAccess`/
+    `VerifyCustomerAccess` + `middleware.RequireCustomerAuth`. Token staff & customer saling tolak.
+    `Customer.portal_password_hash` baru; login nomor HP + password (`service/portal`).
+  - Endpoint `POST /api/customer/login` (publik) + zona `/api/customer/*` (customer token): `me`,
+    `subscriptions`, `subscriptions/:id/status`, `invoices` (+`:id`), `payments`, `change-password`.
+    Semua di-scope ke `CustomerID` token (anti-IDOR).
+  - **Kode unik + QR per invoice** (`Invoice.payment_code`, partial-unique + backfill invoice
+    belum-lunas; `qr_content` di-render sisi-klien). Di-generate saat invoice dibuat
+    (`service/billing` + handler generate) via `store.NewPaymentCode`.
+  - **Settle-by-code** `POST /api/v1/payments/collect {code}` (petugas/staff): catat pembayaran
+    `cash` `confirmed` instan + invoice `paid` + pulihkan layanan (outbox `pending_profile_change`/
+    `pending_enable`) + notifikasi. Idempoten via `IdempotencyKey="code:<code>"`. Logika settle
+    diekstrak jadi helper bersama dengan `Confirm`; Confirm/Collect/Reject kini menulis audit.
+  - Admin onboard: `POST /api/v1/customers/:id/portal-password` (admin+operator).
+  - OpenAPI: `paths/customer-portal.yaml`, `schemas/customer-portal.yaml`, tag **Customer Portal**.
+  - Test: jwt customer claims, `service/portal` auth, handler `payments` collect (restore/idempotent),
+    handler customer portal (scoping/anti-IDOR), + integration `customer_portal_flow` (dbtest).
+- **Paket publik & form pendaftaran (Fase 2 lanjutan)** — agar landing page punya paket nyata:
+  - Flag `is_public` pada `PPPProfile` + `HotspotProfile` (di-preserve saat sync router); store
+    `ListPublic` (ppp aktif; hotspot aktif role `permanent`).
+  - Endpoint publik baru `GET /api/public/packages` (tanpa auth, IP rate-limited) → paket
+    `is_public` (id, service_type, name, price, rate_limit, description, device_id) untuk form
+    pendaftaran. Handler `api/handler/packages.go` (+unit test).
+  - `RegistrationCreateRequest` + model registrasi diperluas: `service_type` (pppoe|hotspot) +
+    `hotspot_profile_id` — pilihan layanan & paket dari publik tersimpan sebagai hint operator.
+  - DTO/handler profil DB (ppp/hotspot) menerima & mengembalikan `is_public`.
+  - OpenAPI: `paths/packages.yaml`, `schemas/package.yaml`, field registrasi baru (bundled).
+- **Registrasi Pemasangan (Fase 2)** — alur calon pelanggan → aktivasi:
+  - Model & store `customer_registrations` (status pending/approved/rejected/cancelled +
+    petugas + jadwal); seed setting `notification.admin_phone`.
+  - Zone route **publik** pertama: `POST /api/public/registrations` (tanpa auth, IP rate-limited)
+    → notifikasi `registration_received` ke admin.
+  - Endpoint staff (admin+operator): `GET /registrations`, `GET /registrations/:id`,
+    `POST /registrations/:id/{approve,reject,complete-install}`, `PUT /registrations/:id/assign`.
+    `approve` membuat/menautkan Customer; `complete-install` membuat Subscription aktif
+    (provisioning via outbox `pending_create`) + **invoice pertama** + notifikasi
+    `installation_complete`. Semua aksi ubah-status dicatat di `audit_logs`.
+  - `service/billing` — logika generate invoice diekstrak dari `billing_cron` agar dipakai
+    ulang oleh registrasi & cron (DRY).
+  - Integration test: `subscription_flow` (Customer + Subscription lifecycle current-API,
+    tcpmock) menggantikan `business_layer_test` yang usang (fitur BandwidthProfile sudah dihapus);
+    `expiry_workflow_test` di-port ke model HotspotProfile terbaru; `registration_flow` baru.
+- **Notifikasi & WhatsApp (Fase 0+1)** — fondasi notifikasi + gateway WhatsApp embedded:
+  - Model & store baru: `audit_logs`, `message_templates` (13 template default ter-seed),
+    `notification_logs` (dengan jejak retry). Semua di-AutoMigrate.
+  - `service/notification` — satu-satunya jalur kirim notifikasi (render `text/template`,
+    tulis log, kirim via `Sender`). `NoopSender` untuk dev/test.
+  - `service/notification/whatsapp` — klien **whatsmeow** embedded, sesi persisten di
+    Postgres; login via QR oleh admin. Mengimplementasikan `Sender`.
+  - Job `notif_retry` (tiap 5 menit) + reminder H-2 di `suspension_check`.
+  - `billing_cron` → `invoice_issued`; `suspension_check` → `invoice_overdue`/`service_isolir`/
+    `service_suspended`/`invoice_reminder` (best-effort, async).
+  - `service/audit` — helper `audit.Log()` non-fatal untuk jejak ubah-status.
+  - Endpoint admin baru: `GET /audit-logs`, `GET/PUT /message-templates`,
+    `GET /notifications`, `GET /whatsapp/{status,qr}`, `POST /whatsapp/{logout,test}`.
+    OpenAPI di-update + bundle.
 - **`DeviceResponse.time_zone`** — field IANA timezone router (mis. `"Asia/Jakarta"`).
   Di-fetch otomatis dari `/system/clock` saat devmgr connect, di-persist ke DB,
   dan di-expose di API response. Dipakai expiry service untuk parsing timestamp
@@ -71,6 +168,10 @@ device encryption ditunda ke fase 5 (separate plan).
 
 ### Changed
 
+- **Hapus setting WhatsApp obsolet** (`notification.wa_api_url`, `notification.wa_sender`)
+  dari seed `store/migrate.go` — peninggalan gateway **go-wa HTTP eksternal**. Dengan
+  **whatsmeow embedded** tidak ada URL/sender eksternal; pengirim = akun yang login via QR.
+  Tidak ada kode yang membaca keduanya. Setting yang tersisa: `wa_enabled`, `admin_phone`.
 - **`expiry.ParseExpiry`** — tambah parameter `loc *time.Location`. Fallback ke
   `time.UTC` kalau nil. Pakai `time.ParseInLocation` supaya timestamp comment
   di-interpretasikan dalam timezone router, bukan UTC.
@@ -146,6 +247,10 @@ device encryption ditunda ke fase 5 (separate plan).
 
 ### Documentation
 
+- **README + `docs/API.md` + `docs/ARCHITECTURE.md`** — dokumentasi business layer
+  (manajemen ISP): customers/subscriptions/billing/registrasi/notifikasi WhatsApp,
+  tiga zone auth, endpoint inventory, quickstart docker-compose + integration test
+  (`make test-integration-full`, catatan Podman/Ryuk). Tautan ke `goal.md`/`roadmap.md`.
 - `docs/API.md` — voucher generator, reports, healthz dependency
   format, CORS default change, DEVICE_TLS_INSECURE env.
 - `docs/openapi/*` — IP Pool CRUD paths, new SSE stream paths, dan

@@ -17,11 +17,11 @@ const VALID_USER_MODES: QuickPrintPreset['userMode'][] = ['vc', 'up']
 const VALID_CHAR_SETS: QuickPrintPreset['charSet'][] = [
   'lower',
   'upper',
-  'upplow',
-  'mix',
-  'mix1',
-  'mix2',
-  'num',
+  'mixed',
+  'number',
+  'lower_number',
+  'upper_number',
+  'mixed_number',
 ]
 
 function safeUserMode(s: string): QuickPrintPreset['userMode'] {
@@ -33,7 +33,7 @@ function safeUserMode(s: string): QuickPrintPreset['userMode'] {
 function safeCharSet(s: string): QuickPrintPreset['charSet'] {
   return VALID_CHAR_SETS.includes(s as QuickPrintPreset['charSet'])
     ? (s as QuickPrintPreset['charSet'])
-    : 'mix'
+    : 'lower_number'
 }
 
 function parseInt0(s: string): number {

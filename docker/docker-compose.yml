@@ -26,16 +26,59 @@ services:
       - --object-store=file
       - --data-dir=/var/lib/influxdb3
       - --http-bind=0.0.0.0:8181
+      - --without-auth
     ports:
       - "8181:8181"
     volumes:
       - influx_data:/var/lib/influxdb3
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8181/health"]
-      interval: 3s
-      timeout: 2s
+      test: ["CMD", "curl", "-fsS", "http://localhost:8181/ping"]
+      interval: 5s
+      timeout: 3s
       retries: 20
+
+  backend:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: rosmon-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=mikhmon
+      - DB_USER=mikhmon
+      - DB_PASSWORD=secret
+      - DB_SSLMODE=disable
+      - INFLUX_ENABLED=true
+      - INFLUX_HOST=http://influxdb3:8181
+      - INFLUX_TOKEN=dev_admin_token_placeholder
+      - INFLUX_DATABASE=mikhmon
+      - HTTP_BIND=0.0.0.0:8080
+      - CORS_ALLOWED_ORIGINS=*
+      - JWT_SECRET=replace-with-32-char-or-longer-secret-string-here
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=adminpass
+    depends_on:
+      postgres:
+        condition: service_healthy
+      influxdb3:
+        condition: service_healthy
+    volumes:
+      - backend_data:/app/data
+
+  frontend:
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+    container_name: rosmon-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:
   influx_data:
+  backend_data:

@@ -81,6 +81,10 @@ func (h *Devices) Create(c *gin.Context) {
 	}
 	d := req.ToModel()
 	if err := h.Store.Create(c.Request.Context(), &d); err != nil {
+		if store.IsUniqueViolation(err) {
+			c.JSON(http.StatusConflict, dto.Err("DUPLICATE_DEVICE", "a device with this host and port already exists", ""))
+			return
+		}
 		WriteErr(c, err)
 		return
 	}
@@ -114,6 +118,10 @@ func (h *Devices) Update(c *gin.Context) {
 	}
 	req.Apply(&existing)
 	if err := h.Store.Update(c.Request.Context(), &existing); err != nil {
+		if store.IsUniqueViolation(err) {
+			c.JSON(http.StatusConflict, dto.Err("DUPLICATE_DEVICE", "a device with this host and port already exists", ""))
+			return
+		}
 		WriteErr(c, err)
 		return
 	}

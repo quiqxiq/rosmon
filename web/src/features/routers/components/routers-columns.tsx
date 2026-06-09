@@ -7,10 +7,10 @@ import { DataTableRowActions } from './data-table-row-actions'
 
 export const routersColumns: ColumnDef<RouterPublicView>[] = [
   {
-    accessorKey: 'name',
+    accessorKey: 'display_name',
     header: 'Name',
     cell: ({ row }) => (
-      <span className='font-medium'>{row.original.name}</span>
+      <span className='font-medium'>{row.original.display_name}</span>
     ),
     enableSorting: true,
   },
@@ -19,15 +19,15 @@ export const routersColumns: ColumnDef<RouterPublicView>[] = [
     header: 'Address',
     cell: ({ row }) => (
       <span className='font-mono text-xs text-muted-foreground'>
-        {row.original.ip_address}:{row.original.api_port}
+        {row.original.host}:{row.original.port}
       </span>
     ),
   },
   {
-    accessorKey: 'api_username',
+    accessorKey: 'username',
     header: 'Username',
     cell: ({ row }) => (
-      <span className='text-sm'>{row.original.api_username}</span>
+      <span className='text-sm'>{row.original.username}</span>
     ),
   },
   {
@@ -64,19 +64,6 @@ export const routersColumns: ColumnDef<RouterPublicView>[] = [
       const vm = toRouterViewModel(row.original)
       return (
         <span className='text-xs text-muted-foreground'>{vm.lastSeenAt}</span>
-      )
-    },
-  },
-  {
-    accessorKey: 'notes',
-    header: 'Notes',
-    cell: ({ row }) => {
-      const notes = row.original.notes
-      if (!notes) return <span className='text-muted-foreground'>—</span>
-      return (
-        <span className='text-xs text-muted-foreground'>
-          {notes.length > 50 ? notes.slice(0, 50) + '…' : notes}
-        </span>
       )
     },
   },

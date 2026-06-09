@@ -16,6 +16,9 @@ var (
 
 type PPPProfileStore interface {
 	ListByDevice(ctx context.Context, deviceID uint) ([]model.PPPProfile, error)
+	// ListPublic mengembalikan paket aktif yang ditandai publik (lintas device),
+	// untuk form pendaftaran publik. Diurut by name.
+	ListPublic(ctx context.Context) ([]model.PPPProfile, error)
 	Get(ctx context.Context, id uint) (model.PPPProfile, error)
 	GetByName(ctx context.Context, deviceID uint, name string) (model.PPPProfile, error)
 	Create(ctx context.Context, p *model.PPPProfile) error
@@ -34,6 +37,14 @@ func NewPPPProfileStore(db *gorm.DB) PPPProfileStore {
 func (s *gormPPPProfileStore) ListByDevice(ctx context.Context, deviceID uint) ([]model.PPPProfile, error) {
 	var out []model.PPPProfile
 	err := s.db.WithContext(ctx).Where("device_id = ?", deviceID).Order("name").Find(&out).Error
+	return out, err
+}
+
+func (s *gormPPPProfileStore) ListPublic(ctx context.Context) ([]model.PPPProfile, error) {
+	var out []model.PPPProfile
+	err := s.db.WithContext(ctx).
+		Where("is_public = ? AND active = ?", true, true).
+		Order("name").Find(&out).Error
 	return out, err
 }
 
@@ -106,6 +117,7 @@ func (s *gormPPPProfileStore) Upsert(ctx context.Context, p *model.PPPProfile) (
 			// Preserve operator-set fields.
 			p.PriceMonthly = existing.PriceMonthly
 			p.Description = existing.Description
+			p.IsPublic = existing.IsPublic
 		}
 		return tx.Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "device_id"}, {Name: "name"}},

@@ -54,7 +54,7 @@ export function MonthlyExportMenu({
 }: MonthlyExportMenuProps) {
   const routersQuery = useRouters()
   const router = routersQuery.data?.find((r) => r.id === routerId)
-  const slug = slugifyRouterName(router?.name)
+  const slug = slugifyRouterName(router?.display_name)
 
   const [pending, setPending] = useState<'csv' | 'excel' | null>(null)
   const isPending = pending != null

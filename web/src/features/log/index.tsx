@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Main } from '@/components/layout/main'
 import { useActiveRouterId } from '@/stores/active-router-store'
-import { useLogStream } from './api/queries'
+import { useLogBacklog, useLogStream } from './api/queries'
 import { LogTable } from './components/log-table'
 import { LogToolbar } from './components/log-toolbar'
-import { filterLogs, LOG_MAX_ENTRIES } from './data/data'
+import { filterLogs, LOG_MAX_ENTRIES, restLogToLogEntry } from './data/data'
 import { type LogEntry } from './data/schema'
 import type { SSEStatus } from '@/lib/api/sse'
 
@@ -44,14 +44,16 @@ export function Log() {
   const pausedRef = useRef(paused)
   useEffect(() => { pausedRef.current = paused }, [paused])
 
-  // Clear entries when router changes
-  const prevRouterRef = useRef(routerId)
-  useEffect(() => {
-    if (prevRouterRef.current !== routerId) {
-      prevRouterRef.current = routerId
-      setEntries([])
-    }
-  }, [routerId])
+  // Backlog buffer via REST (seed awal); SSE follow menambah entri baru di atas.
+  // Filter topic dilakukan client-side (filterLogs) — backlog & stream selalu
+  // ambil semua. Seed dilakukan saat render (pola "adjust state on prop
+  // change") agar tidak memicu cascading render / lint react-compiler.
+  const backlog = useLogBacklog(routerId)
+  const [seededData, setSeededData] = useState<unknown>(null)
+  if (backlog.data && backlog.data !== seededData) {
+    setSeededData(backlog.data)
+    setEntries(backlog.data.map(restLogToLogEntry).slice(0, LOG_MAX_ENTRIES))
+  }
 
   const { status } = useLogStream(routerId, (entry) => {
     if (pausedRef.current) return

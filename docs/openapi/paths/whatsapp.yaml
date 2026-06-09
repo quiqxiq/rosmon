@@ -1,0 +1,90 @@
+/whatsapp/status:
+  get:
+    tags: [WhatsApp]
+    summary: Status koneksi gateway WhatsApp (admin)
+    responses:
+      '200':
+        description: Status koneksi
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/notification.yaml#/WhatsAppStatusResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+      '503': { $ref: '../components/responses.yaml#/ErrorServiceUnavailable' }
+
+/whatsapp/qr:
+  get:
+    tags: [WhatsApp]
+    summary: Mulai/lanjut pairing & ambil QR (admin)
+    description: |
+      Memulai pairing (kalau belum) dan mengembalikan QR code terkini untuk
+      di-scan dari aplikasi WhatsApp admin. 409 kalau sudah terhubung.
+    responses:
+      '200':
+        description: QR code
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/notification.yaml#/WhatsAppQRResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+      '409': { $ref: '../components/responses.yaml#/ErrorConflict' }
+      '503': { $ref: '../components/responses.yaml#/ErrorServiceUnavailable' }
+
+/whatsapp/logout:
+  post:
+    tags: [WhatsApp]
+    summary: Logout / unlink device WhatsApp (admin)
+    responses:
+      '200':
+        description: Sesi diputus
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/notification.yaml#/WhatsAppStatusResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+      '503': { $ref: '../components/responses.yaml#/ErrorServiceUnavailable' }
+
+/whatsapp/test:
+  post:
+    tags: [WhatsApp]
+    summary: Kirim pesan uji (admin)
+    description: Kirim pesan teks langsung ke nomor (bypass template).
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/notification.yaml#/WhatsAppTestRequest' }
+    responses:
+      '200':
+        description: Pesan terkirim
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        provider_response: { type: string, example: "3EB0..." }
+      '400': { $ref: '../components/responses.yaml#/ErrorValidation' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+      '500': { $ref: '../components/responses.yaml#/ErrorInternal' }
+      '503': { $ref: '../components/responses.yaml#/ErrorServiceUnavailable' }

@@ -1,0 +1,190 @@
+/public/registrations:
+  post:
+    tags: [Registrations]
+    summary: Submit registrasi pemasangan (publik)
+    description: |
+      Endpoint publik (TANPA auth) untuk calon pelanggan mengajukan pemasangan
+      dari landing page. Rate-limited per IP. Memicu notifikasi WhatsApp ke
+      admin (kalau `notification.admin_phone` diisi & WA aktif).
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/registration.yaml#/RegistrationCreateRequest' }
+    responses:
+      '201':
+        description: Registrasi tercatat (status pending)
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/registration.yaml#/RegistrationResponse' }
+      '400': { $ref: '../components/responses.yaml#/ErrorValidation' }
+      '429': { $ref: '../components/responses.yaml#/ErrorRateLimit' }
+
+/registrations:
+  get:
+    tags: [Registrations]
+    summary: List registrasi (staff admin+operator)
+    parameters:
+      - { name: status, in: query, schema: { type: string, enum: [pending, approved, rejected, cancelled] } }
+    responses:
+      '200':
+        description: List registrasi
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items: { $ref: '../schemas/registration.yaml#/RegistrationResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+
+/registrations/{id}:
+  parameters:
+    - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+  get:
+    tags: [Registrations]
+    summary: Detail registrasi (staff)
+    responses:
+      '200':
+        description: Registrasi
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/registration.yaml#/RegistrationResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+      '404': { $ref: '../components/responses.yaml#/ErrorNotFound' }
+
+/registrations/{id}/approve:
+  parameters:
+    - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+  post:
+    tags: [Registrations]
+    summary: Setujui registrasi (staff)
+    description: Membuat/menautkan Customer + notifikasi `registration_approved` (berisi jadwal).
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema: { $ref: '../schemas/registration.yaml#/RegistrationApproveRequest' }
+    responses:
+      '200':
+        description: Registrasi disetujui
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/registration.yaml#/RegistrationResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+      '404': { $ref: '../components/responses.yaml#/ErrorNotFound' }
+      '409': { $ref: '../components/responses.yaml#/ErrorConflict' }
+
+/registrations/{id}/reject:
+  parameters:
+    - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+  post:
+    tags: [Registrations]
+    summary: Tolak registrasi (staff)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/registration.yaml#/RegistrationRejectRequest' }
+    responses:
+      '200':
+        description: Registrasi ditolak
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/registration.yaml#/RegistrationResponse' }
+      '400': { $ref: '../components/responses.yaml#/ErrorValidation' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+      '404': { $ref: '../components/responses.yaml#/ErrorNotFound' }
+      '409': { $ref: '../components/responses.yaml#/ErrorConflict' }
+
+/registrations/{id}/assign:
+  parameters:
+    - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+  put:
+    tags: [Registrations]
+    summary: Tugaskan operator + jadwal (staff)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/registration.yaml#/RegistrationAssignRequest' }
+    responses:
+      '200':
+        description: Registrasi diperbarui
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/registration.yaml#/RegistrationResponse' }
+      '400': { $ref: '../components/responses.yaml#/ErrorValidation' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+      '404': { $ref: '../components/responses.yaml#/ErrorNotFound' }
+
+/registrations/{id}/complete-install:
+  parameters:
+    - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+  post:
+    tags: [Registrations]
+    summary: Selesaikan instalasi → buat subscription + invoice pertama (operator)
+    description: |
+      Membuat Subscription aktif (provisioning ke router lewat outbox,
+      `sync_status=pending_create`), generate invoice pertama, dan notifikasi
+      `installation_complete` (berisi username + password). Registrasi harus
+      sudah `approved` dan punya `customer_id`.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/registration.yaml#/RegistrationCompleteInstallRequest' }
+    responses:
+      '201':
+        description: Subscription + invoice pertama
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        subscription: { type: object, description: SubscriptionResponse }
+                        invoice:      { type: object, description: InvoiceResponse (opsional) }
+      '400': { $ref: '../components/responses.yaml#/ErrorValidation' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+      '404': { $ref: '../components/responses.yaml#/ErrorNotFound' }
+      '409': { $ref: '../components/responses.yaml#/ErrorConflict' }

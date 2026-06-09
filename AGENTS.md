@@ -86,9 +86,14 @@ pemilik proyek:
    Gunakan helper `audit.Log(ctx, userID, action, entityType, entityID,
    oldJSON, newJSON)`. User ID 0 = aksi sistem.
 
-5. **Password dan credential tidak boleh masuk log atau response.**
-   `pppoe_password` dan `portal_password_hash` tidak masuk DTO response
-   manapun dalam kondisi apapun.
+5. **Password dan credential tidak boleh masuk log atau response biasa.**
+   Password MikroTik & portal tidak masuk DTO list/detail manapun.
+   **Pengecualian:** endpoint *reveal* khusus ber-`RequireRole(admin, operator)`
+   boleh mengembalikan plaintext (`GET /customers/:id/portal-password`,
+   `GET /subscriptions/:id/password`, `GET /devices/:id/ppp/secrets/:id/password`,
+   `GET /devices/:id/hotspot/users/:id/password`). Plaintext tidak pernah ditulis
+   ke audit/app log. Portal password disimpan AES-encrypted (kolom
+   `portal_password`), bukan bcrypt.
 
 6. **Notification log selalu ditulis** meski pengiriman gagal.
    Status `failed` + `next_retry_at` untuk retry oleh `job/notif_retry.go`.
@@ -311,7 +316,7 @@ type CustomerResponse struct {
     Area      string `json:"area"`
     Status    string `json:"status"`
     CreatedAt string `json:"created_at"` // RFC3339
-    // TIDAK ada: portal_password_hash
+    // TIDAK ada: portal_password (hanya via endpoint reveal admin+operator)
 }
 
 func CustomerResponseFrom(m model.Customer) CustomerResponse { ... }
@@ -413,6 +418,9 @@ Dari `go.mod` yang sudah ada, semua ini **sudah tersedia**:
 **Yang perlu ditambah untuk business layer:**
 ```
 github.com/robfig/cron/v3    → job scheduler
+go.mau.fi/whatsmeow          → WhatsApp embedded (notifikasi + login QR)
+                               sesi disimpan di Postgres via store/sqlstore;
+                               diakses HANYA lewat service/notification/whatsapp
 ```
 
 **Tidak perlu ditambahkan:**
@@ -461,6 +469,7 @@ Setiap PR yang menambah fitur business baru harus mengandung:
 - ❌ Sync MikroTik synchronous dari HTTP handler untuk mutasi subscription.
 - ❌ `time.Now()` di service tanpa injectable override.
 - ❌ `panic` di service atau store.
-- ❌ Log `pppoe_password` atau `portal_password_hash`.
+- ❌ Log password (MikroTik / portal) — termasuk di endpoint reveal sekalipun.
+- ❌ Kembalikan password di DTO list/detail biasa (hanya endpoint reveal ber-RequireRole admin+operator).
 - ❌ Skip audit log untuk aksi yang ubah status subscription/invoice/payment.
 - ❌ Tambah kolom ke model existing tanpa migration (AutoMigrate handle ADD COLUMN, tapi schema change lain butuh perhatian).

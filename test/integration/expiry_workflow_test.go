@@ -45,20 +45,24 @@ func setupLiveExpiry(t *testing.T, mode string, profileName string) (*expiry.Ser
 	d := model.MikrotikDevice{
 		ID:                  1,
 		DisplayName:         "live-expiry",
-		Address:             "router",
+		Host:                "router",
+		Port:                8728,
 		Active:              true,
 		ExpiryCheckInterval: "100ms",
 	}
 	ctx := context.Background()
 	require.NoError(t, devStore.Create(ctx, &d))
-	require.NoError(t, profStore.Upsert(ctx, &model.HotspotProfileConfig{
-		DeviceID:    d.ID,
-		ProfileName: profileName,
-		ExpiryMode:  mode,
-		Price:       10000,
-		SellPrice:   12000,
-		Validity:    "30d",
-	}))
+	// Voucher profile config kini menyatu di model.HotspotProfile (Role=voucher).
+	_, err := profStore.Upsert(ctx, &model.HotspotProfile{
+		DeviceID:   d.ID,
+		Name:       profileName,
+		Role:       "voucher",
+		ExpiryMode: mode,
+		Price:      10000,
+		SellPrice:  12000,
+		Validity:   "30d",
+	})
+	require.NoError(t, err)
 
 	svc := expiry.New(mgr, devStore, profStore, txStore, log)
 	return svc, cs, d
@@ -132,12 +136,8 @@ func TestIntegration_Expiry_remcMode_userDeleted_noRecord(t *testing.T) {
 	assert.ErrorIs(t, err, mikrotik.ErrNotFound, "remc: user expired harus dihapus dari router")
 }
 
-// expiryCheckDevice membungkus call internal Service.checkDevice. Karena method
-// ini unexported di paket expiry, test ini di-import sebagai white-box dengan
-// nama yang sama via type-alias trick — atau pakai workaround di bawah:
-//
-// Solusi pragmatis: panggil Service.Start lalu tunggu Eventually. Karena
-// ExpiryCheckInterval di-set 100ms, satu tick selesai dalam <1s.
+// expiryCheckDevice membungkus pemanggilan Service.Start lalu menunggu satu tick
+// (ExpiryCheckInterval=100ms) supaya satu siklus check selesai.
 func expiryCheckDevice(t *testing.T, svc *expiry.Service, ctx context.Context, dev model.MikrotikDevice) error {
 	t.Helper()
 	startCtx, cancel := context.WithCancel(ctx)

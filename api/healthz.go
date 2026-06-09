@@ -12,12 +12,13 @@ import (
 // HealthStatus adalah payload response /healthz.
 // OK = AND dari semua dependency check (DB, devices, influx).
 type HealthStatus struct {
-	OK      bool              `json:"ok"`
-	DB      string            `json:"db"`
-	Devices DeviceHealthStat  `json:"devices"`
-	Influx  string            `json:"influx,omitempty"`
-	SSE     map[string]int    `json:"sse_subscribers,omitempty"`
-	Dropped map[string]uint64 `json:"sse_dropped,omitempty"`
+	OK        bool              `json:"ok"`
+	DB        string            `json:"db"`
+	Devices   DeviceHealthStat  `json:"devices"`
+	Influx    string            `json:"influx,omitempty"`
+	WhatsApp  string            `json:"whatsapp,omitempty"`
+	SSE       map[string]int    `json:"sse_subscribers,omitempty"`
+	Dropped   map[string]uint64 `json:"sse_dropped,omitempty"`
 }
 
 // DeviceHealthStat ringkasan koneksi router.
@@ -70,6 +71,15 @@ func healthzHandler(deps *Deps) gin.HandlerFunc {
 		// Influx ping (kalau enabled)
 		if deps.InfluxReader != nil {
 			status.Influx = "ok"
+		}
+
+		// WhatsApp manager status
+		if deps.WhatsApp != nil {
+			if deps.WhatsApp.Connected() {
+				status.WhatsApp = "connected"
+			} else {
+				status.WhatsApp = "disconnected"
+			}
 		}
 
 		// SSE stats — broker count + drop count

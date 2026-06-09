@@ -1,8 +1,9 @@
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
 import { type Row } from '@tanstack/react-table'
-import { Pencil, Power, Trash2 } from 'lucide-react'
+import { KeyRound, Pencil, Power, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useActiveRouterId } from '@/stores/active-router-store'
+import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -25,6 +26,8 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const openDialog = useSecretsDialogStore((s) => s.open)
   const routerId = useActiveRouterId() ?? 0
   const disabledMutation = useSetPPPSecretDisabled(routerId)
+  const role = useAuthStore((s) => s.auth.user?.role)
+  const canRevealPassword = role === 'admin' || role === 'operator'
 
   const handleToggleEnabled = () => {
     const nextDisabled = !secret.disabled
@@ -70,6 +73,12 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           <Power className='size-4' />
           {secret.disabled ? 'Enable' : 'Disable'}
         </DropdownMenuItem>
+        {canRevealPassword && (
+          <DropdownMenuItem onClick={() => openDialog('password', secret)}>
+            <KeyRound className='size-4' />
+            Lihat Password
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => openDialog('delete', secret)}

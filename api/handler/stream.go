@@ -15,23 +15,25 @@ import (
 	"github.com/quiqxiq/rosmon/mikrotik/ppp"
 	"github.com/quiqxiq/rosmon/mikrotik/syslog"
 	"github.com/quiqxiq/rosmon/mikrotik/system"
+	"github.com/quiqxiq/rosmon/service/netstream"
 	"github.com/quiqxiq/rosmon/workflows"
 )
 
 // Stream meng-handle semua endpoint SSE. Pakai sse.Hub untuk broker
 // shared (1 stream router → N SSE client fan-out).
 type Stream struct {
-	Hub  *sse.Hub
-	Hot  *hotspot.Client
-	Sys  *system.Client
-	Net  *network.Client
-	PPP  *ppp.Client
-	Logs *syslog.Client
-	WF   *workflows.Clients
+	Hub       *sse.Hub
+	Hot       *hotspot.Client
+	Sys       *system.Client
+	Net       *network.Client
+	PPP       *ppp.Client
+	Logs      *syslog.Client
+	WF        *workflows.Clients
+	NetStream *netstream.Manager
 }
 
-func NewStream(hub *sse.Hub, hot *hotspot.Client, sys *system.Client, net *network.Client, pp *ppp.Client, log *syslog.Client, wf *workflows.Clients) *Stream {
-	return &Stream{Hub: hub, Hot: hot, Sys: sys, Net: net, PPP: pp, Logs: log, WF: wf}
+func NewStream(hub *sse.Hub, hot *hotspot.Client, sys *system.Client, net *network.Client, pp *ppp.Client, log *syslog.Client, wf *workflows.Clients, ns *netstream.Manager) *Stream {
+	return &Stream{Hub: hub, Hot: hot, Sys: sys, Net: net, PPP: pp, Logs: log, WF: wf, NetStream: ns}
 }
 
 func (s *Stream) Register(g *gin.RouterGroup) {
@@ -39,7 +41,7 @@ func (s *Stream) Register(g *gin.RouterGroup) {
 	// agar setiap device mendapat stream-nya sendiri.
 	mk := func(c *gin.Context) *Stream {
 		cs := mustClients(c)
-		return NewStream(s.Hub, cs.Hot, cs.Sys, cs.Net, cs.PPP, cs.Log, cs.WF)
+		return NewStream(s.Hub, cs.Hot, cs.Sys, cs.Net, cs.PPP, cs.Log, cs.WF, s.NetStream)
 	}
 	g.GET("/stream/hotspot/active", func(c *gin.Context) { mk(c).HotspotActive(c) })
 	g.GET("/stream/hotspot/users", func(c *gin.Context) { mk(c).HotspotUsers(c) })
@@ -212,6 +214,10 @@ func (s *Stream) PPPInactive(c *gin.Context) {
 }
 
 // Log — /stream/log?topics=hotspot,info.
+// SSE = follow-only (hanya entri log BARU, stream tetap terbuka). Backlog
+// awal di-seed frontend lewat REST GET /devices/:id/log (broker SSE tidak
+// punya replay, jadi snapshot tidak reliable lewat fan-out). Gabungan
+// REST-backlog + SSE-follow = perilaku "follow" yang user inginkan.
 func (s *Stream) Log(c *gin.Context) {
 	topics := c.Query("topics")
 	topic := deviceTopic(c, sse.TopicLog(topics))
@@ -283,18 +289,10 @@ func (s *Stream) InterfaceStats(c *gin.Context) {
 		return
 	}
 	defer release()
-	broker := s.Hub.GetOrCreate(topic,
-		func(b *sse.Broker) error {
-			return s.Net.InterfaceStatsStream(topic, interval, func(sen *roslib.Sentence) {
-				if sen.Word() != "!re" {
-					return
-				}
-				b.Publish(sse.Event{Type: "stats", Data: sentenceToInterfaceMap(sen)})
-			})
-		},
-		func() { s.Net.StopStream(topic) },
-	)
-	sse.Stream(c, broker)
+	// SATU stream interface-stats (dimiliki netstream, dipakai bersama Influx
+	// writer); filter per-type (ether/vlan/bridge/…) di sisi Go.
+	broker := s.NetStream.InterfaceBroker(s.Net, streamDeviceID(c), topic, interval)
+	sse.StreamFiltered(c, broker, ifaceKeep(c.Query("type")))
 }
 
 // Ping — /stream/ping?address=8.8.8.8 (inherent stream /ping).
@@ -325,7 +323,17 @@ func (s *Stream) Ping(c *gin.Context) {
 	sse.Stream(c, broker)
 }
 
-// QueueStats — /stream/network/queues/stats?interval=1s.
+// streamDeviceID mem-parse device_id dari path → uint (untuk tag Influx).
+// Topic string tetap memakai param mentah via deviceTopic agar identik dengan
+// netstream.QueueTopic/InterfaceTopic.
+func streamDeviceID(c *gin.Context) uint {
+	n, _ := strconv.ParseUint(c.Param("device_id"), 10, 64)
+	return uint(n)
+}
+
+// QueueStats — /stream/network/queues/stats?interval=1s[&filter=all|dynamic|static|parent].
+// SATU stream queue-stats (dimiliki netstream, dipakai bersama Influx writer);
+// filter di sisi Go.
 func (s *Stream) QueueStats(c *gin.Context) {
 	interval := parseInterval(c, 1*time.Second)
 	topic := deviceTopic(c, sse.TopicQueueStats(interval.String()))
@@ -334,15 +342,8 @@ func (s *Stream) QueueStats(c *gin.Context) {
 		return
 	}
 	defer release()
-	broker := s.Hub.GetOrCreate(topic,
-		func(b *sse.Broker) error {
-			return s.Net.QueueStatsStreamParsed(topic, interval, func(q network.QueueSimpleWithStats) {
-				b.Publish(sse.Event{Type: "stats", Data: dto.FromDomainQueueStats(q)})
-			})
-		},
-		func() { s.Net.StopStream(topic) },
-	)
-	sse.Stream(c, broker)
+	broker := s.NetStream.QueueBroker(s.Net, streamDeviceID(c), topic, interval)
+	sse.StreamFiltered(c, broker, queueKeep(c.Query("filter"), topic))
 }
 
 // QueueStatsByName — /stream/network/queues/stats/:name?interval=1s.
@@ -379,35 +380,20 @@ func (s *Stream) QueueStatsByName(c *gin.Context) {
 }
 
 // ParentQueueStats — /stream/network/queues/parents/stats?interval=1s.
+// ParentQueueStats — /stream/network/queues/parents/stats?interval=1s.
+// Memakai stream queue-stats yang SAMA (topic identik) dengan view 'all',
+// lalu memfilter queue yang menjadi parent (relasional) di sisi Go — tidak
+// membuka stream terpisah ke router.
 func (s *Stream) ParentQueueStats(c *gin.Context) {
 	interval := parseInterval(c, 1*time.Second)
-	topic := deviceTopic(c, sse.TopicParentQueueStats(interval.String()))
+	topic := deviceTopic(c, sse.TopicQueueStats(interval.String())) // SAMA dengan QueueStats
 	release, ok := reserveSSE(s.Hub, c, topic)
 	if !ok {
 		return
 	}
 	defer release()
-	broker := s.Hub.GetOrCreate(topic,
-		func(b *sse.Broker) error {
-			return s.Net.ParentQueueStatsStream(topic, interval, func(sen *roslib.Sentence) {
-				if sen.Word() != "!re" {
-					return
-				}
-				b.Publish(sse.Event{Type: "stats", Data: dto.QueueStatsEvent{
-					Name:    sen.Get("name"),
-					Target:  sen.Get("target"),
-					Parent:  sen.Get("parent"),
-					Bytes:   sen.Get("bytes"),
-					Packets: sen.Get("packets"),
-					Rate:    sen.Get("rate"),
-					Dropped: sen.Get("dropped"),
-					MaxLimit: sen.Get("max-limit"),
-				}})
-			})
-		},
-		func() { s.Net.StopStream(topic) },
-	)
-	sse.Stream(c, broker)
+	broker := s.NetStream.QueueBroker(s.Net, streamDeviceID(c), topic, interval)
+	sse.StreamFiltered(c, broker, queueKeep("parent", topic))
 }
 
 // SystemRouterboard — /stream/system/routerboard?interval=2s.

@@ -3,6 +3,8 @@ import type { Envelope } from '@/lib/api/types'
 import { unwrap } from '@/lib/api/unwrap'
 import type {
   DHCPLeaseRecord,
+  HistoryRange,
+  HistoryRow,
   InterfaceRecord,
   InterfaceTraffic,
   NATRuleRecord,
@@ -11,6 +13,32 @@ import type {
 } from './schema'
 
 const base = (rid: number) => `/devices/${rid}/network`
+const historyBase = (rid: number) => `/devices/${rid}/history`
+
+// GET /devices/{rid}/history/interfaces — rx/tx byte deltas per interface per
+// interval from InfluxDB. Throws ApiError (503) when Influx is disabled.
+export async function getInterfaceHistory(
+  routerId: number,
+  range: HistoryRange,
+): Promise<HistoryRow[]> {
+  const res = await apiClient.get<Envelope<HistoryRow[]>>(
+    `${historyBase(routerId)}/interfaces`,
+    { params: { from: range.from, to: range.to, interval: range.interval } },
+  )
+  return unwrap(res.data)
+}
+
+// GET /devices/{rid}/history/queues — bytes_in/out deltas per queue per interval.
+export async function getQueueHistory(
+  routerId: number,
+  range: HistoryRange,
+): Promise<HistoryRow[]> {
+  const res = await apiClient.get<Envelope<HistoryRow[]>>(
+    `${historyBase(routerId)}/queues`,
+    { params: { from: range.from, to: range.to, interval: range.interval } },
+  )
+  return unwrap(res.data)
+}
 
 // GET /routers/{rid}/network/interfaces — list router interfaces.
 export async function listInterfaces(

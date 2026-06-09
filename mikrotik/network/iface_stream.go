@@ -16,35 +16,38 @@ func (c *Client) InterfaceTrafficStream(id, iface string, h func(*roslib.Sentenc
 		Stream(id, h)
 }
 
-// InterfaceStatsStream → /interface/print stats interval=<d>.
-// Counter byte/packet per interface, update tiap interval.
+// queueStatsProplist memperkecil payload queue stream.
+var queueStatsProplist = []string{"name", "target", "parent", "max-limit", "limit-at", "bytes", "packets", "rate", "total-rate", "queued-bytes", "queued-packets", "dropped", "disabled", "dynamic"}
+
+// InterfaceStatsStream → /interface/print stats interval=<d> (streaming, MikroTik
+// yang push tiap interval — BUKAN poll dari Go). Counter byte/packet per
+// interface kumulatif → caller hitung rate dari delta.
 func (c *Client) InterfaceStatsStream(id string, interval time.Duration, h func(*roslib.Sentence)) error {
 	return c.dev.Path("/interface").Print().Stats().
 		Interval(interval).Stream(id, h)
 }
 
-// QueueStatsStream → /queue/simple/print stats interval=<d> (analisis §1.10).
-// Counter per queue (bytes, packets, rate).
+// QueueStatsStream → /queue/simple/print stats interval=<d> (streaming, analisis §1.10).
 func (c *Client) QueueStatsStream(id string, interval time.Duration, h func(*roslib.Sentence)) error {
 	return c.dev.Path("/queue/simple").Print().Stats().
+		Proplist(queueStatsProplist...).
 		Interval(interval).Stream(id, h)
 }
 
-// QueueStatsByNameStream → /queue/simple/print stats ?name=<name> interval=<d> (analisis §1.10).
-// Counter per queue difilter by name. Proplist memperkecil payload.
+// QueueStatsByNameStream → /queue/simple/print stats ?name=<name> interval=<d>.
 func (c *Client) QueueStatsByNameStream(id, name string, interval time.Duration, h func(*roslib.Sentence)) error {
 	return c.dev.Path("/queue/simple").Print().Stats().
 		Where("name", name).
-		Proplist("name", "target", "parent", "max-limit", "limit-at", "bytes", "packets", "rate", "total-rate", "queued-bytes", "queued-packets", "dropped").
+		Proplist(queueStatsProplist...).
 		Interval(interval).Stream(id, h)
 }
 
-// ParentQueueStatsStream → /queue/simple/print stats ?dynamic=false interval=<d> (analisis §1.10).
-// Hanya queue user-defined (bukan auto-generated). Proplist memperkecil payload.
+// ParentQueueStatsStream → /queue/simple/print stats ?dynamic=false interval=<d>.
+// Hanya queue user-defined (bukan auto-generated).
 func (c *Client) ParentQueueStatsStream(id string, interval time.Duration, h func(*roslib.Sentence)) error {
 	return c.dev.Path("/queue/simple").Print().Stats().
 		Where("dynamic", "false").
-		Proplist("name", "target", "parent", "max-limit", "limit-at", "bytes", "packets", "rate", "total-rate", "queued-bytes", "queued-packets", "dropped").
+		Proplist(queueStatsProplist...).
 		Interval(interval).Stream(id, h)
 }
 
@@ -61,8 +64,11 @@ func (c *Client) QueueStatsStreamParsed(id string, interval time.Duration, h fun
 	})
 }
 
-// StopStream menghentikan listener dengan ID tersebut.
-// Return true bila listener ada dan dihapus.
+// StopStream menghentikan listener dengan ID tersebut. Menutup baik stream
+// (monitor-traffic) maupun poll (interface/queue stats) karena handler SSE
+// memanggil ini untuk kedua jenis.
 func (c *Client) StopStream(id string) bool {
-	return c.dev.UnregisterStream(id)
+	s := c.dev.UnregisterStream(id)
+	p := c.dev.UnregisterPoll(id)
+	return s || p
 }

@@ -19,6 +19,7 @@ type PPPProfileResponse struct {
 	PriceMonthly   int64     `json:"price_monthly"`
 	Description    string    `json:"description"`
 	Active         bool      `json:"active"`
+	IsPublic       bool      `json:"is_public"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
@@ -34,6 +35,7 @@ type PPPProfileCreateRequest struct {
 	PriceMonthly   int64  `json:"price_monthly"   binding:"gte=0"`
 	Description    string `json:"description"     binding:"max=2000"`
 	Active         *bool  `json:"active"`
+	IsPublic       *bool  `json:"is_public"`
 }
 
 type PPPProfileUpdateRequest struct {
@@ -47,6 +49,7 @@ type PPPProfileUpdateRequest struct {
 	PriceMonthly   *int64  `json:"price_monthly"   binding:"omitempty,gte=0"`
 	Description    *string `json:"description"     binding:"omitempty,max=2000"`
 	Active         *bool   `json:"active"`
+	IsPublic       *bool   `json:"is_public"`
 }
 
 type PPPProfileWriteResponse struct {
@@ -74,6 +77,7 @@ func FromModelPPPProfile(p model.PPPProfile) PPPProfileResponse {
 		PriceMonthly:   p.PriceMonthly,
 		Description:    p.Description,
 		Active:         p.Active,
+		IsPublic:       p.IsPublic,
 		CreatedAt:      p.CreatedAt,
 		UpdatedAt:      p.UpdatedAt,
 	}

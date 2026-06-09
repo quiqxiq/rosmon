@@ -24,26 +24,27 @@ func TestParseHistoryParams_intervalValidation(t *testing.T) {
 		wantCanonical  string
 		wantErrorCode  string
 	}{
+		// Canonical = "<n> seconds" (format DataFusion-valid; bukan Go "1m0s").
 		{
 			name:          "valid 1m",
 			interval:      "1m",
 			wantOK:        true,
 			wantStatus:    http.StatusOK,
-			wantCanonical: "1m0s",
+			wantCanonical: "60 seconds",
 		},
 		{
 			name:          "valid 30s",
 			interval:      "30s",
 			wantOK:        true,
 			wantStatus:    http.StatusOK,
-			wantCanonical: "30s",
+			wantCanonical: "30 seconds",
 		},
 		{
 			name:          "valid 1h",
 			interval:      "1h",
 			wantOK:        true,
 			wantStatus:    http.StatusOK,
-			wantCanonical: "1h0m0s",
+			wantCanonical: "3600 seconds",
 		},
 		{
 			name:          "SQL injection attempt rejected",

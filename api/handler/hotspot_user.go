@@ -41,6 +41,26 @@ func (h *HotspotUser) Register(g *gin.RouterGroup) {
 	users.POST("/bulk-delete", func(c *gin.Context) { mk(c).BulkDelete(c) })
 }
 
+// RegisterAdmin memasang endpoint reveal password (admin+operator). Dipanggil
+// dari routes.go di grup device-scoped ber-RequireRole.
+func (h *HotspotUser) RegisterAdmin(g *gin.RouterGroup) {
+	mk := func(c *gin.Context) *HotspotUser {
+		cs := mustClients(c)
+		return NewHotspotUser(cs.Hot, cs.WF)
+	}
+	g.GET("/hotspot/users/:id/password", func(c *gin.Context) { mk(c).RevealPassword(c) })
+}
+
+// RevealPassword mengembalikan password plaintext sebuah hotspot user dari RouterOS.
+func (h *HotspotUser) RevealPassword(c *gin.Context) {
+	u, err := h.Hot.UserByID(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		WriteErr(c, err)
+		return
+	}
+	WriteOK(c, dto.RevealPasswordResponse{Password: u.Password})
+}
+
 func (h *HotspotUser) List(c *gin.Context) {
 	ctx := c.Request.Context()
 	var (

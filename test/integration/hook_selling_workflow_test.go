@@ -74,7 +74,7 @@ func setupSellingEnv(t *testing.T, mode, validity string, price, sellPrice int) 
 
 	r := gin.New()
 	g := r.Group("/api/v1")
-	handler.NewHookLogin(devStore, txStore, profStore, log).Register(g)
+	handler.NewHookLogin(devStore, txStore, profStore, "", log).Register(g)
 	handler.NewReport(devStore, txStore).Register(g.Group("/devices/:device_id"))
 
 	return sellingEnv{

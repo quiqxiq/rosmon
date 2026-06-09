@@ -1,0 +1,76 @@
+RegistrationResponse:
+  type: object
+  description: |
+    Pengajuan pemasangan dari calon pelanggan. Status:
+    `pending` | `approved` | `rejected` | `cancelled`.
+  required: [id, full_name, phone, address, status, created_at, updated_at]
+  properties:
+    id:               { type: integer, format: int64, example: 12 }
+    full_name:        { type: string, example: "Pak Budi" }
+    phone:            { type: string, example: "081234567890" }
+    address:          { type: string, example: "Jl. Mawar No. 1" }
+    area:             { type: string, example: "RT01/RW02" }
+    notes:            { type: string }
+    service_type:     { type: string, enum: [pppoe, hotspot], description: Layanan yang dipilih (hint) }
+    ppp_profile_id:   { type: integer, format: int64, nullable: true, description: Paket pppoe yang diminta (hint) }
+    hotspot_profile_id: { type: integer, format: int64, nullable: true, description: Paket hotspot yang diminta (hint) }
+    device_id:        { type: integer, format: int64, nullable: true, description: Router/area yang diminta (hint) }
+    status:
+      type: string
+      enum: [pending, approved, rejected, cancelled]
+      example: "pending"
+    rejection_reason: { type: string }
+    reviewed_by:      { type: integer, format: int64, nullable: true }
+    reviewed_at:      { type: string, format: date-time, nullable: true }
+    assigned_to:      { type: integer, format: int64, nullable: true, description: Operator yang ditugaskan }
+    scheduled_at:     { type: string, format: date-time, nullable: true, description: Jadwal pemasangan }
+    installed_at:     { type: string, format: date-time, nullable: true }
+    customer_id:      { type: integer, format: int64, nullable: true, description: Di-set saat approve/install }
+    created_at:       { type: string, format: date-time }
+    updated_at:       { type: string, format: date-time }
+
+RegistrationCreateRequest:
+  type: object
+  required: [full_name, phone, address]
+  properties:
+    full_name:      { type: string, minLength: 2, maxLength: 200, example: "Pak Budi" }
+    phone:          { type: string, minLength: 3, maxLength: 20, example: "081234567890" }
+    address:        { type: string, minLength: 3, maxLength: 2000, example: "Jl. Mawar No. 1" }
+    area:           { type: string, maxLength: 100, example: "RT01/RW02" }
+    notes:          { type: string, maxLength: 2000 }
+    service_type:   { type: string, enum: [pppoe, hotspot], description: Layanan yang dipilih (opsional) }
+    ppp_profile_id: { type: integer, format: int64, description: Paket pppoe yang dipilih (opsional) }
+    hotspot_profile_id: { type: integer, format: int64, description: Paket hotspot yang dipilih (opsional) }
+    device_id:      { type: integer, format: int64, description: Router/area yang diminta (opsional) }
+
+RegistrationApproveRequest:
+  type: object
+  description: Jadwal pemasangan opsional.
+  properties:
+    scheduled_at: { type: string, format: date-time, example: "2026-06-01T09:00:00+07:00" }
+
+RegistrationRejectRequest:
+  type: object
+  required: [reason]
+  properties:
+    reason: { type: string, minLength: 1, maxLength: 2000, example: "Area belum tercover jaringan" }
+
+RegistrationAssignRequest:
+  type: object
+  required: [assigned_to]
+  properties:
+    assigned_to:  { type: integer, format: int64, example: 3, description: User ID operator }
+    scheduled_at: { type: string, format: date-time }
+
+RegistrationCompleteInstallRequest:
+  type: object
+  description: Detail provisioning final yang diisi operator saat instalasi selesai.
+  required: [device_id, service_type, mikrotik_username, mikrotik_password]
+  properties:
+    device_id:         { type: integer, format: int64, example: 1 }
+    service_type:      { type: string, enum: [pppoe, hotspot], example: "pppoe" }
+    ppp_profile_id:    { type: integer, format: int64, description: Wajib untuk pppoe }
+    hotspot_profile_id: { type: integer, format: int64, description: Wajib untuk hotspot }
+    mikrotik_username: { type: string, minLength: 1, maxLength: 100, example: "budi-001" }
+    mikrotik_password: { type: string, minLength: 1, maxLength: 200 }
+    billing_day:       { type: integer, minimum: 1, maximum: 28 }

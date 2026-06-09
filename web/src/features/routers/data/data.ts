@@ -1,9 +1,8 @@
-import { type ColumnDef } from '@tanstack/react-table'
 import type { RouterPublicView } from '../api/schema'
 
 // ── Status configuration ──────────────────────────────────────────────────
 
-type RouterStatusKey = RouterPublicView['status'] | 'connecting'
+type RouterStatusKey = RouterPublicView['status']
 
 export const routerStatusConfig: Record<
   RouterStatusKey,
@@ -21,55 +20,10 @@ export const routerStatusConfig: Record<
 export interface RouterViewModel {
   id: number
   name: string
-  ip_address: string
-  api_port: number
-  api_username: string
+  host: string
+  port: number
+  username: string
   status: RouterPublicView['status']
   statusLabel: string
   lastSeenAt: string
-  notes: string | null
 }
-
-// ── TanStack Table column definitions ─────────────────────────────────────
-
-export const routerColumns: ColumnDef<RouterViewModel>[] = [
-  {
-    accessorKey: 'name',
-    header: 'Name',
-    enableSorting: true,
-  },
-  {
-    accessorKey: 'ip_address',
-    header: 'IP Address',
-  },
-  {
-    accessorKey: 'api_port',
-    header: 'API Port',
-  },
-  {
-    accessorKey: 'api_username',
-    header: 'API Username',
-  },
-  {
-    accessorKey: 'status',
-    header: 'Status',
-    cell: ({ row }) => {
-      const status = row.original.status
-      const config = routerStatusConfig[status]
-      return config?.label ?? status
-    },
-  },
-  {
-    accessorKey: 'lastSeenAt',
-    header: 'Last Seen',
-  },
-  {
-    accessorKey: 'notes',
-    header: 'Notes',
-    cell: ({ row }) => {
-      const notes = row.original.notes
-      if (!notes) return '\u2014'
-      return notes.length > 50 ? notes.slice(0, 50) + '...' : notes
-    },
-  },
-]

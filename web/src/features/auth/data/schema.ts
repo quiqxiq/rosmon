@@ -1,10 +1,9 @@
 import { z } from 'zod'
 
-// Source of truth: internal/api/handlers/auth_handler.go +
-// internal/services/auth_service.go (NOT the OpenAPI yaml — yaml is stale).
-// Backend is single-tenant: there is no tenant_id, tenant_slug, or owner role.
+// Source of truth: service/auth/errors.go (RBAC 3-role: admin > operator >
+// viewer) + service/auth/service.go. The JWT access token carries `rol`.
 
-export const UserRoleSchema = z.enum(['admin', 'staff'])
+export const UserRoleSchema = z.enum(['admin', 'operator', 'viewer'])
 export type UserRoleT = z.infer<typeof UserRoleSchema>
 
 // Mirror of services.UserView — the shape returned by /auth/me and

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -166,15 +167,16 @@ func (m *Manager) removeInternal(deviceID uint, wait bool) {
 // di-toggle via env DEVICE_TLS_INSECURE=true (untuk router dengan
 // self-signed cert). Default strict TLS 1.2+.
 func (m *Manager) connect(d model.MikrotikDevice) error {
+	addr := d.Host + ":" + strconv.Itoa(d.Port)
 	opts := roslib.Options{
-		Address:        d.Address,
+		Address:        addr,
 		Username:       d.Username,
 		Password:       d.Password,
 		Logger:         m.log,
 		OnStatusChange: m.makeStatusHook(d),
 	}
 	if d.UseTLS {
-		opts.TLS = buildTLSConfig(d.Address)
+		opts.TLS = buildTLSConfig(addr)
 	}
 	dev, err := roslib.New(m.ctx, opts)
 	if err != nil {

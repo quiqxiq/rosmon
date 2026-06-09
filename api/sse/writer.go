@@ -29,7 +29,19 @@ const KeepaliveInterval = 15 * time.Second
 //
 //	: keepalive
 //	<blank line>
+// StreamFiltered sama dengan Stream tetapi hanya menulis event yang lolos
+// `keep`. Dipakai untuk menyajikan beberapa view ter-filter (mis. queue
+// all/parent/static/dynamic, interface per-type) dari SATU broker/stream
+// upstream — filtering dilakukan di sisi Go, bukan stream terpisah ke router.
+func StreamFiltered(c *gin.Context, broker *Broker, keep func(Event) bool) {
+	streamWith(c, broker, keep)
+}
+
 func Stream(c *gin.Context, broker *Broker) {
+	streamWith(c, broker, nil)
+}
+
+func streamWith(c *gin.Context, broker *Broker, keep func(Event) bool) {
 	clientID := c.GetString("request_id")
 	if clientID == "" {
 		clientID = c.ClientIP() + ":" + fmt.Sprint(time.Now().UnixNano())
@@ -64,6 +76,9 @@ func Stream(c *gin.Context, broker *Broker) {
 		case ev, ok := <-ch:
 			if !ok {
 				return
+			}
+			if keep != nil && !keep(ev) {
+				continue
 			}
 			writeEvent(w, ev)
 		case <-keepalive.C:

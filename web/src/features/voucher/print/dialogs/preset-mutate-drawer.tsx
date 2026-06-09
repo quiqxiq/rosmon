@@ -1,4 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
+import { useHotspotServers } from '@/features/voucher/generate/api/queries'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -11,8 +16,16 @@ import { useActiveRouterId } from '@/stores/active-router-store'
 import { useQuickPrintPresetsMetaStore } from '@/stores/quick-print-presets-meta-store'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -38,46 +51,83 @@ import {
 import { presetToApi } from '../lib/preset-mapping'
 import { usePresetsDialogStore } from '../store/presets-dialog-store'
 
+// ── Constants ────────────────────────────────────────────────────────────────
+
 const COLOR_OPTIONS: PresetColor[] = [
-  'blue',
-  'indigo',
-  'purple',
-  'pink',
-  'red',
-  'amber',
-  'green',
-  'teal',
-  'cyan',
-  'sky',
+  'blue', 'indigo', 'purple', 'pink', 'red',
+  'amber', 'green', 'teal', 'cyan', 'sky',
 ]
 
 const CHAR_SETS: Array<{ label: string; value: QuickPrintPreset['charSet'] }> = [
-  { label: 'Lower (abcd)', value: 'lower' },
-  { label: 'Upper (ABCD)', value: 'upper' },
-  { label: 'Upper + Lower (aBcD)', value: 'upplow' },
-  { label: 'Number + Lower (5ab2c)', value: 'mix' },
-  { label: 'Number + Upper (5AB2C)', value: 'mix1' },
-  { label: 'Number + Upper + Lower (5aB2C)', value: 'mix2' },
-  { label: 'Number Only (1234)', value: 'num' },
+  { label: 'Huruf Kecil (abcd)', value: 'lower' },
+  { label: 'Huruf Besar (ABCD)', value: 'upper' },
+  { label: 'Huruf Besar+Kecil (aBcD)', value: 'mixed' },
+  { label: 'Angka Saja (1234)', value: 'number' },
+  { label: 'Angka+Huruf Kecil (5ab2c)', value: 'lower_number' },
+  { label: 'Angka+Huruf Besar (5AB2C)', value: 'upper_number' },
+  { label: 'Angka+Besar+Kecil (5aB2C)', value: 'mixed_number' },
 ]
 
-const SERVERS = ['all', 'HS-01', 'HS-02', 'HS-03']
-
-const USER_LENGTHS = [3, 4, 5, 6, 7, 8]
-
+const USER_LENGTHS = [4, 5, 6, 7, 8, 10, 12]
 const DATA_UNITS: Array<QuickPrintPreset['dataLimitUnit']> = ['MB', 'GB']
 
-function emptyPreset(profileFallback: string): QuickPrintPreset {
+// ── Schema ──────────────────────────────────────────────────────────────────
+
+const presetFormSchema = z.object({
+  name: z.string().min(1, 'Internal name wajib diisi'),
+  package: z.string().min(1, 'Display label wajib diisi'),
+  color: z.enum(['blue', 'indigo', 'purple', 'pink', 'red', 'amber', 'green', 'teal', 'cyan', 'sky']),
+  server: z.string(),
+  profile: z.string(),
+  userMode: z.enum(['up', 'vc']),
+  userLength: z.number(),
+  charSet: z.enum(['lower', 'upper', 'mixed', 'number', 'lower_number', 'upper_number', 'mixed_number']),
+  prefix: z.string(),
+  timeLimit: z.string(),
+  dataLimit: z.number(),
+  dataLimitUnit: z.enum(['MB', 'GB']),
+  validity: z.string(),
+  price: z.number(),
+  sellingPrice: z.number(),
+  lockUser: z.boolean(),
+})
+
+type PresetFormValues = z.infer<typeof presetFormSchema>
+
+function defaultValues(
+  profileFallback: string,
+  target?: QuickPrintPreset | null,
+): PresetFormValues {
+  if (target) {
+    return {
+      name: target.name,
+      package: target.package,
+      color: target.color,
+      server: target.server,
+      profile: target.profile,
+      userMode: target.userMode,
+      userLength: target.userLength,
+      charSet: target.charSet,
+      prefix: target.prefix,
+      timeLimit: target.timeLimit,
+      dataLimit: target.dataLimit,
+      dataLimitUnit: target.dataLimitUnit,
+      validity: target.validity,
+      price: target.price,
+      sellingPrice: target.sellingPrice,
+      lockUser: target.lockUser,
+    }
+  }
   return {
-    id: '',
     name: 'QPNew',
     package: 'New Package',
-    server: 'HS-01',
-    userMode: 'up',
-    userLength: 5,
-    prefix: '',
-    charSet: 'mix',
+    color: 'blue',
+    server: 'all',
     profile: profileFallback,
+    userMode: 'up',
+    userLength: 6,
+    charSet: 'lower_number',
+    prefix: '',
     timeLimit: '1h',
     dataLimit: 0,
     dataLimitUnit: 'MB',
@@ -85,9 +135,10 @@ function emptyPreset(profileFallback: string): QuickPrintPreset {
     price: 0,
     sellingPrice: 0,
     lockUser: true,
-    color: 'blue',
   }
 }
+
+// ── Root ─────────────────────────────────────────────────────────────────────
 
 export function PresetMutateDrawer() {
   const { mode, target, close } = usePresetsDialogStore()
@@ -106,6 +157,8 @@ export function PresetMutateDrawer() {
   )
 }
 
+// ── Form ─────────────────────────────────────────────────────────────────────
+
 type PresetFormProps = {
   mode: 'add' | 'edit'
   target: QuickPrintPreset | null
@@ -114,106 +167,86 @@ type PresetFormProps = {
 
 function PresetForm({ mode, target, onClose }: PresetFormProps) {
   const routerId = useActiveRouterId()
-  // Live profiles list — used to populate the picker and to auto-fill
-  // pricing/validity when the user picks a profile. The pricing fields
-  // are RouterOS strings; we parse them to numbers at sync time.
-  // Wrapped in useMemo so the `?? []` fallback keeps a stable reference
-  // when the query has no data yet, otherwise downstream useMemos
-  // re-run every render.
   const profilesQuery = useHotspotProfiles(routerId ?? 0)
   const profiles = useMemo(
     () => profilesQuery.data ?? [],
     [profilesQuery.data],
   )
+
+  const serversQuery = useHotspotServers(routerId ?? 0)
+  const activeServers: { name: string }[] = useMemo(() => [
+    { name: 'all' },
+    ...(serversQuery.data ?? []).filter((s) => !s.disabled),
+  ], [serversQuery.data])
   const setMeta = useQuickPrintPresetsMetaStore((s) => s.set)
   const renameMeta = useQuickPrintPresetsMetaStore((s) => s.rename)
 
-  // The drawer is rendered only when a router is selected (the parent
-  // page gates this), but we still pass `0` defensively so the hooks
-  // satisfy their `enabled` guard either way.
   const createMutation = useCreateQuickPrintPackage(routerId ?? 0)
   const updateMutation = useUpdateQuickPrintPackage(routerId ?? 0)
   const isPending = createMutation.isPending || updateMutation.isPending
 
   const profileFallback = profiles[0]?.name ?? ''
-  const [draft, setDraft] = useState<QuickPrintPreset>(() => {
-    if (mode === 'edit' && target) return target
-    return emptyPreset(profileFallback)
+  const form = useForm<PresetFormValues>({
+    resolver: zodResolver(presetFormSchema),
+    defaultValues: defaultValues(profileFallback, mode === 'edit' ? target : null),
   })
 
-  const profileItem = useMemo(
-    () => profiles.find((p) => p.name === draft.profile),
-    [profiles, draft.profile]
+  const selectedProfile = useMemo(
+    () => profiles.find((p) => p.name === form.watch('profile')),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [profiles, form.watch('profile')],
   )
 
-  const update = <K extends keyof QuickPrintPreset>(
-    key: K,
-    value: QuickPrintPreset[K]
-  ) => {
-    setDraft((prev) => ({ ...prev, [key]: value }))
-  }
-
-  const handleProfileChange = (name: string) => {
+  const handleProfileChange = (name: string, onChange: (v: string) => void) => {
+    onChange(name)
     const p = profiles.find((it) => it.name === name)
-    setDraft((prev) => ({
-      ...prev,
-      profile: name,
-      validity: p?.validity ?? prev.validity,
-      price: p?.price ? parseRouterOSNumber(p.price) : prev.price,
-      sellingPrice: p?.selling_price
-        ? parseRouterOSNumber(p.selling_price)
-        : prev.sellingPrice,
-    }))
+    if (p) {
+      if (p.validity) form.setValue('validity', p.validity)
+      if (p.price) form.setValue('price', parseRouterOSNumber(p.price))
+      if (p.selling_price)
+        form.setValue('sellingPrice', parseRouterOSNumber(p.selling_price))
+    }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!draft.name.trim()) {
-      toast.error('Name is required')
-      return
-    }
+  const onSubmit = (values: PresetFormValues) => {
     if (routerId == null) {
       toast.error('Select a router first')
       return
     }
 
+    const draft: QuickPrintPreset = {
+      id: target?.id ?? '',
+      ...values,
+    }
     const apiBody = presetToApi(draft)
-    const meta = { color: draft.color, packageLabel: draft.package }
+    const meta = { color: values.color, packageLabel: values.package }
 
     if (mode === 'add') {
       createMutation.mutate(apiBody, {
         onSuccess: () => {
-          // Meta lives in localStorage and is keyed by `name`; write it
-          // AFTER the backend confirms the create so an offline failure
-          // doesn't leave orphaned color/label entries.
-          setMeta(draft.name, meta)
-          toast.success(`Preset '${draft.name}' added`)
+          setMeta(values.name, meta)
+          toast.success(`Preset '${values.name}' ditambahkan`)
           onClose()
         },
-        onError: (err) => {
-          toast.error('Failed to add preset', { description: err.message })
-        },
+        onError: (err) =>
+          toast.error('Gagal menambahkan preset', { description: err.message }),
       })
     } else if (mode === 'edit' && target) {
-      // Backend identifies packages by name → renaming is a PUT against
-      // the OLD name where body.name carries the NEW name. Mirror the
-      // rename in the meta store so the local color/label follows.
       updateMutation.mutate(
         { name: target.name, body: apiBody },
         {
           onSuccess: () => {
-            if (target.name !== draft.name) {
-              renameMeta(target.name, draft.name)
+            if (target.name !== values.name) {
+              renameMeta(target.name, values.name)
             }
-            setMeta(draft.name, meta)
-            toast.success(`Preset '${draft.name}' updated`)
+            setMeta(values.name, meta)
+            toast.success(`Preset '${values.name}' diperbarui`)
             onClose()
           },
-          onError: (err) => {
-            toast.error('Failed to update preset', {
+          onError: (err) =>
+            toast.error('Gagal memperbarui preset', {
               description: err.message,
-            })
-          },
+            }),
         },
       )
     }
@@ -221,256 +254,352 @@ function PresetForm({ mode, target, onClose }: PresetFormProps) {
 
   return (
     <SheetContent className='flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-md'>
-        <SheetHeader className='border-b'>
-          <SheetTitle>
-            {mode === 'add' ? 'Add Quick-Print Preset' : 'Edit Preset'}
-          </SheetTitle>
-          <SheetDescription>
-            Configure how a one-tap print batch is generated.
-          </SheetDescription>
-        </SheetHeader>
+      <SheetHeader className='border-b px-6 py-4'>
+        <SheetTitle>
+          {mode === 'add' ? 'Add Quick-Print Preset' : 'Edit Preset'}
+        </SheetTitle>
+        <SheetDescription>
+          Configure how a one-tap print batch is generated.
+        </SheetDescription>
+      </SheetHeader>
 
+      <Form {...form}>
         <form
           id='preset-form'
-          className='flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4'
-          onSubmit={handleSubmit}
+          className='flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5'
+          onSubmit={form.handleSubmit(onSubmit)}
         >
+          {/* Internal Name + Display Label */}
           <div className='grid grid-cols-2 gap-3'>
-            <Field label='Internal Name'>
-              <Input
-                value={draft.name}
-                onChange={(e) => update('name', e.target.value)}
-                placeholder='QP1'
-              />
-            </Field>
-            <Field label='Display Label'>
-              <Input
-                value={draft.package}
-                onChange={(e) => update('package', e.target.value)}
-                placeholder='1Jam-1K'
-              />
-            </Field>
+            <FormField
+              control={form.control}
+              name='name'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Internal Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder='QP1' {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name='package'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Display Label</FormLabel>
+                  <FormControl>
+                    <Input placeholder='1Jam-1K' {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
 
-          <Field label='Color'>
-            <div className='flex flex-wrap gap-1.5'>
-              {COLOR_OPTIONS.map((c) => {
-                const cls = colorClassMap[c]
-                return (
-                  <button
-                    type='button'
-                    key={c}
-                    onClick={() => update('color', c)}
-                    className={cn(
-                      'size-7 rounded-md border-2 transition-all',
-                      cls.bg,
-                      draft.color === c
-                        ? cls.border + ' ring-2 ring-offset-1 ring-foreground/20'
-                        : 'border-transparent'
-                    )}
-                    title={c}
-                  />
-                )
-              })}
-            </div>
-          </Field>
-
-          <Field label='Server'>
-            <Select
-              value={draft.server}
-              onValueChange={(v) => update('server', v)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SERVERS.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-
-          <Field label='Profile'>
-            <Select
-              value={draft.profile}
-              onValueChange={handleProfileChange}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder='Select profile' />
-              </SelectTrigger>
-              <SelectContent>
-                {profiles.map((p) => (
-                  <SelectItem key={p.id} value={p.name}>
-                    {p.name} · {p.validity}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {profileItem && (
-              <p className='text-[11px] text-muted-foreground'>
-                Selling price syncs from selected profile.
-              </p>
+          {/* Color picker — custom UI wrapped in FormField */}
+          <FormField
+            control={form.control}
+            name='color'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Color</FormLabel>
+                <FormControl>
+                  <div className='flex flex-wrap gap-1.5'>
+                    {COLOR_OPTIONS.map((c) => {
+                      const cls = colorClassMap[c]
+                      return (
+                        <button
+                          type='button'
+                          key={c}
+                          onClick={() => field.onChange(c)}
+                          className={cn(
+                            'size-7 rounded-md border-2 transition-all',
+                            cls.bg,
+                            field.value === c
+                              ? cls.border +
+                                  ' ring-2 ring-offset-1 ring-foreground/20'
+                              : 'border-transparent',
+                          )}
+                          title={c}
+                        />
+                      )
+                    })}
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
             )}
-          </Field>
+          />
 
+          {/* Server */}
+          <FormField
+            control={form.control}
+            name='server'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Server</FormLabel>
+                {serversQuery.isLoading ? (
+                  <Skeleton className='h-9 w-full' />
+                ) : (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {activeServers.map((s) => (
+                        <SelectItem key={s.name} value={s.name}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Profile */}
+          <FormField
+            control={form.control}
+            name='profile'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Profile</FormLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={(v) => handleProfileChange(v, field.onChange)}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder='Select profile' />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {profiles.map((p) => (
+                      <SelectItem key={p.id} value={p.name}>
+                        {p.name} · {p.validity}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedProfile && (
+                  <FormDescription>
+                    Selling price syncs from selected profile.
+                  </FormDescription>
+                )}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* User Mode + User Length */}
           <div className='grid grid-cols-2 gap-3'>
-            <Field label='User Mode'>
-              <Select
-                value={draft.userMode}
-                onValueChange={(v) =>
-                  update('userMode', v as QuickPrintPreset['userMode'])
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value='up'>User & Password</SelectItem>
-                  <SelectItem value='vc'>Voucher Code</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label='User Length'>
-              <Select
-                value={String(draft.userLength)}
-                onValueChange={(v) => update('userLength', Number(v))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {USER_LENGTHS.map((n) => (
-                    <SelectItem key={n} value={String(n)}>
-                      {n}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
+            <FormField
+              control={form.control}
+              name='userMode'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>User Mode</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value='up'>User &amp; Password</SelectItem>
+                      <SelectItem value='vc'>Voucher Code</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name='userLength'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>User Length</FormLabel>
+                  <Select
+                    value={String(field.value)}
+                    onValueChange={(v) => field.onChange(Number(v))}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {USER_LENGTHS.map((n) => (
+                        <SelectItem key={n} value={String(n)}>
+                          {n}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
 
-          <Field label='Char Set'>
-            <Select
-              value={draft.charSet}
-              onValueChange={(v) =>
-                update('charSet', v as QuickPrintPreset['charSet'])
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CHAR_SETS.map((c) => (
-                  <SelectItem key={c.value} value={c.value}>
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
+          {/* Char Set */}
+          <FormField
+            control={form.control}
+            name='charSet'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Char Set</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {CHAR_SETS.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>
+                        {c.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-          <Field label='Prefix'>
-            <Input
-              value={draft.prefix}
-              onChange={(e) => update('prefix', e.target.value)}
-              placeholder='Optional, e.g. wifi-'
-            />
-          </Field>
+          {/* Prefix */}
+          <FormField
+            control={form.control}
+            name='prefix'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Prefix</FormLabel>
+                <FormControl>
+                  <Input placeholder='Optional, e.g. wifi-' {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-          <Field label='Time Limit'>
-            <Input
-              value={draft.timeLimit}
-              onChange={(e) => update('timeLimit', e.target.value)}
-              placeholder='1h, 30m, 1d, 0 = unlimited'
-            />
-          </Field>
+          {/* Time Limit */}
+          <FormField
+            control={form.control}
+            name='timeLimit'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Time Limit</FormLabel>
+                <FormControl>
+                  <Input placeholder='1h, 30m, 1d, 0 = unlimited' {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
+          {/* Data Limit + Unit */}
           <div className='grid grid-cols-[1fr_90px] gap-3'>
-            <Field label='Data Limit'>
-              <Input
-                type='number'
-                min={0}
-                value={draft.dataLimit}
-                onChange={(e) =>
-                  update(
-                    'dataLimit',
-                    Math.max(0, Number.parseInt(e.target.value || '0', 10))
-                  )
-                }
-              />
-            </Field>
-            <Field label='Unit'>
-              <Select
-                value={draft.dataLimitUnit}
-                onValueChange={(v) =>
-                  update('dataLimitUnit', v as QuickPrintPreset['dataLimitUnit'])
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DATA_UNITS.map((u) => (
-                    <SelectItem key={u} value={u}>
-                      {u}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
-
-          <div className='flex items-center justify-between rounded-md border p-3'>
-            <div className='flex flex-col gap-0.5'>
-              <Label className='text-sm'>Lock User</Label>
-              <span className='text-[11px] text-muted-foreground'>
-                Bind voucher to first device that signs in.
-              </span>
-            </div>
-            <Switch
-              checked={draft.lockUser}
-              onCheckedChange={(v) => update('lockUser', v)}
+            <FormField
+              control={form.control}
+              name='dataLimit'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Data Limit</FormLabel>
+                  <FormControl>
+                    <Input
+                      type='number'
+                      min={0}
+                      value={field.value}
+                      onChange={(e) =>
+                        field.onChange(
+                          Math.max(
+                            0,
+                            Number.parseInt(e.target.value || '0', 10),
+                          ),
+                        )
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name='dataLimitUnit'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Unit</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {DATA_UNITS.map((u) => (
+                        <SelectItem key={u} value={u}>
+                          {u}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
           </div>
+
+          {/* Lock User */}
+          <FormField
+            control={form.control}
+            name='lockUser'
+            render={({ field }) => (
+              <FormItem className='flex items-center justify-between rounded-md border p-3'>
+                <div className='flex flex-col gap-0.5'>
+                  <FormLabel>Lock User</FormLabel>
+                  <FormDescription>
+                    Bind voucher to first device that signs in.
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
         </form>
+      </Form>
 
-        <SheetFooter className='border-t'>
-          <SheetClose asChild>
-            <Button variant='outline' size='sm' disabled={isPending}>
-              Cancel
-            </Button>
-          </SheetClose>
-          <Button
-            type='submit'
-            size='sm'
-            form='preset-form'
-            disabled={isPending}
-            className='gap-1.5'
-          >
-            {isPending && <Loader2 className='size-4 animate-spin' />}
-            {mode === 'add' ? 'Add Preset' : 'Save Changes'}
+      <SheetFooter className='border-t px-6 py-4'>
+        <SheetClose asChild>
+          <Button variant='outline' size='sm' disabled={isPending}>
+            Cancel
           </Button>
-        </SheetFooter>
+        </SheetClose>
+        <Button
+          type='submit'
+          size='sm'
+          form='preset-form'
+          disabled={isPending}
+          className='gap-1.5'
+        >
+          {isPending && <Loader2 className='size-4 animate-spin' />}
+          {mode === 'add' ? 'Add Preset' : 'Save Changes'}
+        </Button>
+      </SheetFooter>
     </SheetContent>
-  )
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className='flex flex-col gap-1.5'>
-      <Label className='text-xs font-medium text-muted-foreground'>
-        {label}
-      </Label>
-      {children}
-    </div>
   )
 }

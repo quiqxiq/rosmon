@@ -56,3 +56,10 @@ type ActionResponse struct {
 	Action string `json:"action"`
 	Status string `json:"status"`
 }
+
+// RevealPasswordResponse dipakai endpoint reveal password (portal, subscription,
+// ppp secret, hotspot user) — HANYA di-mount pada grup ber-RequireRole(admin,
+// operator). Password TIDAK pernah masuk response list/detail biasa.
+type RevealPasswordResponse struct {
+	Password string `json:"password"`
+}

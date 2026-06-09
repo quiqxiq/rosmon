@@ -1,8 +1,9 @@
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
 import { type Row } from '@tanstack/react-table'
-import { Copy, Pencil, Power, RotateCw, Trash2 } from 'lucide-react'
+import { Copy, KeyRound, Pencil, Power, RotateCw, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useActiveRouterId } from '@/stores/active-router-store'
+import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -28,6 +29,8 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const routerId = useActiveRouterId() ?? 0
   const updateMutation = useUpdateHotspotUser(routerId)
   const resetMutation = useResetHotspotUserCounters(routerId)
+  const role = useAuthStore((s) => s.auth.user?.role)
+  const canRevealPassword = role === 'admin' || role === 'operator'
 
   const handleCopyVoucher = () => {
     navigator.clipboard.writeText(`${user.name}\n${user.password}`)
@@ -102,6 +105,14 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           <Copy className='size-4' />
           Copy Credentials
         </DropdownMenuItem>
+        {canRevealPassword && (
+          <DropdownMenuItem
+            onClick={() => openDialog('password', { target: user })}
+          >
+            <KeyRound className='size-4' />
+            Lihat Password
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem
           onClick={handleToggleEnabled}
           disabled={updateMutation.isPending}

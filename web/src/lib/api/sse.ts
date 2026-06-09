@@ -16,6 +16,12 @@ type UseSSEOptions = {
   getToken?: () => string
   // Cap on the exponential reconnect delay (ms). Default 30s.
   maxBackoffMs?: number
+  // Named SSE event types to listen for, in addition to the default
+  // (unnamed) `message` channel. The backend writes named frames
+  // (`event: traffic`, `event: stats`, `event: log` …) which the default
+  // `onmessage` handler does NOT receive per the SSE spec — so every
+  // consumer of a named stream MUST pass the relevant name(s) here.
+  events?: string[]
 }
 
 // `useSSE` opens an EventSource to `path` (relative to VITE_API_URL),
@@ -44,9 +50,11 @@ export function useSSE<T = unknown>(
   // (NOT during render) per React 19 purity rules.
   const onEventRef = useRef(onEvent)
   const getTokenRef = useRef(opts.getToken)
+  const eventsRef = useRef(opts.events)
   useEffect(() => {
     onEventRef.current = onEvent
     getTokenRef.current = opts.getToken
+    eventsRef.current = opts.events
   })
 
   const maxBackoffMs = opts.maxBackoffMs ?? 30_000
@@ -93,7 +101,9 @@ export function useSSE<T = unknown>(
         setError(null)
       }
 
-      es.onmessage = (ev) => {
+      // Shared frame handler for both the default `message` channel and
+      // any named event channels declared via `opts.events`.
+      const handle = (ev: MessageEvent) => {
         if (cancelled) return
         try {
           const parsed = JSON.parse(ev.data) as T
@@ -107,6 +117,13 @@ export function useSSE<T = unknown>(
             console.warn('[useSSE] malformed event payload', err, ev.data)
           }
         }
+      }
+
+      es.onmessage = handle
+      // Named events (`event: traffic|stats|log` …) are NOT delivered to
+      // `onmessage`; register an explicit listener for each declared name.
+      for (const name of eventsRef.current ?? []) {
+        es.addEventListener(name, handle as EventListener)
       }
 
       es.onerror = () => {

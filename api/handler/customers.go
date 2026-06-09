@@ -8,17 +8,26 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/quiqxiq/rosmon/api/dto"
 	"github.com/quiqxiq/rosmon/api/middleware"
+	"github.com/quiqxiq/rosmon/service/audit"
+	"github.com/quiqxiq/rosmon/service/auth"
+	"github.com/quiqxiq/rosmon/service/portal"
 	"github.com/quiqxiq/rosmon/store"
 	"github.com/quiqxiq/rosmon/store/model"
+	"github.com/sirupsen/logrus"
 )
 
 // Customers handler untuk endpoint /customers (top-level, tidak per-device).
 // Resource ini murni DB — tidak ada interaksi dengan router MikroTik.
 type Customers struct {
 	Store store.CustomerStore
+	// PortalAuth + Audit opsional (nil-safe) — dipakai endpoint admin
+	// set-portal-password (onboarding pelanggan ke customer portal).
+	PortalAuth *portal.CustomerAuth
+	Audit      store.AuditLogStore
+	Log        *logrus.Logger
 }
 
-func NewCustomers(s store.CustomerStore) *Customers { return &Customers{Store: s} }
+func NewCustomers(s store.CustomerStore) *Customers { return &Customers{Store: s, Log: logrus.New()} }
 
 func (h *Customers) Register(g *gin.RouterGroup) {
 	r := g.Group("/customers")
@@ -26,7 +35,117 @@ func (h *Customers) Register(g *gin.RouterGroup) {
 	r.POST("", h.Create)
 	r.GET("/:id", h.Get)
 	r.PUT("/:id", h.Update)
+}
+
+// RegisterMutate mount endpoint yang butuh admin/operator: DELETE /customers/:id.
+func (h *Customers) RegisterMutate(g *gin.RouterGroup) {
+	r := g.Group("/customers")
 	r.DELETE("/:id", h.Delete)
+}
+
+// RegisterAdmin memasang endpoint sensitif (admin+operator) — dipanggil dari
+// routes.go di grup ber-RequireRole.
+func (h *Customers) RegisterAdmin(g *gin.RouterGroup) {
+	g.POST("/customers/:id/portal-password", h.SetPortalPassword)
+	g.GET("/customers/:id/portal-password", h.RevealPortalPassword)
+	g.POST("/customers/:id/portal-password/reset", h.ResetPortalPassword)
+}
+
+// RevealPortalPassword mengembalikan password portal plaintext (admin+operator).
+func (h *Customers) RevealPortalPassword(c *gin.Context) {
+	if h.PortalAuth == nil {
+		c.AbortWithStatusJSON(http.StatusServiceUnavailable,
+			dto.Err("SERVICE_UNAVAILABLE", "customer portal not configured", c.Request.URL.Path))
+		return
+	}
+	id, ok := parseCustomerID(c)
+	if !ok {
+		return
+	}
+	pw, err := h.PortalAuth.RevealPassword(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, store.ErrCustomerNotFound) {
+			c.AbortWithStatusJSON(http.StatusNotFound,
+				dto.Err("NOT_FOUND", "customer not found", c.Request.URL.Path))
+			return
+		}
+		WriteErr(c, err)
+		return
+	}
+	WriteOK(c, dto.RevealPasswordResponse{Password: pw})
+}
+
+// ResetPortalPassword men-generate password portal baru, menyimpannya, dan
+// mengembalikan plaintext-nya sekali (admin+operator).
+func (h *Customers) ResetPortalPassword(c *gin.Context) {
+	if h.PortalAuth == nil {
+		c.AbortWithStatusJSON(http.StatusServiceUnavailable,
+			dto.Err("SERVICE_UNAVAILABLE", "customer portal not configured", c.Request.URL.Path))
+		return
+	}
+	id, ok := parseCustomerID(c)
+	if !ok {
+		return
+	}
+	pw, err := h.PortalAuth.GenerateAndSetPassword(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, store.ErrCustomerNotFound) {
+			c.AbortWithStatusJSON(http.StatusNotFound,
+				dto.Err("NOT_FOUND", "customer not found", c.Request.URL.Path))
+			return
+		}
+		WriteErr(c, err)
+		return
+	}
+	if h.Audit != nil {
+		var actor *uint
+		if claims, okC := middleware.ClaimsFrom(c); okC {
+			uid := claims.UserID
+			actor = &uid
+		}
+		audit.Log(c.Request.Context(), h.Audit, nil, actor, "reset_portal_password", "customer", id, nil, nil)
+	}
+	WriteOK(c, dto.RevealPasswordResponse{Password: pw})
+}
+
+// SetPortalPassword — admin set/reset password login portal pelanggan.
+func (h *Customers) SetPortalPassword(c *gin.Context) {
+	if h.PortalAuth == nil {
+		c.AbortWithStatusJSON(http.StatusServiceUnavailable,
+			dto.Err("SERVICE_UNAVAILABLE", "customer portal not configured", c.Request.URL.Path))
+		return
+	}
+	id, ok := parseCustomerID(c)
+	if !ok {
+		return
+	}
+	var req dto.SetPortalPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		WriteValidationErr(c, err)
+		return
+	}
+	if err := h.PortalAuth.SetPassword(c.Request.Context(), id, req.Password); err != nil {
+		switch {
+		case errors.Is(err, store.ErrCustomerNotFound):
+			c.AbortWithStatusJSON(http.StatusNotFound,
+				dto.Err("NOT_FOUND", "customer not found", c.Request.URL.Path))
+		case errors.Is(err, auth.ErrWeakPassword):
+			c.AbortWithStatusJSON(http.StatusBadRequest,
+				dto.Err("INVALID_ARGUMENT", "password minimal 8 karakter", c.Request.URL.Path))
+		default:
+			WriteErr(c, err)
+		}
+		return
+	}
+	if h.Audit != nil {
+		var actor *uint
+		if claims, okC := middleware.ClaimsFrom(c); okC {
+			uid := claims.UserID
+			actor = &uid
+		}
+		audit.Log(c.Request.Context(), h.Audit, nil, actor, "set_portal_password", "customer", id, nil, nil)
+	}
+	WriteOK(c, gin.H{"message": "portal password set"})
 }
 
 func (h *Customers) List(c *gin.Context) {
@@ -142,12 +261,24 @@ func (h *Customers) Update(c *gin.Context) {
 		WriteErr(c, err)
 		return
 	}
+	audit.Log(c.Request.Context(), h.Audit, h.Log, actorFromCtx(c), "customer_updated", "customer", id,
+		map[string]string{"status": ""}, dto.FromModelCustomer(cust))
 	WriteOK(c, dto.FromModelCustomer(cust))
 }
 
 func (h *Customers) Delete(c *gin.Context) {
 	id, ok := parseCustomerID(c)
 	if !ok {
+		return
+	}
+	cust, err := h.Store.Get(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, store.ErrCustomerNotFound) {
+			c.AbortWithStatusJSON(http.StatusNotFound,
+				dto.Err("NOT_FOUND", "customer not found", c.Request.URL.Path))
+			return
+		}
+		WriteErr(c, err)
 		return
 	}
 	if err := h.Store.Delete(c.Request.Context(), id); err != nil {
@@ -159,6 +290,8 @@ func (h *Customers) Delete(c *gin.Context) {
 		WriteErr(c, err)
 		return
 	}
+	audit.Log(c.Request.Context(), h.Audit, h.Log, actorFromCtx(c), "customer_deleted", "customer", id,
+		dto.FromModelCustomer(cust), nil)
 	WriteNoContent(c)
 }
 

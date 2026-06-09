@@ -67,6 +67,18 @@ func (f *fakeProfileConfigStore) Get(ctx context.Context, id uint) (model.Hotspo
 	return model.HotspotProfile{}, store.ErrHotspotProfileNotFound
 }
 
+func (f *fakeProfileConfigStore) ListPublic(ctx context.Context) ([]model.HotspotProfile, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]model.HotspotProfile, 0)
+	for _, p := range f.byKey {
+		if p.IsPublic && p.Active && p.Role == "permanent" {
+			out = append(out, *p)
+		}
+	}
+	return out, nil
+}
+
 func (f *fakeProfileConfigStore) GetByName(ctx context.Context, deviceID uint, name string) (model.HotspotProfile, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

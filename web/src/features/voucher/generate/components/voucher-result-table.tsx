@@ -1,7 +1,8 @@
-import { Copy, Printer, QrCode } from 'lucide-react'
+import { Copy, Printer, Receipt } from 'lucide-react'
 import { toast } from 'sonner'
 import { useActiveRouterId } from '@/stores/active-router-store'
 import { useHotspotProfiles } from '@/features/hotspot/profiles/api/queries'
+import { useSystemSettings } from '@/features/settings/api/queries'
 import {
   parseRouterOSNumber,
 } from '@/features/hotspot/_shared/format'
@@ -46,6 +47,9 @@ export function VoucherResultTable({
   // the print metadata uses the same fallback as before.
   const profilesQuery = useHotspotProfiles(routerId)
   const profileItem = profilesQuery.data?.find((p) => p.name === profile)
+  const { data: settings } = useSystemSettings()
+  const settingValue = (key: string) =>
+    settings?.find((s) => s.key === key)?.value ?? ''
 
   const handleCopyAll = () => {
     const csv = vouchersToCsv(vouchers)
@@ -63,6 +67,8 @@ export function VoucherResultTable({
         server: server ?? 'all',
         validity: profileItem?.validity ?? '—',
         sellingPrice: parseRouterOSNumber(profileItem?.selling_price),
+        hotspotName: settingValue('general.company_name') || profile,
+        loginUrl: settingValue('general.hotspot_login_url'),
       },
     })
   }
@@ -116,10 +122,10 @@ export function VoucherResultTable({
             size='sm'
             variant='outline'
             className='gap-1.5'
-            onClick={() => handlePrint('qr')}
+            onClick={() => handlePrint('thermal')}
           >
-            <QrCode className='size-4' />
-            QR
+            <Receipt className='size-4' />
+            Thermal
           </Button>
           <Button
             size='sm'

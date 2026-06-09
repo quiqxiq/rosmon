@@ -121,6 +121,12 @@ export const qk = {
     ['report', 'resume', rid, year] as const,
   reportSummary: (rid: number) => ['report', 'summary', rid] as const,
 
+  // ────────────────────────── traffic history (InfluxDB) ──────────────────────────
+  interfaceHistory: (rid: number, range: string) =>
+    ['history', 'interfaces', rid, range] as const,
+  queueHistory: (rid: number, range: string) =>
+    ['history', 'queues', rid, range] as const,
+
   // ────────────────────────── quick-print ──────────────────────────
   quickPrintPackages: (rid: number) =>
     ['quick-print', 'packages', rid] as const,
@@ -164,4 +170,35 @@ export const qk = {
   reportSellingToday: (rid: number) => ['report', 'selling', 'today', rid] as const,
   reportSellingSummary: (rid: number, filters?: QKFilters) =>
     ['report', 'selling', 'summary', rid, filters ?? {}] as const,
+
+  // ────────────────────────── communications (Fase 0/1, admin) ──────────────────────────
+  messageTemplates: () => ['message-templates'] as const,
+  messageTemplate: (slug: string) => ['message-templates', slug] as const,
+  auditLogs: (filters?: QKFilters) => ['audit-logs', filters ?? {}] as const,
+  notificationsLog: (filters?: QKFilters) => ['notifications', filters ?? {}] as const,
+  whatsappStatus: () => ['whatsapp', 'status'] as const,
+  whatsappQR: () => ['whatsapp', 'qr'] as const,
+
+  // ────────────────────────── registrations (Fase 2, staff) ──────────────────────────
+  registrations: (filters?: QKFilters) => ['registrations', filters ?? {}] as const,
+  registration: (id: number) => ['registrations', id] as const,
+
+  // ────────────────────────── public packages (Fase 2, landing) ──────────────────────────
+  publicPackages: (serviceType?: string) =>
+    ['public-packages', serviceType ?? 'all'] as const,
+
+  // ────────────────────────── invoices & payments (admin) ──────────────────────────
+  invoices: (filters?: QKFilters) => ['invoices', filters ?? {}] as const,
+  invoice: (id: number) => ['invoices', id] as const,
+  invoicePayments: (invoiceId: number) => ['invoices', invoiceId, 'payments'] as const,
+  payments: (filters?: QKFilters) => ['payments', filters ?? {}] as const,
+  payment: (id: number) => ['payments', id] as const,
+
+  // ────────────────────────── customer portal (Fase 3, customer scope) ──────────────────────────
+  portalMe: () => ['portal', 'me'] as const,
+  portalSubscriptions: () => ['portal', 'subscriptions'] as const,
+  portalSubscription: (id: number) => ['portal', 'subscriptions', id] as const,
+  portalInvoices: (filters?: QKFilters) => ['portal', 'invoices', filters ?? {}] as const,
+  portalInvoice: (id: number) => ['portal', 'invoices', id] as const,
+  portalPayments: () => ['portal', 'payments'] as const,
 } as const

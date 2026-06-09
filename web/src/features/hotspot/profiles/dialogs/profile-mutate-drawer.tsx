@@ -1,10 +1,19 @@
-import { useState } from 'react'
+import { useMemo } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useActiveRouterId } from '@/stores/active-router-store'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import {
   Select,
   SelectContent,
@@ -21,6 +30,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Input } from '@/components/ui/input'
+import { InputCombobox } from '@/components/input-combobox'
+import { usePools } from '@/features/network/api/queries'
 import {
   useAddHotspotProfile,
   useUpdateHotspotProfile,
@@ -33,54 +45,47 @@ import { useProfilesDialogStore } from '../store/profiles-dialog-store'
 const SHARED_OPTIONS = ['1', '2', '3', '5', '10', 'unlimited']
 const PARENT_QUEUE_OPTIONS = ['none', 'global', 'hs-parent']
 
-// Local form draft. Field names match the API param shape so we can
-// submit the body with no transformation step. Numbers are kept as
-// numbers (API expects ints for price/selling_price).
-type ProfileDraft = {
-  name: string
-  rate_limit: string
-  shared_users: string
-  parent_queue: string
-  address_pool: string
-  validity: string
-  expire_mode: string
-  price: number
-  selling_price: number
-  lock_user: string
-  lock_server: string
-}
+// ── Schema ──────────────────────────────────────────────────────────────────
 
-function emptyDraft(): ProfileDraft {
+const hotspotProfileSchema = z.object({
+  name: z.string(),
+  rate_limit: z.string(),
+  shared_users: z.string(),
+  parent_queue: z.string(),
+  address_pool: z.string(),
+  validity: z.string(),
+  expire_mode: z.string(),
+  price: z.string(),
+  selling_price: z.string(),
+  lock_user: z.string(),
+  lock_server: z.string(),
+})
+
+const addSchema = hotspotProfileSchema.extend({
+  name: z.string().min(1, 'Profile name wajib diisi'),
+})
+
+type HotspotProfileFormValues = z.infer<typeof hotspotProfileSchema>
+
+function defaultValues(
+  target?: HotspotProfileViewModel | null,
+): HotspotProfileFormValues {
   return {
-    name: '',
-    rate_limit: '1M/1M',
-    shared_users: '1',
-    parent_queue: 'none',
-    address_pool: '',
-    validity: '1h',
-    expire_mode: 'rem',
-    price: 0,
-    selling_price: 0,
-    lock_user: 'enable',
-    lock_server: 'disable',
+    name: target?.name ?? '',
+    rate_limit: target?.rateLimit ?? '1M/1M',
+    shared_users: target?.sharedUsers ?? '1',
+    parent_queue: target?.parentQueue ?? 'none',
+    address_pool: target?.addressPool ?? '',
+    validity: target?.validity ?? '1h',
+    expire_mode: target?.expMode ?? 'rem',
+    price: target?.price != null ? String(target.price) : '0',
+    selling_price: target?.sellingPrice != null ? String(target.sellingPrice) : '0',
+    lock_user: target?.lockUser ? 'enable' : 'disable',
+    lock_server: target?.lockServer ? 'enable' : 'disable',
   }
 }
 
-function draftFromTarget(target: HotspotProfileViewModel): ProfileDraft {
-  return {
-    name: target.name,
-    rate_limit: target.rateLimit,
-    shared_users: target.sharedUsers || '1',
-    parent_queue: target.parentQueue || 'none',
-    address_pool: target.addressPool,
-    validity: target.validity,
-    expire_mode: target.expMode || 'rem',
-    price: target.price,
-    selling_price: target.sellingPrice,
-    lock_user: target.lockUser ? 'enable' : 'disable',
-    lock_server: target.lockServer ? 'enable' : 'disable',
-  }
-}
+// ── Root ─────────────────────────────────────────────────────────────────────
 
 export function ProfileMutateDrawer() {
   const { mode, target, close } = useProfilesDialogStore()
@@ -99,6 +104,8 @@ export function ProfileMutateDrawer() {
   )
 }
 
+// ── Form ─────────────────────────────────────────────────────────────────────
+
 type ProfileFormProps = {
   mode: 'add' | 'edit'
   target: HotspotProfileViewModel | null
@@ -110,74 +117,68 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
   const addMutation = useAddHotspotProfile(routerId)
   const updateMutation = useUpdateHotspotProfile(routerId)
 
-  const [draft, setDraft] = useState<ProfileDraft>(() =>
-    mode === 'edit' && target ? draftFromTarget(target) : emptyDraft(),
+  const { data: pools, isLoading: poolsLoading } = usePools(routerId)
+  const addressPoolOptions = useMemo(
+    () => (pools ?? []).map((p) => ({ label: p.name, value: p.name })),
+    [pools],
   )
 
-  const update = <K extends keyof ProfileDraft>(
-    key: K,
-    value: ProfileDraft[K],
-  ) => {
-    setDraft((prev) => ({ ...prev, [key]: value }))
-  }
+  const isEdit = mode === 'edit'
+  const form = useForm<HotspotProfileFormValues>({
+    resolver: zodResolver(isEdit ? hotspotProfileSchema : addSchema),
+    defaultValues: defaultValues(isEdit ? target : null),
+  })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!draft.name.trim()) {
-      toast.error('Profile name is required')
-      return
-    }
-    // Strip empty optional fields so the API doesn't overwrite previously
-    // set values with blank strings on edit.
+  const isPending = addMutation.isPending || updateMutation.isPending
+
+  const toNum = (s: string) => Math.max(0, +s || 0)
+
+  const onSubmit = (values: HotspotProfileFormValues) => {
     const payload: HotspotProfileParams = {
-      name: draft.name.trim(),
-      rate_limit: draft.rate_limit || undefined,
-      shared_users: draft.shared_users || undefined,
-      parent_queue: draft.parent_queue || undefined,
-      address_pool: draft.address_pool || undefined,
-      validity: draft.validity || undefined,
-      expire_mode: draft.expire_mode || undefined,
-      price: draft.price,
-      selling_price: draft.selling_price,
-      lock_user: draft.lock_user || undefined,
-      lock_server: draft.lock_server || undefined,
+      name: values.name.trim(),
+      rate_limit: values.rate_limit || undefined,
+      shared_users: values.shared_users || undefined,
+      parent_queue: values.parent_queue || undefined,
+      address_pool: values.address_pool || undefined,
+      validity: values.validity || undefined,
+      expire_mode: values.expire_mode || undefined,
+      price: toNum(values.price),
+      selling_price: toNum(values.selling_price),
+      lock_user: values.lock_user || undefined,
+      lock_server: values.lock_server || undefined,
     }
 
     if (mode === 'add') {
       addMutation.mutate(payload, {
         onSuccess: () => {
-          toast.success(`Profile '${draft.name}' added`)
+          toast.success(`Profile '${values.name}' ditambahkan`)
           onClose()
         },
-        onError: (err) => {
-          toast.error('Failed to add profile', {
+        onError: (err) =>
+          toast.error('Gagal menambahkan profile', {
             description: err instanceof Error ? err.message : String(err),
-          })
-        },
+          }),
       })
     } else if (target) {
       updateMutation.mutate(
         { id: target.id, params: payload },
         {
           onSuccess: () => {
-            toast.success(`Profile '${draft.name}' updated`)
+            toast.success(`Profile '${values.name}' diperbarui`)
             onClose()
           },
-          onError: (err) => {
-            toast.error('Failed to update profile', {
+          onError: (err) =>
+            toast.error('Gagal memperbarui profile', {
               description: err instanceof Error ? err.message : String(err),
-            })
-          },
+            }),
         },
       )
     }
   }
 
-  const isPending = addMutation.isPending || updateMutation.isPending
-
   return (
     <SheetContent className='flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-md'>
-      <SheetHeader className='border-b'>
+      <SheetHeader className='border-b px-6 py-4'>
         <SheetTitle>
           {mode === 'add' ? 'Add Profile' : 'Edit Profile'}
         </SheetTitle>
@@ -186,159 +187,240 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
         </SheetDescription>
       </SheetHeader>
 
-      <form
-        id='profile-form'
-        className='flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4'
-        onSubmit={handleSubmit}
-      >
-        <Field label='Name'>
-          <Input
-            value={draft.name}
-            onChange={(e) => update('name', e.target.value)}
-            placeholder='1jam-1k'
-            // `name` is the immutable identifier — disable on edit so
-            // the user can't accidentally rename and break references.
-            disabled={mode === 'edit'}
+      <Form {...form}>
+        <form
+          id='hotspot-profile-form'
+          className='flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5'
+          onSubmit={form.handleSubmit(onSubmit)}
+        >
+          {/* Name */}
+          <FormField
+            control={form.control}
+            name='name'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Name</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder='1jam-1k'
+                    autoComplete='off'
+                    disabled={isEdit}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-        </Field>
 
-        <div className='grid grid-cols-2 gap-3'>
-          <Field label='Rate Limit'>
-            <Input
-              value={draft.rate_limit}
-              onChange={(e) => update('rate_limit', e.target.value)}
-              placeholder='1M/1M'
+          {/* Rate Limit + Validity */}
+          <div className='grid grid-cols-2 gap-3'>
+            <FormField
+              control={form.control}
+              name='rate_limit'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Rate Limit</FormLabel>
+                  <FormControl>
+                    <Input placeholder='1M/1M' {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </Field>
-          <Field label='Validity'>
-            <Input
-              value={draft.validity}
-              onChange={(e) => update('validity', e.target.value)}
-              placeholder='1h, 1d, 7d, 30d'
+            <FormField
+              control={form.control}
+              name='validity'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Validity</FormLabel>
+                  <FormControl>
+                    <Input placeholder='1h, 1d, 7d, 30d' {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </Field>
-        </div>
+          </div>
 
-        <div className='grid grid-cols-2 gap-3'>
-          <Field label='Price'>
-            <Input
-              type='number'
-              min={0}
-              value={draft.price}
-              onChange={(e) =>
-                update('price', Math.max(0, +e.target.value || 0))
-              }
+          {/* Price + Selling Price */}
+          <div className='grid grid-cols-2 gap-3'>
+            <FormField
+              control={form.control}
+              name='price'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Price</FormLabel>
+                  <FormControl>
+                    <Input type='number' min={0} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </Field>
-          <Field label='Selling Price'>
-            <Input
-              type='number'
-              min={0}
-              value={draft.selling_price}
-              onChange={(e) =>
-                update('selling_price', Math.max(0, +e.target.value || 0))
-              }
+            <FormField
+              control={form.control}
+              name='selling_price'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Selling Price</FormLabel>
+                  <FormControl>
+                    <Input type='number' min={0} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </Field>
-        </div>
+          </div>
 
-        <div className='grid grid-cols-2 gap-3'>
-          <Field label='Shared Users'>
-            <Select
-              value={draft.shared_users}
-              onValueChange={(v) => update('shared_users', v)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SHARED_OPTIONS.map((opt) => (
-                  <SelectItem key={opt} value={opt}>
-                    {opt}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label='Exp Mode'>
-            <Select
-              value={draft.expire_mode}
-              onValueChange={(v) => update('expire_mode', v)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {expModeOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-        </div>
-
-        <div className='grid grid-cols-2 gap-3'>
-          <Field label='Address Pool'>
-            <Input
-              value={draft.address_pool}
-              onChange={(e) => update('address_pool', e.target.value)}
-              placeholder='Optional'
+          {/* Shared Users + Exp Mode */}
+          <div className='grid grid-cols-2 gap-3'>
+            <FormField
+              control={form.control}
+              name='shared_users'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Shared Users</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {SHARED_OPTIONS.map((opt) => (
+                        <SelectItem key={opt} value={opt}>
+                          {opt}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </Field>
-          <Field label='Parent Queue'>
-            <Select
-              value={draft.parent_queue}
-              onValueChange={(v) => update('parent_queue', v)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PARENT_QUEUE_OPTIONS.map((opt) => (
-                  <SelectItem key={opt} value={opt}>
-                    {opt}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-        </div>
+            <FormField
+              control={form.control}
+              name='expire_mode'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Exp Mode</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {expModeOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
-        <div className='grid grid-cols-2 gap-3'>
-          <Field label='Lock User'>
-            <Select
-              value={draft.lock_user}
-              onValueChange={(v) => update('lock_user', v)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value='enable'>Enable</SelectItem>
-                <SelectItem value='disable'>Disable</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label='Lock Server'>
-            <Select
-              value={draft.lock_server}
-              onValueChange={(v) => update('lock_server', v)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value='enable'>Enable</SelectItem>
-                <SelectItem value='disable'>Disable</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-        </div>
-      </form>
+          {/* Address Pool + Parent Queue */}
+          <div className='grid grid-cols-2 gap-3'>
+            <FormField
+              control={form.control}
+              name='address_pool'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Address Pool</FormLabel>
+                  <FormControl>
+                    <InputCombobox
+                      options={addressPoolOptions}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      placeholder='Pilih atau ketik pool'
+                      isLoading={poolsLoading}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name='parent_queue'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Parent Queue</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {PARENT_QUEUE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt} value={opt}>
+                          {opt}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
-      <SheetFooter className='border-t'>
+          {/* Lock User + Lock Server */}
+          <div className='grid grid-cols-2 gap-3'>
+            <FormField
+              control={form.control}
+              name='lock_user'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Lock User</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value='enable'>Enable</SelectItem>
+                      <SelectItem value='disable'>Disable</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name='lock_server'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Lock Server</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value='enable'>Enable</SelectItem>
+                      <SelectItem value='disable'>Disable</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </form>
+      </Form>
+
+      <SheetFooter className='border-t px-6 py-4'>
         <SheetClose asChild>
           <Button variant='outline' size='sm' disabled={isPending}>
             Cancel
@@ -347,7 +429,7 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
         <Button
           type='submit'
           size='sm'
-          form='profile-form'
+          form='hotspot-profile-form'
           disabled={isPending}
           className='gap-1.5'
         >
@@ -356,22 +438,5 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
         </Button>
       </SheetFooter>
     </SheetContent>
-  )
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className='flex flex-col gap-1.5'>
-      <Label className='text-xs font-medium text-muted-foreground'>
-        {label}
-      </Label>
-      {children}
-    </div>
   )
 }

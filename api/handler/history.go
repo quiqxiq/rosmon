@@ -206,7 +206,14 @@ func parseHistoryParams(c *gin.Context) (historyParams, bool) {
 		c.JSON(http.StatusBadRequest, dto.Err("INVALID_INTERVAL", "interval must be a positive Go duration (e.g. 1m, 30s)", interval))
 		return historyParams{}, false
 	}
-	intervalCanonical := dur.String()
+	// Format ke "<n> seconds" — DataFusion/InfluxDB3 menolak bentuk Go seperti
+	// "2m0s" (Arrow interval parser: Invalid input syntax for type interval).
+	// Interval kita selalu kelipatan detik; pakai detik bulat (min 1).
+	secs := int64(dur.Seconds())
+	if secs < 1 {
+		secs = 1
+	}
+	intervalCanonical := fmt.Sprintf("%d seconds", secs)
 
 	return historyParams{device: device, from: from, to: to, interval: intervalCanonical}, true
 }

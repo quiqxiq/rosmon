@@ -18,6 +18,12 @@ type Invoice struct {
 	DueDate        time.Time    `gorm:"type:date;not null;index"`
 	Status         string       `gorm:"size:20;not null;default:draft;index"`
 	// 'draft' | 'issued' | 'paid' | 'overdue' | 'cancelled'
+
+	// PaymentCode = kode unik untuk pembayaran via scan QR / input kode oleh
+	// petugas (settle-by-code). Partial unique index agar baris lama berkode
+	// kosong tidak bentrok. QR di-render sisi-klien dari kode ini.
+	PaymentCode string `gorm:"size:32;uniqueIndex:uq_inv_payment_code,where:payment_code <> ''"`
+
 	IssuedAt  *time.Time
 	PaidAt    *time.Time
 	Notes     string `gorm:"type:text"`

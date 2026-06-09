@@ -13,6 +13,7 @@ import (
 	"github.com/quiqxiq/rosmon/mikrotik"
 	"github.com/quiqxiq/rosmon/mikrotik/hotspot"
 	"github.com/quiqxiq/rosmon/mikrotik/ppp"
+	"github.com/quiqxiq/rosmon/service/audit"
 	"github.com/quiqxiq/rosmon/service/devmgr"
 	"github.com/quiqxiq/rosmon/store"
 	"github.com/quiqxiq/rosmon/store/model"
@@ -26,13 +27,14 @@ import (
 // gagal, response berisi `warning` — DB tetap authoritative dan
 // operator bisa retry via POST /:id/reconcile.
 type Subscriptions struct {
-	Store        store.SubscriptionStore
+	Store         store.SubscriptionStore
 	CustomerStore store.CustomerStore
-	PPPStore     store.PPPProfileStore
-	HotspotStore store.HotspotProfileStore
-	SettingStore store.SettingStore
-	DevMgr       *devmgr.Manager
-	Log          *logrus.Logger
+	PPPStore      store.PPPProfileStore
+	HotspotStore  store.HotspotProfileStore
+	SettingStore  store.SettingStore
+	Audit         store.AuditLogStore
+	DevMgr        *devmgr.Manager
+	Log           *logrus.Logger
 }
 
 func NewSubscriptions(
@@ -62,6 +64,34 @@ func (h *Subscriptions) Register(g *gin.RouterGroup) {
 	r.PATCH("/:id/status", h.PatchStatus)
 	r.POST("/:id/reconcile", h.Reconcile)
 	r.DELETE("/:id", h.Delete)
+}
+
+// RegisterAdmin memasang endpoint sensitif (admin+operator): reveal password
+// MikroTik pelanggan. Dipanggil dari routes.go di grup ber-RequireRole.
+func (h *Subscriptions) RegisterAdmin(g *gin.RouterGroup) {
+	g.GET("/subscriptions/:id/password", h.RevealPassword)
+}
+
+// RevealPassword mengembalikan password MikroTik (PPPoE/hotspot) plaintext.
+// Store sudah mendekripsi MikrotikPassword saat Get.
+func (h *Subscriptions) RevealPassword(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest,
+			dto.Err("INVALID_ID", "invalid subscription id", c.Param("id")))
+		return
+	}
+	sub, err := h.Store.Get(c.Request.Context(), uint(id))
+	if err != nil {
+		if errors.Is(err, store.ErrSubscriptionNotFound) {
+			c.AbortWithStatusJSON(http.StatusNotFound,
+				dto.Err("NOT_FOUND", "subscription not found", c.Request.URL.Path))
+			return
+		}
+		WriteErr(c, err)
+		return
+	}
+	WriteOK(c, dto.RevealPasswordResponse{Password: sub.MikrotikPassword})
 }
 
 func (h *Subscriptions) List(c *gin.Context) {
@@ -143,8 +173,11 @@ func (h *Subscriptions) Create(c *gin.Context) {
 		ServiceType:      req.ServiceType,
 		MikrotikUsername: req.MikrotikUsername,
 		MikrotikPassword: req.MikrotikPassword,
+		BillingDay:       req.BillingDay,
 		Notes:            req.Notes,
 		Status:           "pending_install",
+		// pending_create: outbox akan retry push ke router jika router offline saat create.
+		SyncStatus: "pending_create",
 	}
 	if err := h.Store.Create(c.Request.Context(), sub); err != nil {
 		if errors.Is(err, store.ErrSubscriptionUsernameTaken) {
@@ -162,12 +195,16 @@ func (h *Subscriptions) Create(c *gin.Context) {
 	warning := h.tryProvisionOnRouter(c, *sub, profileName, false)
 	if warning == "" {
 		// Sync sukses → naikkan status ke active otomatis dan set activated_at.
+		// Juga update SyncStatus ke synced karena sudah berhasil.
 		now := time.Now()
 		if err := h.Store.UpdateStatus(c.Request.Context(), sub.ID, "active", &now, nil); err == nil {
 			sub.Status = "active"
 			sub.ActivatedAt = &now
 		}
+		_ = h.Store.UpdateSyncStatus(c.Request.Context(), sub.ID, "synced", "")
 	}
+	audit.Log(c.Request.Context(), h.Audit, h.Log, actorFromCtx(c), "subscription_created", "subscription", sub.ID,
+		nil, map[string]any{"customer_id": sub.CustomerID, "service_type": sub.ServiceType, "mikrotik_username": sub.MikrotikUsername, "status": sub.Status})
 
 	c.JSON(http.StatusCreated, dto.OK(dto.SubscriptionWriteResponse{
 		Subscription: dto.FromModelSubscription(*sub),
@@ -274,6 +311,8 @@ func (h *Subscriptions) Delete(c *gin.Context) {
 		WriteErr(c, err)
 		return
 	}
+	audit.Log(c.Request.Context(), h.Audit, h.Log, actorFromCtx(c), "subscription_deleted", "subscription", id,
+		map[string]any{"customer_id": sub.CustomerID, "service_type": sub.ServiceType, "mikrotik_username": sub.MikrotikUsername, "status": sub.Status}, nil)
 	warning := h.tryRemoveOnRouter(c, sub)
 	if warning != "" {
 		WriteOK(c, dto.SubscriptionWriteResponse{
@@ -308,6 +347,8 @@ func (h *Subscriptions) PatchStatus(c *gin.Context) {
 		return
 	}
 
+	prevStatus := sub.Status
+
 	// Update status di DB.
 	var activatedAt, terminatedAt *time.Time
 	now := time.Now()
@@ -336,6 +377,8 @@ func (h *Subscriptions) PatchStatus(c *gin.Context) {
 
 	// Sync ke router sesuai status target.
 	warning := h.trySyncStatus(c, sub, targetProfile, disabled)
+	audit.Log(c.Request.Context(), h.Audit, h.Log, actorFromCtx(c), "subscription_status_changed", "subscription", id,
+		map[string]string{"status": prevStatus}, map[string]string{"status": req.Status})
 	WriteOK(c, dto.SubscriptionWriteResponse{
 		Subscription: dto.FromModelSubscription(sub),
 		Warning:      warning,

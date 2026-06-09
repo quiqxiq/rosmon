@@ -136,6 +136,26 @@ tags:
       via `/tool/fetch`. **TIDAK pakai JWT** — router tidak bisa pegang
       token. **MVP**: tidak ada IP whitelist atau shared secret. Pakai
       firewall rule supaya hanya reachable dari router.
+  - name: Notifications
+    description: |
+      Template pesan & jejak notifikasi WhatsApp (admin). Template di-seed
+      saat migrate; admin hanya boleh edit body/name/active.
+  - name: WhatsApp
+    description: |
+      Setup & status gateway WhatsApp embedded (whatsmeow). Login via QR oleh
+      admin; sesi disimpan persisten di Postgres.
+  - name: Audit
+    description: Jejak aksi yang mengubah status entitas utama (admin, read-only).
+  - name: Registrations
+    description: |
+      Alur registrasi pemasangan: submit publik → antrian admin (approve/reject/
+      assign) → operator complete-install (subscription + invoice pertama).
+  - name: Customer Portal
+    description: |
+      Self-service pelanggan (Fase 3). Login nomor HP + password (scope JWT
+      terpisah dari staff). Lihat profil, langganan, tagihan (berkode unik/QR),
+      dan riwayat pembayaran. Settle-by-code (`/payments/collect`) = aksi
+      petugas/staff saat menerima tunai → pembayaran instan + layanan pulih.
 paths:
   /healthz:
     get:
@@ -3598,6 +3618,890 @@ paths:
                   jan/05/2026,10:30:21,vc-a1b2c3d4,default,10000,12000,168h,AA:BB:CC:DD:EE:FF,10.0.0.5,login
         '404':
           $ref: '#/components/responses/ErrorNotFound'
+  /audit-logs:
+    get:
+      tags:
+        - Audit
+      summary: List audit log (admin)
+      description: |
+        Jejak aksi yang mengubah status entitas utama. Read-only, admin saja.
+        Filter opsional: `?entity_type=Subscription&entity_id=42&action=isolir&user_id=1&limit=100`.
+      parameters:
+        - name: entity_type
+          in: query
+          schema:
+            type: string
+          description: Filter tipe entitas
+        - name: entity_id
+          in: query
+          schema:
+            type: integer
+          description: Filter ID entitas
+        - name: action
+          in: query
+          schema:
+            type: string
+          description: Filter nama aksi
+        - name: user_id
+          in: query
+          schema:
+            type: integer
+          description: Filter user pelaku
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 500
+      responses:
+        '200':
+          description: List audit log
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AuditLogResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+  /message-templates:
+    get:
+      tags:
+        - Notifications
+      summary: List template pesan (admin)
+      responses:
+        '200':
+          description: List template
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/MessageTemplateResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+  /message-templates/{slug}:
+    parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Slug template (immutable)
+    get:
+      tags:
+        - Notifications
+      summary: Detail template (admin)
+      responses:
+        '200':
+          description: Template
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/MessageTemplateResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
+    put:
+      tags:
+        - Notifications
+      summary: Update template (admin)
+      description: Sparse update. Slug tidak bisa diubah.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageTemplateUpdateRequest'
+      responses:
+        '200':
+          description: Template terupdate
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/MessageTemplateResponse'
+        '400':
+          $ref: '#/components/responses/ErrorValidation'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
+  /notifications:
+    get:
+      tags:
+        - Notifications
+      summary: List jejak notifikasi (admin)
+      description: |
+        Read-only, admin saja. Filter: `?status=failed&template_slug=invoice_issued&customer_id=12&limit=100`.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - pending
+              - sent
+              - failed
+              - skipped
+        - name: template_slug
+          in: query
+          schema:
+            type: string
+        - name: customer_id
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 500
+      responses:
+        '200':
+          description: List jejak notifikasi
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/NotificationLogResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+  /whatsapp/status:
+    get:
+      tags:
+        - WhatsApp
+      summary: Status koneksi gateway WhatsApp (admin)
+      responses:
+        '200':
+          description: Status koneksi
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/WhatsAppStatusResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '503':
+          $ref: '#/components/responses/ErrorServiceUnavailable'
+  /whatsapp/qr:
+    get:
+      tags:
+        - WhatsApp
+      summary: Mulai/lanjut pairing & ambil QR (admin)
+      description: |
+        Memulai pairing (kalau belum) dan mengembalikan QR code terkini untuk
+        di-scan dari aplikasi WhatsApp admin. 409 kalau sudah terhubung.
+      responses:
+        '200':
+          description: QR code
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/WhatsAppQRResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '409':
+          $ref: '#/components/responses/ErrorConflict'
+        '503':
+          $ref: '#/components/responses/ErrorServiceUnavailable'
+  /whatsapp/logout:
+    post:
+      tags:
+        - WhatsApp
+      summary: Logout / unlink device WhatsApp (admin)
+      responses:
+        '200':
+          description: Sesi diputus
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/WhatsAppStatusResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '503':
+          $ref: '#/components/responses/ErrorServiceUnavailable'
+  /whatsapp/test:
+    post:
+      tags:
+        - WhatsApp
+      summary: Kirim pesan uji (admin)
+      description: Kirim pesan teks langsung ke nomor (bypass template).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WhatsAppTestRequest'
+      responses:
+        '200':
+          description: Pesan terkirim
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          provider_response:
+                            type: string
+                            example: 3EB0...
+        '400':
+          $ref: '#/components/responses/ErrorValidation'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '500':
+          $ref: '#/components/responses/ErrorInternal'
+        '503':
+          $ref: '#/components/responses/ErrorServiceUnavailable'
+  /public/packages:
+    get:
+      tags:
+        - Registrations
+      summary: List paket publik (tanpa auth)
+      description: |
+        Endpoint publik (TANPA auth, rate-limited per IP) untuk landing page.
+        Mengembalikan paket PPPoE + Hotspot (permanent) yang ditandai `is_public`
+        dan aktif. Calon pelanggan memilih salah satu saat mendaftar.
+      security: []
+      responses:
+        '200':
+          description: Daftar paket publik
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PublicPackageResponse'
+        '429':
+          $ref: '#/components/responses/ErrorRateLimit'
+  /public/registrations:
+    post:
+      tags:
+        - Registrations
+      summary: Submit registrasi pemasangan (publik)
+      description: |
+        Endpoint publik (TANPA auth) untuk calon pelanggan mengajukan pemasangan
+        dari landing page. Rate-limited per IP. Memicu notifikasi WhatsApp ke
+        admin (kalau `notification.admin_phone` diisi & WA aktif).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationCreateRequest'
+      responses:
+        '201':
+          description: Registrasi tercatat (status pending)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RegistrationResponse'
+        '400':
+          $ref: '#/components/responses/ErrorValidation'
+        '429':
+          $ref: '#/components/responses/ErrorRateLimit'
+  /registrations:
+    get:
+      tags:
+        - Registrations
+      summary: List registrasi (staff admin+operator)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - pending
+              - approved
+              - rejected
+              - cancelled
+      responses:
+        '200':
+          description: List registrasi
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RegistrationResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+  /registrations/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags:
+        - Registrations
+      summary: Detail registrasi (staff)
+      responses:
+        '200':
+          description: Registrasi
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RegistrationResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
+  /registrations/{id}/approve:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    post:
+      tags:
+        - Registrations
+      summary: Setujui registrasi (staff)
+      description: Membuat/menautkan Customer + notifikasi `registration_approved` (berisi jadwal).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationApproveRequest'
+      responses:
+        '200':
+          description: Registrasi disetujui
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RegistrationResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
+        '409':
+          $ref: '#/components/responses/ErrorConflict'
+  /registrations/{id}/reject:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    post:
+      tags:
+        - Registrations
+      summary: Tolak registrasi (staff)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationRejectRequest'
+      responses:
+        '200':
+          description: Registrasi ditolak
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RegistrationResponse'
+        '400':
+          $ref: '#/components/responses/ErrorValidation'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
+        '409':
+          $ref: '#/components/responses/ErrorConflict'
+  /registrations/{id}/assign:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    put:
+      tags:
+        - Registrations
+      summary: Tugaskan operator + jadwal (staff)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationAssignRequest'
+      responses:
+        '200':
+          description: Registrasi diperbarui
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RegistrationResponse'
+        '400':
+          $ref: '#/components/responses/ErrorValidation'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
+  /registrations/{id}/complete-install:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    post:
+      tags:
+        - Registrations
+      summary: Selesaikan instalasi → buat subscription + invoice pertama (operator)
+      description: |
+        Membuat Subscription aktif (provisioning ke router lewat outbox,
+        `sync_status=pending_create`), generate invoice pertama, dan notifikasi
+        `installation_complete` (berisi username + password). Registrasi harus
+        sudah `approved` dan punya `customer_id`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationCompleteInstallRequest'
+      responses:
+        '201':
+          description: Subscription + invoice pertama
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          subscription:
+                            type: object
+                            description: SubscriptionResponse
+                          invoice:
+                            type: object
+                            description: InvoiceResponse (opsional)
+        '400':
+          $ref: '#/components/responses/ErrorValidation'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
+        '409':
+          $ref: '#/components/responses/ErrorConflict'
+  /customer/login:
+    post:
+      tags:
+        - Customer Portal
+      summary: Login pelanggan (nomor HP + password)
+      description: |
+        Endpoint publik (tanpa auth, IP rate-limited). Menerbitkan customer access
+        token (scope terpisah dari staff). Pelanggan harus sudah di-onboard admin
+        (`POST /customers/{id}/portal-password`).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerLoginRequest'
+      responses:
+        '200':
+          description: Login berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CustomerLoginResponse'
+        '400':
+          $ref: '#/components/responses/ErrorValidation'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '429':
+          $ref: '#/components/responses/ErrorRateLimit'
+  /customer/me:
+    get:
+      tags:
+        - Customer Portal
+      summary: Profil pelanggan (customer token)
+      responses:
+        '200':
+          description: Profil
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CustomerMeResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+  /customer/subscriptions:
+    get:
+      tags:
+        - Customer Portal
+      summary: Langganan milik pelanggan
+      responses:
+        '200':
+          description: List langganan
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PortalSubscriptionResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+  /customer/subscriptions/{id}/status:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags:
+        - Customer Portal
+      summary: Status langganan (DB)
+      responses:
+        '200':
+          description: Status langganan
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PortalSubscriptionResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
+  /customer/invoices:
+    get:
+      tags:
+        - Customer Portal
+      summary: Tagihan milik pelanggan (berkode unik/QR)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - issued
+              - paid
+              - overdue
+              - cancelled
+      responses:
+        '200':
+          description: List tagihan
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PortalInvoiceResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+  /customer/invoices/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags:
+        - Customer Portal
+      summary: Detail tagihan (milik sendiri)
+      responses:
+        '200':
+          description: Tagihan
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PortalInvoiceResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
+  /customer/payments:
+    get:
+      tags:
+        - Customer Portal
+      summary: Riwayat pembayaran milik pelanggan
+      responses:
+        '200':
+          description: List pembayaran
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PortalPaymentResponse'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+  /customer/change-password:
+    post:
+      tags:
+        - Customer Portal
+      summary: Ganti password sendiri
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password diperbarui
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: password updated
+        '400':
+          $ref: '#/components/responses/ErrorValidation'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+  /payments/collect:
+    post:
+      tags:
+        - Customer Portal
+      summary: Settle invoice via kode unik/QR (petugas/staff)
+      description: |
+        Petugas scan QR atau input kode unik invoice saat menerima tunai →
+        catat pembayaran `cash` berstatus `confirmed` instan, tandai invoice
+        `paid`, dan pulihkan layanan (outbox). Idempoten (scan ganda → 409).
+        Butuh staff token (admin/operator).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentCollectRequest'
+      responses:
+        '201':
+          description: Pembayaran tercatat + invoice lunas
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          payment:
+                            $ref: '#/components/schemas/PortalPaymentResponse'
+                          invoice:
+                            $ref: '#/components/schemas/PortalInvoiceResponse'
+        '400':
+          $ref: '#/components/responses/ErrorValidation'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
+        '409':
+          $ref: '#/components/responses/ErrorConflict'
+  /customers/{id}/portal-password:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    post:
+      tags:
+        - Customer Portal
+      summary: Set/reset password portal pelanggan (admin/operator)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPortalPasswordRequest'
+      responses:
+        '200':
+          description: Password portal di-set
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: portal password set
+        '400':
+          $ref: '#/components/responses/ErrorValidation'
+        '401':
+          $ref: '#/components/responses/ErrorUnauthorized'
+        '403':
+          $ref: '#/components/responses/ErrorForbidden'
+        '404':
+          $ref: '#/components/responses/ErrorNotFound'
 components:
   securitySchemes:
     bearerAuth:
@@ -6181,6 +7085,632 @@ components:
         lock_mac:
           type: boolean
           default: false
+    AuditLogResponse:
+      type: object
+      description: |
+        Satu entry audit log — jejak aksi yang mengubah status entitas utama
+        (subscription/invoice/payment/customer). `user_id` null = aksi sistem
+        (cron/webhook). `old_values`/`new_values` adalah snapshot JSON (string).
+      required:
+        - id
+        - action
+        - entity_type
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 91
+        user_id:
+          type: integer
+          format: int64
+          nullable: true
+          example: 1
+        action:
+          type: string
+          example: isolir
+        entity_type:
+          type: string
+          example: Subscription
+        entity_id:
+          type: integer
+          format: int64
+          nullable: true
+          example: 42
+        old_values:
+          type: string
+          example: '{"status":"active"}'
+        new_values:
+          type: string
+          example: '{"status":"isolir"}'
+        ip_address:
+          type: string
+          example: 10.0.0.5
+        notes:
+          type: string
+          example: ''
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-05-30T09:00:00+07:00'
+    MessageTemplateResponse:
+      type: object
+      description: |
+        Template pesan notifikasi. `body` memakai sintaks text/template
+        (`{{.FieldName}}`). `variables` adalah JSON array nama variabel untuk
+        dokumentasi UI.
+      required:
+        - id
+        - slug
+        - name
+        - body
+        - active
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 5
+        slug:
+          type: string
+          example: invoice_issued
+        name:
+          type: string
+          example: Tagihan Terbit
+        body:
+          type: string
+          example: Halo {{.customer_name}}, tagihan {{.invoice_number}} sebesar Rp {{.amount}}.
+        variables:
+          type: string
+          example: '["customer_name","invoice_number","amount"]'
+        active:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-05-01T00:00:00+07:00'
+        updated_at:
+          type: string
+          format: date-time
+          example: '2026-05-20T10:00:00+07:00'
+    MessageTemplateUpdateRequest:
+      type: object
+      description: |
+        Update template (sparse). Slug immutable — tidak bisa diubah. Field yang
+        tidak disertakan tidak diubah.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Tagihan Terbit
+        body:
+          type: string
+          minLength: 1
+          example: Halo {{.customer_name}}, tagihan baru.
+        variables:
+          type: string
+          example: '["customer_name"]'
+        active:
+          type: boolean
+          example: true
+    NotificationLogResponse:
+      type: object
+      description: |
+        Jejak pengiriman notifikasi. Status: `pending` | `sent` | `failed` |
+        `skipped`. `next_retry_at` di-isi saat `failed` (untuk job notif_retry).
+      required:
+        - id
+        - template_slug
+        - recipient_phone
+        - message_body
+        - status
+        - retry_count
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 230
+        customer_id:
+          type: integer
+          format: int64
+          nullable: true
+          example: 12
+        template_slug:
+          type: string
+          example: invoice_issued
+        recipient_phone:
+          type: string
+          example: '081234567890'
+        message_body:
+          type: string
+          example: Halo Budi, tagihan INV-2026-05-0001...
+        status:
+          type: string
+          enum:
+            - pending
+            - sent
+            - failed
+            - skipped
+          example: sent
+        provider:
+          type: string
+          example: whatsmeow
+        retry_count:
+          type: integer
+          example: 0
+        sent_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: '2026-05-30T07:00:05+07:00'
+        next_retry_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-05-30T07:00:00+07:00'
+    WhatsAppStatusResponse:
+      type: object
+      required:
+        - connected
+      properties:
+        connected:
+          type: boolean
+          example: true
+        jid:
+          type: string
+          example: 628123456789:1@s.whatsapp.net
+    WhatsAppQRResponse:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          description: Data QR mentah. Frontend yang merender jadi gambar QR.
+          example: 2@abcdef...
+    WhatsAppTestRequest:
+      type: object
+      required:
+        - phone
+        - message
+      properties:
+        phone:
+          type: string
+          minLength: 3
+          maxLength: 20
+          example: '081234567890'
+        message:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          example: Tes notifikasi Rosmon
+    RegistrationResponse:
+      type: object
+      description: |
+        Pengajuan pemasangan dari calon pelanggan. Status:
+        `pending` | `approved` | `rejected` | `cancelled`.
+      required:
+        - id
+        - full_name
+        - phone
+        - address
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 12
+        full_name:
+          type: string
+          example: Pak Budi
+        phone:
+          type: string
+          example: '081234567890'
+        address:
+          type: string
+          example: Jl. Mawar No. 1
+        area:
+          type: string
+          example: RT01/RW02
+        notes:
+          type: string
+        service_type:
+          type: string
+          enum:
+            - pppoe
+            - hotspot
+          description: Layanan yang dipilih (hint)
+        ppp_profile_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: Paket pppoe yang diminta (hint)
+        hotspot_profile_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: Paket hotspot yang diminta (hint)
+        device_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: Router/area yang diminta (hint)
+        status:
+          type: string
+          enum:
+            - pending
+            - approved
+            - rejected
+            - cancelled
+          example: pending
+        rejection_reason:
+          type: string
+        reviewed_by:
+          type: integer
+          format: int64
+          nullable: true
+        reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+        assigned_to:
+          type: integer
+          format: int64
+          nullable: true
+          description: Operator yang ditugaskan
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Jadwal pemasangan
+        installed_at:
+          type: string
+          format: date-time
+          nullable: true
+        customer_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: Di-set saat approve/install
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    RegistrationCreateRequest:
+      type: object
+      required:
+        - full_name
+        - phone
+        - address
+      properties:
+        full_name:
+          type: string
+          minLength: 2
+          maxLength: 200
+          example: Pak Budi
+        phone:
+          type: string
+          minLength: 3
+          maxLength: 20
+          example: '081234567890'
+        address:
+          type: string
+          minLength: 3
+          maxLength: 2000
+          example: Jl. Mawar No. 1
+        area:
+          type: string
+          maxLength: 100
+          example: RT01/RW02
+        notes:
+          type: string
+          maxLength: 2000
+        service_type:
+          type: string
+          enum:
+            - pppoe
+            - hotspot
+          description: Layanan yang dipilih (opsional)
+        ppp_profile_id:
+          type: integer
+          format: int64
+          description: Paket pppoe yang dipilih (opsional)
+        hotspot_profile_id:
+          type: integer
+          format: int64
+          description: Paket hotspot yang dipilih (opsional)
+        device_id:
+          type: integer
+          format: int64
+          description: Router/area yang diminta (opsional)
+    RegistrationApproveRequest:
+      type: object
+      description: Jadwal pemasangan opsional.
+      properties:
+        scheduled_at:
+          type: string
+          format: date-time
+          example: '2026-06-01T09:00:00+07:00'
+    RegistrationRejectRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          example: Area belum tercover jaringan
+    RegistrationAssignRequest:
+      type: object
+      required:
+        - assigned_to
+      properties:
+        assigned_to:
+          type: integer
+          format: int64
+          example: 3
+          description: User ID operator
+        scheduled_at:
+          type: string
+          format: date-time
+    RegistrationCompleteInstallRequest:
+      type: object
+      description: Detail provisioning final yang diisi operator saat instalasi selesai.
+      required:
+        - device_id
+        - service_type
+        - mikrotik_username
+        - mikrotik_password
+      properties:
+        device_id:
+          type: integer
+          format: int64
+          example: 1
+        service_type:
+          type: string
+          enum:
+            - pppoe
+            - hotspot
+          example: pppoe
+        ppp_profile_id:
+          type: integer
+          format: int64
+          description: Wajib untuk pppoe
+        hotspot_profile_id:
+          type: integer
+          format: int64
+          description: Wajib untuk hotspot
+        mikrotik_username:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: budi-001
+        mikrotik_password:
+          type: string
+          minLength: 1
+          maxLength: 200
+        billing_day:
+          type: integer
+          minimum: 1
+          maximum: 28
+    CustomerLoginRequest:
+      type: object
+      required:
+        - phone
+        - password
+      properties:
+        phone:
+          type: string
+          minLength: 3
+          maxLength: 20
+          example: '081234567890'
+        password:
+          type: string
+          minLength: 1
+          maxLength: 128
+    CustomerLoginResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+        - customer
+      properties:
+        access_token:
+          type: string
+          description: JWT customer access token (scope terpisah)
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+          description: TTL detik
+          example: 86400
+        customer:
+          $ref: '#/components/schemas/CustomerMeResponse'
+    CustomerMeResponse:
+      type: object
+      required:
+        - id
+        - full_name
+        - phone
+        - status
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 12
+        full_name:
+          type: string
+          example: Pak Budi
+        phone:
+          type: string
+          example: '081234567890'
+        address:
+          type: string
+        area:
+          type: string
+        status:
+          type: string
+          enum:
+            - aktif
+            - nonaktif
+    ChangePasswordRequest:
+      type: object
+      required:
+        - old_password
+        - new_password
+      properties:
+        old_password:
+          type: string
+          minLength: 1
+          maxLength: 128
+        new_password:
+          type: string
+          minLength: 8
+          maxLength: 128
+    SetPortalPasswordRequest:
+      type: object
+      required:
+        - password
+      properties:
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: Password login portal pelanggan
+    PaymentCollectRequest:
+      type: object
+      description: |
+        Settle-by-code: petugas scan QR / input kode unik invoice saat menerima
+        tunai → pembayaran instan + layanan dipulihkan. method default `cash`.
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          minLength: 4
+          maxLength: 32
+          example: ABC23XYZ90
+        method:
+          type: string
+          enum:
+            - cash
+            - manual_transfer
+          default: cash
+    PortalInvoiceResponse:
+      type: object
+      description: Tagihan pelanggan. `payment_code` + `qr_content` untuk pembayaran via kode/QR.
+      properties:
+        id:
+          type: integer
+          format: int64
+        invoice_number:
+          type: string
+          example: INV-2026-05-0001
+        amount:
+          type: integer
+          format: int64
+          example: 150000
+        period_start:
+          type: string
+          format: date-time
+        period_end:
+          type: string
+          format: date-time
+        due_date:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+            - draft
+            - issued
+            - paid
+            - overdue
+            - cancelled
+        payment_code:
+          type: string
+          example: ABC23XYZ90
+          description: Kode unik (kosong bila sudah lunas)
+        qr_content:
+          type: string
+          example: rosmon-pay:ABC23XYZ90
+          description: Isi QR (render sisi-klien)
+        paid_at:
+          type: string
+          format: date-time
+          nullable: true
+    PortalPaymentResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        invoice_id:
+          type: integer
+          format: int64
+        amount:
+          type: integer
+          format: int64
+        method:
+          type: string
+          enum:
+            - cash
+            - manual_transfer
+        status:
+          type: string
+          enum:
+            - pending
+            - confirmed
+            - rejected
+        confirmed_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    PortalSubscriptionResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        service_type:
+          type: string
+          enum:
+            - pppoe
+            - hotspot
+        mikrotik_username:
+          type: string
+        status:
+          type: string
+          enum:
+            - pending_install
+            - active
+            - isolir
+            - suspended
+            - terminated
+        sync_status:
+          type: string
+        next_invoice_date:
+          type: string
+          format: date-time
+          nullable: true
     ProfileConfigSyncResponse:
       type: object
       description: |
@@ -6239,6 +7769,47 @@ components:
             Profile yang gagal di-inject. Format: `<profile>: <error>`. Tidak
             fatal — sync tetap completed dan profile lain tetap di-process.
           example: []
+    PublicPackageResponse:
+      type: object
+      description: |
+        Paket layanan yang ditawarkan ke publik (ditandai `is_public` pada profil
+        PPP/Hotspot). Hanya field non-sensitif. Dipakai oleh form pendaftaran di
+        landing page (GET /public/packages).
+      required:
+        - id
+        - service_type
+        - name
+        - price
+        - device_id
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        service_type:
+          type: string
+          enum:
+            - pppoe
+            - hotspot
+          example: pppoe
+        name:
+          type: string
+          example: Home 10 Mbps
+        price:
+          type: integer
+          format: int64
+          description: Harga bulanan
+          example: 150000
+        rate_limit:
+          type: string
+          example: 10M/10M
+        description:
+          type: string
+          example: Cocok untuk rumah 1-3 perangkat
+        device_id:
+          type: integer
+          format: int64
+          example: 1
   parameters:
     DeviceIdPath:
       name: device_id

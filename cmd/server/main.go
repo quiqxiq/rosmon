@@ -13,8 +13,8 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -22,20 +22,28 @@ import (
 	"syscall"
 	"time"
 
+	influxdb3 "github.com/InfluxCommunity/influxdb3-go/v2/influxdb3"
 	"github.com/joho/godotenv"
+	roslibcfg "github.com/quiqxiq/roslib/config"
+	roslibinflux "github.com/quiqxiq/roslib/metrics/influx"
 	"github.com/quiqxiq/rosmon/api"
 	"github.com/quiqxiq/rosmon/api/sse"
 	"github.com/quiqxiq/rosmon/internal/config"
 	"github.com/quiqxiq/rosmon/internal/ratelimit"
 	"github.com/quiqxiq/rosmon/job"
 	"github.com/quiqxiq/rosmon/service/auth"
+	"github.com/quiqxiq/rosmon/service/billing"
 	"github.com/quiqxiq/rosmon/service/devmgr"
 	"github.com/quiqxiq/rosmon/service/expiry"
 	"github.com/quiqxiq/rosmon/service/metrics"
+	"github.com/quiqxiq/rosmon/service/netstream"
+	"github.com/quiqxiq/rosmon/service/notification"
+	"github.com/quiqxiq/rosmon/service/notification/telegram"
+	"github.com/quiqxiq/rosmon/service/notification/whatsapp"
+	paymentSvc "github.com/quiqxiq/rosmon/service/payment"
+	"github.com/quiqxiq/rosmon/service/portal"
 	"github.com/quiqxiq/rosmon/store"
 	"github.com/quiqxiq/rosmon/store/model"
-	roslibcfg "github.com/quiqxiq/roslib/config"
-	roslibinflux "github.com/quiqxiq/roslib/metrics/influx"
 	"github.com/sirupsen/logrus"
 )
 
@@ -64,14 +72,14 @@ func main() {
 	// Opsional tapi sangat direkomendasikan di production.
 	// Lihat .env.example untuk cara generate.
 	if keyHex := os.Getenv("DEVICE_PASSWORD_KEY"); keyHex != "" {
-		key := make([]byte, 0, 32)
-		if _, err := fmt.Sscanf(keyHex, "%x", &key); err == nil && len(key) == 32 {
+		key, hexErr := hex.DecodeString(keyHex)
+		if hexErr != nil || len(key) != 32 {
+			log.Warn("DEVICE_PASSWORD_KEY tidak valid — harus 64 hex chars (32 byte). Gunakan 'openssl rand -hex 32' untuk generate. Password device disimpan plaintext.")
+		} else {
 			if err := store.SetDeviceCryptoKey(key); err != nil {
 				log.WithError(err).Fatal("invalid DEVICE_PASSWORD_KEY")
 			}
 			log.Info("device password encryption enabled")
-		} else {
-			log.Warn("DEVICE_PASSWORD_KEY tidak valid — abaikan (password tidak terenkripsi). Gunakan 'openssl rand -hex 32' untuk generate.")
 		}
 	} else {
 		log.Warn("DEVICE_PASSWORD_KEY tidak di-set — password device disimpan plaintext")
@@ -109,16 +117,34 @@ func main() {
 	customerStore := store.NewCustomerStore(db)
 	pppProfileStore := store.NewPPPProfileStore(db)
 	hotspotProfileStore := store.NewHotspotProfileStore(db)
+	quickPrintStore := store.NewQuickPrintStore(db)
 	subscriptionStore := store.NewSubscriptionStore(db)
 	settingStore := store.NewSettingStore(db)
 	sequenceStore := store.NewSequenceStore(db)
 	invoiceStore := store.NewInvoiceStore(db)
 	paymentStore := store.NewPaymentStore(db)
+	auditLogStore := store.NewAuditLogStore(db)
+	templateStore := store.NewTemplateStore(db)
+	notificationStore := store.NewNotificationLogStore(db)
+	registrationStore := store.NewRegistrationStore(db)
+	ticketStore := store.NewTicketStore(db)
 
 	// ── Auth Service ──────────────────────────────────────────────────────
 	authSigner := auth.NewSigner(authCfg.JWTSecret, authCfg.AccessTTL, authCfg.RefreshTTL)
+	if v := strings.TrimSpace(os.Getenv("JWT_CUSTOMER_TTL")); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			authSigner.SetCustomerTTL(d)
+		}
+	}
 	authHasher := auth.NewHasher(authCfg.BcryptCost)
 	authSvc := auth.New(userStore, refreshStore, authHasher, authSigner)
+
+	// ── Customer Portal auth (Fase 3) ─────────────────────────────────────
+	portalAuth := portal.New(portal.Deps{
+		Customers: customerStore,
+		Hasher:    authHasher,
+		Signer:    authSigner,
+	})
 	if err := authSvc.BootstrapAdmin(rootCtx, authCfg.AdminUsername, authCfg.AdminPassword); err != nil {
 		log.WithError(err).Warn("bootstrap admin failed (may already exist)")
 	} else if authCfg.AdminUsername != "" {
@@ -137,16 +163,82 @@ func main() {
 		log.WithError(err).Fatal("start expiry service")
 	}
 
+	// ── Notification service + WhatsApp (whatsmeow embedded) ──────────────
+	// Sesi WhatsApp disimpan persisten di Postgres (sqlstore). Kalau gagal
+	// start, server tetap jalan — notifikasi di-skip/failed & bisa di-retry.
+	notifCfg := config.LoadNotificationFromEnv()
+	var waManager *whatsapp.Manager
+	if sqlDB, errDB := db.DB(); errDB != nil {
+		log.WithError(errDB).Warn("notification: gagal ambil *sql.DB — WhatsApp dinonaktifkan")
+	} else {
+		waManager = whatsapp.New(whatsapp.Deps{DB: sqlDB, CountryCode: notifCfg.WACountryCode, Log: log})
+		if err := waManager.Start(rootCtx); err != nil {
+			log.WithError(err).Warn("notification: whatsapp manager start gagal (lanjut tanpa WA)")
+		}
+	}
+	// Telegram sender (opsional — paralel dengan WhatsApp).
+	var tgSender notification.Sender
+	if db2, err2 := db.DB(); err2 == nil {
+		_ = db2 // used for sqlstore above
+	}
+	// Baca config telegram dari DB setelah migrate selesai.
+	if tgEnabled, _ := settingStore.Get(rootCtx, "notification.telegram_enabled"); tgEnabled == "true" {
+		tgToken, _ := settingStore.Get(rootCtx, "notification.telegram_bot_token")
+		tgChatID, _ := settingStore.Get(rootCtx, "notification.telegram_chat_id")
+		if tgToken != "" && tgChatID != "" {
+			tgSender = telegram.New(tgToken, tgChatID)
+			log.Info("telegram notification sender enabled")
+		}
+	}
+
+	var notifSender notification.Sender
+	if waManager != nil || tgSender != nil {
+		var waSender notification.Sender
+		if waManager != nil {
+			waSender = waManager
+		}
+		notifSender = notification.NewMultiSender(waSender, tgSender)
+	}
+	notifSvc := notification.New(notification.Deps{
+		Sender:    notifSender,
+		Templates: templateStore,
+		Logs:      notificationStore,
+		Settings:  settingStore,
+		Log:       log,
+	})
+
 	// ── Background Jobs ──────────────────────────────────────────────────
 	outboxJob := job.NewOutboxJob(subscriptionStore, pppProfileStore, hotspotProfileStore, settingStore, devMgr, log)
+	outboxJob.NotifSvc = notifSvc
 	outboxJob.Start(rootCtx)
 	log.Info("outbox job started")
 
-	billingCron := job.NewBillingCronJob(subscriptionStore, pppProfileStore, hotspotProfileStore, invoiceStore, sequenceStore, settingStore, log)
+	billingSvc := billing.New(billing.Deps{
+		Invoices:  invoiceStore,
+		Sequences: sequenceStore,
+		PPP:       pppProfileStore,
+		Hotspot:   hotspotProfileStore,
+	})
+	billingCron := job.NewBillingCronJob(subscriptionStore, customerStore, settingStore, billingSvc, notifSvc, log)
 	startDailyJob(rootCtx, 7, 0, "billing_cron", billingCron.Run, log)
 
-	suspCheck := job.NewSuspensionCheckJob(subscriptionStore, invoiceStore, settingStore, log)
+	suspCheck := job.NewSuspensionCheckJob(subscriptionStore, customerStore, invoiceStore, settingStore, notifSvc, log)
 	startDailyJob(rootCtx, 9, 0, "suspension_check", suspCheck.Run, log)
+
+	notifRetry := job.NewNotifRetryJob(notifSvc, log)
+	notifRetry.Start(rootCtx)
+	log.Info("notif_retry job started")
+
+	reconJob := job.NewReconcilerJob(subscriptionStore, auditLogStore, devMgr, log)
+	reconJob.Start(rootCtx)
+	log.Info("reconciler job started")
+
+	backupJob := job.NewBackupJob(settingStore, dbCfg.DSN(), log)
+	startDailyJob(rootCtx, 3, 0, "backup", backupJob.Run, log)
+
+	// SSE Hub dibuat lebih awal karena netstream (sumber tunggal stream
+	// queue/interface) butuh referensinya untuk lifecycle device.
+	hub := sse.NewHubWithCaps(rateCfg.SSEMaxPerTopic, rateCfg.SSEMaxPerDevice)
 
 	// ── InfluxDB3 + Metrics Service ───────────────────────────────────────
 	influxCfg := roslibcfg.InfluxConfig{
@@ -157,11 +249,13 @@ func main() {
 	}
 	var metricsSvc *metrics.Service
 	var influxReader *roslibinflux.Reader
+	var influxCli *influxdb3.Client
 	if influxCfg.Enabled {
-		influxCli, err := roslibinflux.NewClient(influxCfg)
-		if err != nil {
-			log.WithError(err).Fatal("init influx client")
+		cli, ierr := roslibinflux.NewClient(influxCfg)
+		if ierr != nil {
+			log.WithError(ierr).Fatal("init influx client")
 		}
+		influxCli = cli
 		defer influxCli.Close()
 		influxReader = roslibinflux.NewReader(influxCli)
 		metricsSvc = metrics.New(influxCli, devMgr, log)
@@ -169,11 +263,21 @@ func main() {
 		log.Info("influx metrics started")
 	}
 
-	// Wire device lifecycle hooks — expiry + metrics keduanya
+	// netstream = SATU stream queue/interface per device, sumber bersama untuk
+	// live SSE + writer Influx (queue/interface). influxCli nil = historis off.
+	netstreamMgr := netstream.New(hub, influxCli, log)
+	for id, cs := range devMgr.ListActive() {
+		netstreamMgr.StartDevice(id, cs.Net)
+	}
+
+	// Wire device lifecycle hooks — expiry + metrics + netstream.
 	devMgr.OnDeviceConnected = func(d model.MikrotikDevice) {
 		expSvc.StartDevice(d)
 		if metricsSvc != nil {
 			metricsSvc.StartDevice(d)
+		}
+		if cs, gerr := devMgr.Get(d.ID); gerr == nil {
+			netstreamMgr.StartDevice(d.ID, cs.Net)
 		}
 	}
 	devMgr.OnDeviceRemoved = func(deviceID uint) {
@@ -181,6 +285,7 @@ func main() {
 		if metricsSvc != nil {
 			metricsSvc.StopDevice(deviceID)
 		}
+		netstreamMgr.StopDevice(deviceID)
 	}
 
 	// ── Rate limiters & SSE hub caps ──────────────────────────────────────
@@ -191,8 +296,6 @@ func main() {
 	defer userLim.Close()
 	defer ipLim.Close()
 	defer heavyLim.Close()
-
-	hub := sse.NewHubWithCaps(rateCfg.SSEMaxPerTopic, rateCfg.SSEMaxPerDevice)
 
 	// GO_SERVICE_URL: URL absolut Go service yang reachable dari MikroTik
 	// router. Dipakai untuk membentuk webhook URL di on-login script.
@@ -205,6 +308,27 @@ func main() {
 		log.WithField("url", goServiceURL).Info("on-login webhook target")
 	}
 
+	// HOOK_SHARED_SECRET: secret untuk validasi webhook dari MikroTik router.
+	// Jika di-set, router harus mengirim header X-Rosmon-Secret dengan nilai ini.
+	hookSecret := strings.TrimSpace(os.Getenv("HOOK_SHARED_SECRET"))
+	if hookSecret == "" {
+		log.Warn("HOOK_SHARED_SECRET tidak di-set — webhook /hook/hotspot/login tidak tervalidasi (development mode)")
+	} else {
+		log.Info("hook shared secret configured")
+	}
+
+	// ── Payment Service (Fase 4) ────────────────────────────────────
+	// Konfigurasi Xendit (secret key, webhook token, dll) disimpan di system_settings
+	// dan dibaca per-request. Tidak perlu env var — semua bisa diubah dari UI Settings.
+	paymentService := paymentSvc.New(paymentSvc.Deps{
+		Payments:  paymentStore,
+		Invoices:  invoiceStore,
+		Customers: customerStore,
+		Settings:  settingStore,
+	})
+	log.Info("payment service ready (xendit config from system_settings)")
+
+
 	// ── HTTP Server ───────────────────────────────────────────────────────
 	deps := &api.Deps{
 		Logger:            log,
@@ -216,20 +340,34 @@ func main() {
 		CustomerStore:     customerStore,
 		PPPProfileStore:   pppProfileStore,
 		HotspotStore:      hotspotProfileStore,
+		QuickPrintStore:   quickPrintStore,
 		SubscriptionStore: subscriptionStore,
 		SettingStore:      settingStore,
 		SequenceStore:     sequenceStore,
 		InvoiceStore:      invoiceStore,
 		PaymentStore:      paymentStore,
-		AuthService:       authSvc,
-		AuthSigner:        authSigner,
-		UserLimiter:       userLim,
-		IPLimiter:         ipLim,
-		HeavyLimiter:      heavyLim,
-		DevMgr:            devMgr,
-		Hub:               hub,
-		InfluxReader:      influxReader,
-		GoServiceURL:      goServiceURL,
+		AuditLogStore:     auditLogStore,
+		TemplateStore:     templateStore,
+		NotificationStore: notificationStore,
+		WhatsApp:          waManager,
+
+		RegistrationStore:   registrationStore,
+		TicketStore:         ticketStore,
+		NotificationService: notifSvc,
+		BillingService:      billingSvc,
+		PortalAuth:          portalAuth,
+		XenditGateway:       paymentService,
+		AuthService:         authSvc,
+		AuthSigner:          authSigner,
+		UserLimiter:         userLim,
+		IPLimiter:           ipLim,
+		HeavyLimiter:        heavyLim,
+		DevMgr:              devMgr,
+		Hub:                 hub,
+		NetStream:           netstreamMgr,
+		InfluxReader:        influxReader,
+		GoServiceURL:        goServiceURL,
+		HookSharedSecret:    hookSecret,
 	}
 
 	handler := api.NewServer(deps)

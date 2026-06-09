@@ -8,6 +8,20 @@ import type {
 
 const base = (rid: number) => `/devices/${rid}/hotspot/vouchers`
 
+export type HotspotServerItem = {
+  name: string
+  profile: string
+  interface: string
+  disabled: boolean
+}
+
+export async function listHotspotServers(routerId: number): Promise<HotspotServerItem[]> {
+  const res = await apiClient.get<Envelope<HotspotServerItem[]>>(
+    `/devices/${routerId}/hotspot/servers`,
+  )
+  return unwrap(res.data)
+}
+
 // POST /routers/:routerId/vouchers/generate — bulk-creates hotspot users
 // on the router and caches the session in Redis (TTL: `TTLVoucherSession`,
 // see `pkg/redis/cache.go`). The returned `gencode` is the handle for the

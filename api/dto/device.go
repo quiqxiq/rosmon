@@ -11,7 +11,8 @@ import (
 type DeviceResponse struct {
 	ID                  uint       `json:"id"`
 	DisplayName         string     `json:"display_name"`
-	Address             string     `json:"address"`
+	Host                string     `json:"host"`
+	Port                int        `json:"port"`
 	Username            string     `json:"username"`
 	UseTLS              bool       `json:"use_tls"`
 	Status              string     `json:"status"`
@@ -36,7 +37,8 @@ func FromModelDevice(d model.MikrotikDevice) DeviceResponse {
 	return DeviceResponse{
 		ID:                  d.ID,
 		DisplayName:         d.DisplayName,
-		Address:             d.Address,
+		Host:                d.Host,
+		Port:                d.Port,
 		Username:            d.Username,
 		UseTLS:              d.UseTLS,
 		Status:              d.Status,
@@ -51,7 +53,8 @@ func FromModelDevice(d model.MikrotikDevice) DeviceResponse {
 
 type DeviceCreateRequest struct {
 	DisplayName         string `json:"display_name" binding:"required,min=1,max=128"`
-	Address             string `json:"address"      binding:"required"`
+	Host                string `json:"host"         binding:"required"`
+	Port                int    `json:"port"         binding:"required,min=1,max=65535"`
 	Username            string `json:"username"     binding:"required"`
 	Password            string `json:"password"     binding:"required"`
 	UseTLS              bool   `json:"use_tls"`
@@ -65,7 +68,8 @@ func (r DeviceCreateRequest) ToModel() model.MikrotikDevice {
 	}
 	return model.MikrotikDevice{
 		DisplayName:         r.DisplayName,
-		Address:             r.Address,
+		Host:                r.Host,
+		Port:                r.Port,
 		Username:            r.Username,
 		Password:            r.Password,
 		UseTLS:              r.UseTLS,
@@ -77,7 +81,8 @@ func (r DeviceCreateRequest) ToModel() model.MikrotikDevice {
 
 type DeviceUpdateRequest struct {
 	DisplayName         string `json:"display_name,omitempty"`
-	Address             string `json:"address,omitempty"`
+	Host                string `json:"host,omitempty"`
+	Port                *int   `json:"port,omitempty"`
 	Username            string `json:"username,omitempty"`
 	Password            string `json:"password,omitempty"`
 	UseTLS              *bool  `json:"use_tls,omitempty"`
@@ -89,8 +94,11 @@ func (r DeviceUpdateRequest) Apply(d *model.MikrotikDevice) {
 	if r.DisplayName != "" {
 		d.DisplayName = r.DisplayName
 	}
-	if r.Address != "" {
-		d.Address = r.Address
+	if r.Host != "" {
+		d.Host = r.Host
+	}
+	if r.Port != nil {
+		d.Port = *r.Port
 	}
 	if r.Username != "" {
 		d.Username = r.Username

@@ -88,7 +88,7 @@ const PRESET_TEMPLATES: Array<{
   userMode: 'vc' | 'up'
   userLength: number
   prefix: string
-  charSet: 'lower' | 'upper' | 'upplow' | 'mix' | 'mix1' | 'mix2' | 'num'
+  charSet: 'lower' | 'upper' | 'mixed' | 'number' | 'lower_number' | 'upper_number' | 'mixed_number'
   timeLimit: string
   dataLimit: number
   dataLimitUnit: 'MB' | 'GB'
@@ -101,7 +101,7 @@ const PRESET_TEMPLATES: Array<{
     userMode: 'up',
     userLength: 4,
     prefix: '',
-    charSet: 'mix',
+    charSet: 'lower_number',
     timeLimit: '1h',
     dataLimit: 0,
     dataLimitUnit: 'MB',
@@ -114,7 +114,7 @@ const PRESET_TEMPLATES: Array<{
     userMode: 'up',
     userLength: 5,
     prefix: '',
-    charSet: 'mix',
+    charSet: 'lower_number',
     timeLimit: '3h',
     dataLimit: 0,
     dataLimitUnit: 'MB',
@@ -127,7 +127,7 @@ const PRESET_TEMPLATES: Array<{
     userMode: 'vc',
     userLength: 6,
     prefix: '',
-    charSet: 'mix2',
+    charSet: 'mixed_number',
     timeLimit: '6h',
     dataLimit: 500,
     dataLimitUnit: 'MB',
@@ -140,7 +140,7 @@ const PRESET_TEMPLATES: Array<{
     userMode: 'vc',
     userLength: 6,
     prefix: '',
-    charSet: 'mix',
+    charSet: 'lower_number',
     timeLimit: '12h',
     dataLimit: 1,
     dataLimitUnit: 'GB',
@@ -153,7 +153,7 @@ const PRESET_TEMPLATES: Array<{
     userMode: 'vc',
     userLength: 6,
     prefix: 'wifi',
-    charSet: 'mix',
+    charSet: 'lower_number',
     timeLimit: '1d',
     dataLimit: 2,
     dataLimitUnit: 'GB',
@@ -166,7 +166,7 @@ const PRESET_TEMPLATES: Array<{
     userMode: 'up',
     userLength: 6,
     prefix: '',
-    charSet: 'upplow',
+    charSet: 'mixed',
     timeLimit: '3d',
     dataLimit: 5,
     dataLimitUnit: 'GB',
@@ -179,7 +179,7 @@ const PRESET_TEMPLATES: Array<{
     userMode: 'up',
     userLength: 7,
     prefix: '',
-    charSet: 'mix2',
+    charSet: 'mixed_number',
     timeLimit: '7d',
     dataLimit: 10,
     dataLimitUnit: 'GB',
@@ -192,7 +192,7 @@ const PRESET_TEMPLATES: Array<{
     userMode: 'vc',
     userLength: 7,
     prefix: 'pro',
-    charSet: 'mix1',
+    charSet: 'upper_number',
     timeLimit: '14d',
     dataLimit: 25,
     dataLimitUnit: 'GB',
@@ -205,7 +205,7 @@ const PRESET_TEMPLATES: Array<{
     userMode: 'up',
     userLength: 8,
     prefix: '',
-    charSet: 'mix2',
+    charSet: 'mixed_number',
     timeLimit: '30d',
     dataLimit: 50,
     dataLimitUnit: 'GB',
@@ -218,7 +218,7 @@ const PRESET_TEMPLATES: Array<{
     userMode: 'vc',
     userLength: 8,
     prefix: 'plus',
-    charSet: 'mix2',
+    charSet: 'mixed_number',
     timeLimit: '30d',
     dataLimit: 0,
     dataLimitUnit: 'MB',

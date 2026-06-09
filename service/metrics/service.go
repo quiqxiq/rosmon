@@ -117,30 +117,8 @@ func (s *Service) startLocked(deviceID uint, cs *devmgr.ClientSet) {
 		func() { cs.Sys.StopMonitor(resID) },
 	)
 
-	// ── interface_stats — interface print stats interval=5s ──────────────
-	ifaceW := roslibinflux.NewWriter(s.cli, "interface_stats",
-		func(sen *roslib.Sentence) map[string]string {
-			return map[string]string{"device": devStr, "iface": sen.Get("name")}
-		},
-		func(sen *roslib.Sentence) map[string]any {
-			return map[string]any{
-				"rx_byte":   sen.IntOr("rx-byte", 0),
-				"tx_byte":   sen.IntOr("tx-byte", 0),
-				"rx_packet": sen.IntOr("rx-packet", 0),
-				"tx_packet": sen.IntOr("tx-packet", 0),
-			}
-		},
-	)
-	ifaceID := "metrics:" + devStr + ":iface-stats"
-	ifaceSink := roslibinflux.StreamSink(ifaceW, log)
-	track(ifaceID,
-		cs.Net.InterfaceStatsStream(ifaceID, 5*time.Second, func(sen *roslib.Sentence) {
-			if sen.Word() == "!re" {
-				ifaceSink(sen)
-			}
-		}),
-		func() { cs.Net.StopStream(ifaceID) },
-	)
+	// interface_stats + queue_stats kini ditulis oleh service/netstream
+	// (sumber tunggal stream → live SSE + Influx), bukan di sini.
 
 	// ── hotspot_user_bytes — ip/hotspot/user/print bytes interval=10s ────
 	ubW := roslibinflux.NewWriter(s.cli, "hotspot_user_bytes",
@@ -241,34 +219,6 @@ func (s *Service) startLocked(deviceID uint, cs *devmgr.ClientSet) {
 			}
 		}),
 		func() { cs.PPP.StopActiveStream(pppID) },
-	)
-
-	// ── queue_stats — queue/simple/print stats interval=10s ──────────────
-	// Field "bytes" dari RouterOS berformat "in/out" → di-parse jadi dua field.
-	qW := roslibinflux.NewWriter(s.cli, "queue_stats",
-		func(sen *roslib.Sentence) map[string]string {
-			return map[string]string{"device": devStr, "queue": sen.Get("name")}
-		},
-		func(sen *roslib.Sentence) map[string]any {
-			bin, bout := splitInOut(sen.Get("bytes"))
-			pin, pout := splitInOut(sen.Get("packets"))
-			return map[string]any{
-				"bytes_in":    bin,
-				"bytes_out":   bout,
-				"packets_in":  pin,
-				"packets_out": pout,
-			}
-		},
-	)
-	qID := "metrics:" + devStr + ":queue-stats"
-	qSink := roslibinflux.StreamSink(qW, log)
-	track(qID,
-		cs.Net.QueueStatsStream(qID, 10*time.Second, func(sen *roslib.Sentence) {
-			if sen.Word() == "!re" {
-				qSink(sen)
-			}
-		}),
-		func() { cs.Net.StopStream(qID) },
 	)
 
 	// Cleanup streams yang BERHASIL di-start saat device dihapus atau

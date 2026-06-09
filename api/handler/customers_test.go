@@ -120,7 +120,9 @@ func setupCustomerEngine(t *testing.T) (*gin.Engine, *fakeCustomerStore) {
 	r := gin.New()
 	s := newFakeCustomerStore()
 	g := r.Group("/api/v1")
-	handler.NewCustomers(s).Register(g)
+	h := handler.NewCustomers(s)
+	h.Register(g)
+	h.RegisterMutate(g)
 	return r, s
 }
 

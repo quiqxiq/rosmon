@@ -51,7 +51,7 @@ export function DailyExportMenu({
   // the time the user reaches a report page.
   const routersQuery = useRouters()
   const router = routersQuery.data?.find((r) => r.id === routerId)
-  const slug = slugifyRouterName(router?.name)
+  const slug = slugifyRouterName(router?.display_name)
 
   // One in-flight flag covers both CSV and Excel — they share the
   // dropdown trigger, so we just need to disable everything while a

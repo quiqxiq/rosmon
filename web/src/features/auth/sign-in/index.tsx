@@ -2,11 +2,10 @@ import { useSearch } from '@tanstack/react-router'
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Logo } from '@/assets/logo'
 import { AuthLayout } from '../auth-layout'
 import { UserAuthForm } from './components/user-auth-form'
 
@@ -16,39 +15,17 @@ export function SignIn() {
   return (
     <AuthLayout>
       <Card className='max-w-sm gap-4'>
-        <CardHeader>
+        <CardHeader className='flex flex-col items-center gap-2 text-center pb-2'>
+          <Logo className='size-10 text-primary' />
           <CardTitle className='text-lg tracking-tight'>
             Sign in to MIKHMON
           </CardTitle>
-          <CardDescription>
-            Enter your credentials to access the hotspot monitor.{' '}
-            <br className='max-sm:hidden' /> Don't have an account?{' '}
-            <span className='text-muted-foreground'>Contact your administrator.</span>
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <UserAuthForm redirectTo={redirect} />
         </CardContent>
-        <CardFooter>
-          <p className='px-8 text-center text-sm text-muted-foreground'>
-            By clicking sign in, you agree to our{' '}
-            <a
-              href='/terms'
-              className='underline underline-offset-4 hover:text-primary'
-            >
-              Terms of Service
-            </a>{' '}
-            and{' '}
-            <a
-              href='/privacy'
-              className='underline underline-offset-4 hover:text-primary'
-            >
-              Privacy Policy
-            </a>
-            .
-          </p>
-        </CardFooter>
       </Card>
     </AuthLayout>
   )
 }
+

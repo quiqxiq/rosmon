@@ -107,6 +107,18 @@ func (f *fakeTxStore) ListByDeviceDate(ctx context.Context, deviceID uint, date 
 	return out, nil
 }
 
+func (f *fakeTxStore) ListByDeviceYear(ctx context.Context, deviceID uint, year int) ([]model.Transaction, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []model.Transaction
+	for _, t := range f.txs {
+		if t.DeviceID == deviceID && t.CreatedAt.Year() == year {
+			out = append(out, t)
+		}
+	}
+	return out, nil
+}
+
 func (f *fakeTxStore) ExistsByUserComment(ctx context.Context, deviceID uint, username, comment string) (bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -154,7 +166,7 @@ func setupHookLoginEngine(t *testing.T) (*gin.Engine, *fakeTxStore, *fakeProfile
 	}
 
 	g := r.Group("/api/v1")
-	handler.NewHookLogin(devStore, txStore, profStore, nil).Register(g)
+	handler.NewHookLogin(devStore, txStore, profStore, "", nil).Register(g)
 	return r, txStore, profStore
 }
 

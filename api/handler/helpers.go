@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/quiqxiq/rosmon/api/dto"
+	"github.com/quiqxiq/rosmon/api/middleware"
 	"github.com/quiqxiq/rosmon/mikrotik"
 	"github.com/quiqxiq/rosmon/service/devmgr"
 )
@@ -79,6 +80,16 @@ func parseCacheQuery(c *gin.Context, defaultTTL time.Duration) (time.Duration, b
 // mustClients mengambil devmgr.ClientSet yang di-inject DeviceMiddleware.
 func mustClients(c *gin.Context) *devmgr.ClientSet {
 	return c.MustGet("device_clients").(*devmgr.ClientSet)
+}
+
+// actorFromCtx mengambil userID dari JWT claims. Nil = anonymous / sistem.
+// Digunakan oleh audit.Log() di semua handler.
+func actorFromCtx(c *gin.Context) *uint {
+	if claims, ok := middleware.ClaimsFrom(c); ok {
+		uid := claims.UserID
+		return &uid
+	}
+	return nil
 }
 
 // MapError central error → HTTP status + code envelope. Dipanggil oleh

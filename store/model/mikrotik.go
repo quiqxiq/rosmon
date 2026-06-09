@@ -11,13 +11,14 @@ import (
 type MikrotikDevice struct {
 	ID          uint   `gorm:"primaryKey"`
 	DisplayName string `gorm:"not null;size:128"`
-	Address     string `gorm:"not null;size:255"` // "192.168.88.1:8728"
+	Host        string `gorm:"not null;size:255"`
+	Port        int    `gorm:"not null;default:8728"`
 	Username    string `gorm:"not null;size:64"`
 	Password    string `gorm:"not null"`
 	UseTLS      bool   `gorm:"default:false"`
 
 	// Status koneksi — diupdate oleh DeviceManager
-	Status    string     `gorm:"default:'disconnected';size:32"` // connected | disconnected | error
+	Status    string `gorm:"default:'disconnected';size:32"` // connected | disconnected | error
 	LastSeen  *time.Time
 	LastError string `gorm:"size:512"`
 

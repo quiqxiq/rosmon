@@ -1,0 +1,232 @@
+/customer/login:
+  post:
+    tags: [Customer Portal]
+    summary: Login pelanggan (nomor HP + password)
+    description: |
+      Endpoint publik (tanpa auth, IP rate-limited). Menerbitkan customer access
+      token (scope terpisah dari staff). Pelanggan harus sudah di-onboard admin
+      (`POST /customers/{id}/portal-password`).
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/customer-portal.yaml#/CustomerLoginRequest' }
+    responses:
+      '200':
+        description: Login berhasil
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/customer-portal.yaml#/CustomerLoginResponse' }
+      '400': { $ref: '../components/responses.yaml#/ErrorValidation' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '429': { $ref: '../components/responses.yaml#/ErrorRateLimit' }
+
+/customer/me:
+  get:
+    tags: [Customer Portal]
+    summary: Profil pelanggan (customer token)
+    responses:
+      '200':
+        description: Profil
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/customer-portal.yaml#/CustomerMeResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+
+/customer/subscriptions:
+  get:
+    tags: [Customer Portal]
+    summary: Langganan milik pelanggan
+    responses:
+      '200':
+        description: List langganan
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items: { $ref: '../schemas/customer-portal.yaml#/PortalSubscriptionResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+
+/customer/subscriptions/{id}/status:
+  parameters:
+    - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+  get:
+    tags: [Customer Portal]
+    summary: Status langganan (DB)
+    responses:
+      '200':
+        description: Status langganan
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/customer-portal.yaml#/PortalSubscriptionResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '404': { $ref: '../components/responses.yaml#/ErrorNotFound' }
+
+/customer/invoices:
+  get:
+    tags: [Customer Portal]
+    summary: Tagihan milik pelanggan (berkode unik/QR)
+    parameters:
+      - { name: status, in: query, schema: { type: string, enum: [issued, paid, overdue, cancelled] } }
+    responses:
+      '200':
+        description: List tagihan
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items: { $ref: '../schemas/customer-portal.yaml#/PortalInvoiceResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+
+/customer/invoices/{id}:
+  parameters:
+    - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+  get:
+    tags: [Customer Portal]
+    summary: Detail tagihan (milik sendiri)
+    responses:
+      '200':
+        description: Tagihan
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data: { $ref: '../schemas/customer-portal.yaml#/PortalInvoiceResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '404': { $ref: '../components/responses.yaml#/ErrorNotFound' }
+
+/customer/payments:
+  get:
+    tags: [Customer Portal]
+    summary: Riwayat pembayaran milik pelanggan
+    responses:
+      '200':
+        description: List pembayaran
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items: { $ref: '../schemas/customer-portal.yaml#/PortalPaymentResponse' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+
+/customer/change-password:
+  post:
+    tags: [Customer Portal]
+    summary: Ganti password sendiri
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/customer-portal.yaml#/ChangePasswordRequest' }
+    responses:
+      '200':
+        description: Password diperbarui
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties: { message: { type: string, example: "password updated" } }
+      '400': { $ref: '../components/responses.yaml#/ErrorValidation' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+
+/payments/collect:
+  post:
+    tags: [Customer Portal]
+    summary: Settle invoice via kode unik/QR (petugas/staff)
+    description: |
+      Petugas scan QR atau input kode unik invoice saat menerima tunai →
+      catat pembayaran `cash` berstatus `confirmed` instan, tandai invoice
+      `paid`, dan pulihkan layanan (outbox). Idempoten (scan ganda → 409).
+      Butuh staff token (admin/operator).
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/customer-portal.yaml#/PaymentCollectRequest' }
+    responses:
+      '201':
+        description: Pembayaran tercatat + invoice lunas
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        payment: { $ref: '../schemas/customer-portal.yaml#/PortalPaymentResponse' }
+                        invoice: { $ref: '../schemas/customer-portal.yaml#/PortalInvoiceResponse' }
+      '400': { $ref: '../components/responses.yaml#/ErrorValidation' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '404': { $ref: '../components/responses.yaml#/ErrorNotFound' }
+      '409': { $ref: '../components/responses.yaml#/ErrorConflict' }
+
+/customers/{id}/portal-password:
+  parameters:
+    - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+  post:
+    tags: [Customer Portal]
+    summary: Set/reset password portal pelanggan (admin/operator)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../schemas/customer-portal.yaml#/SetPortalPasswordRequest' }
+    responses:
+      '200':
+        description: Password portal di-set
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties: { message: { type: string, example: "portal password set" } }
+      '400': { $ref: '../components/responses.yaml#/ErrorValidation' }
+      '401': { $ref: '../components/responses.yaml#/ErrorUnauthorized' }
+      '403': { $ref: '../components/responses.yaml#/ErrorForbidden' }
+      '404': { $ref: '../components/responses.yaml#/ErrorNotFound' }

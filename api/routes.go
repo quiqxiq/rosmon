@@ -25,12 +25,27 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 	// ── Public webhook (router on-login) ──────────────────────────────────
 	// PENTING: register SEBELUM auth chain di-pasang. Endpoint ini tidak
 	// butuh JWT karena dipanggil oleh /tool/fetch dari MikroTik router.
-	// MVP: tidak ada IP whitelist / shared secret — wajib di-add sebelum
-	// deploy ke production.
+	// Webhook dari MikroTik on-login. Tidak pakai JWT. Jika HOOK_SHARED_SECRET
+	// di-set di env, request harus menyertakan header X-Rosmon-Secret yang cocok.
 	if deps.TxStore != nil && deps.ProfileStore != nil && deps.DeviceStore != nil {
 		hookGroup := g.Group("")
-		handler.NewHookLogin(deps.DeviceStore, deps.TxStore, deps.ProfileStore, deps.Logger).
+		handler.NewHookLogin(deps.DeviceStore, deps.TxStore, deps.ProfileStore, deps.HookSharedSecret, deps.Logger).
 			Register(hookGroup)
+	}
+
+	// ── Public webhook Xendit (Fase 4) ────────────────────────────────────
+	// POST /public/webhooks/xendit — diproteksi x-callback-token dari Xendit.
+	// Tidak butuh JWT. Di-rate-limit per IP untuk mencegah flood.
+	if deps.XenditGateway != nil {
+		xenditWebhookGroup := g.Group("")
+		if deps.IPLimiter != nil {
+			xenditWebhookGroup.Use(middleware.RequirePerIPRate(deps.IPLimiter))
+		}
+		handler.NewXenditWebhook(
+			deps.XenditGateway, deps.PaymentStore, deps.InvoiceStore,
+			deps.SubscriptionStore, deps.CustomerStore,
+			deps.NotificationService, deps.SettingStore, deps.Logger,
+		).Register(xenditWebhookGroup)
 	}
 
 	// ── Auth public endpoints (login/refresh/logout) ──────────────────────
@@ -127,7 +142,15 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 	handler.NewPPPProfile(nil).Register(dev)
 	handler.NewPPPActive(nil).Register(dev)
 
-	handler.NewStream(deps.Hub, nil, nil, nil, nil, nil, nil).Register(dev)
+	// Reveal password (PPP secret + hotspot user) = admin+operator saja.
+	devAdminOp := dev.Group("")
+	if deps.AuthSigner != nil {
+		devAdminOp.Use(middleware.RequireRole(roleAdmin, roleOperator))
+	}
+	handler.NewPPPSecret(nil).RegisterAdmin(devAdminOp)
+	handler.NewHotspotUser(nil, nil).RegisterAdmin(devAdminOp)
+
+	handler.NewStream(deps.Hub, nil, nil, nil, nil, nil, nil, deps.NetStream).Register(dev)
 
 	if deps.InfluxReader != nil {
 		handler.NewHistory(deps.InfluxReader).Register(dev)
@@ -144,6 +167,16 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 			reportScope.Use(mw)
 		}
 		handler.NewReport(deps.DeviceStore, deps.TxStore).Register(reportScope)
+	}
+
+	// Financial reports — global scope (tidak per-device).
+	// GET /reports/financial, /reports/aging, /reports/churn, /reports/dashboard
+	if deps.InvoiceStore != nil && deps.SubscriptionStore != nil {
+		finScope := g.Group("")
+		for _, mw := range authChain {
+			finScope.Use(mw)
+		}
+		handler.NewReportFinancial(deps.InvoiceStore, deps.SubscriptionStore).Register(finScope)
 	}
 
 	// ProfileConfig API: scope per-device tanpa DeviceMiddleware
@@ -174,24 +207,59 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		handler.NewHotspotProfiles(deps.HotspotStore, deps.DevMgr, deps.GoServiceURL, deps.Logger).Register(hsScope)
 	}
 
+	// Quick Print presets (DB-backed per-device, tanpa DeviceMiddleware —
+	// tidak menyentuh router; hanya CRUD konfigurasi cetak voucher).
+	if deps.QuickPrintStore != nil {
+		qpScope := g.Group("/devices/:device_id")
+		for _, mw := range authChain {
+			qpScope.Use(mw)
+		}
+		handler.NewQuickPrint(deps.QuickPrintStore, deps.Logger).Register(qpScope)
+	}
+
 	// Customer / Subscription API — business layer.
 	if deps.CustomerStore != nil {
 		bizScope := g.Group("")
 		for _, mw := range authChain {
 			bizScope.Use(mw)
 		}
-		handler.NewCustomers(deps.CustomerStore).Register(bizScope)
+		ch := handler.NewCustomers(deps.CustomerStore)
+		ch.PortalAuth = deps.PortalAuth
+		ch.Audit = deps.AuditLogStore
+		ch.Log = deps.Logger
+		ch.Register(bizScope)
+		// set-portal-password + DELETE /customers/:id = admin+operator.
+		adminOp := g.Group("")
+		for _, mw := range authChain {
+			adminOp.Use(mw)
+		}
+		if deps.AuthSigner != nil {
+			adminOp.Use(middleware.RequireRole(roleAdmin, roleOperator))
+		}
+		ch.RegisterAdmin(adminOp)
+		ch.RegisterMutate(adminOp)
 	}
 	if deps.SubscriptionStore != nil && deps.CustomerStore != nil {
 		subScope := g.Group("")
 		for _, mw := range authChain {
 			subScope.Use(mw)
 		}
-		handler.NewSubscriptions(
+		sh := handler.NewSubscriptions(
 			deps.SubscriptionStore, deps.CustomerStore,
 			deps.PPPProfileStore, deps.HotspotStore,
 			deps.SettingStore, deps.DevMgr, deps.Logger,
-		).Register(subScope)
+		)
+		sh.Audit = deps.AuditLogStore
+		sh.Register(subScope)
+		// Reveal password MikroTik = admin+operator.
+		subAdminOp := g.Group("")
+		for _, mw := range authChain {
+			subAdminOp.Use(mw)
+		}
+		if deps.AuthSigner != nil {
+			subAdminOp.Use(middleware.RequireRole(roleAdmin, roleOperator))
+		}
+		sh.RegisterAdmin(subAdminOp)
 	}
 
 	// Settings, Invoices, Payments — business layer billing.
@@ -203,23 +271,138 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		handler.NewSettings(deps.SettingStore).Register(bizAuth)
 	}
 	if deps.InvoiceStore != nil && deps.SequenceStore != nil {
-		bizAuth := g.Group("")
+		// GET /invoices, GET /invoices/:id — semua authenticated user.
+		invRead := g.Group("")
 		for _, mw := range authChain {
-			bizAuth.Use(mw)
+			invRead.Use(mw)
 		}
-		handler.NewInvoices(deps.InvoiceStore, deps.SequenceStore).Register(bizAuth)
+		h := handler.NewInvoices(deps.InvoiceStore, deps.SequenceStore)
+		h.Audit = deps.AuditLogStore
+		h.SubStore = deps.SubscriptionStore
+		h.Billing = deps.BillingService
+		h.RegisterRead(invRead)
+		// POST /invoices/generate, POST /invoices/:id/cancel — admin+operator saja.
+		invWrite := g.Group("")
+		for _, mw := range authChain {
+			invWrite.Use(mw)
+		}
+		if deps.AuthSigner != nil {
+			invWrite.Use(middleware.RequireRole(roleAdmin, roleOperator))
+		}
+		h.RegisterWrite(invWrite)
 	}
 	if deps.PaymentStore != nil && deps.InvoiceStore != nil {
 		bizAuth := g.Group("")
 		for _, mw := range authChain {
 			bizAuth.Use(mw)
 		}
-		handler.NewPayments(deps.PaymentStore, deps.InvoiceStore, deps.SubscriptionStore, deps.Logger).Register(bizAuth)
+		handler.NewPayments(deps.PaymentStore, deps.InvoiceStore, deps.SubscriptionStore,
+			deps.CustomerStore, deps.NotificationService, deps.AuditLogStore, deps.SettingStore,
+			deps.Logger).Register(bizAuth)
+	}
+
+	// Audit logs, message templates, notification logs, WhatsApp setup —
+	// admin only. Read-only (audit/notifications) + template editing + WA setup.
+	if deps.AuditLogStore != nil || deps.TemplateStore != nil || deps.NotificationStore != nil || deps.WhatsApp != nil {
+		adminBiz := g.Group("")
+		for _, mw := range authChain {
+			adminBiz.Use(mw)
+		}
+		if deps.AuthSigner != nil {
+			adminBiz.Use(middleware.RequireRole(roleAdmin))
+		}
+		if deps.AuditLogStore != nil {
+			handler.NewAuditLogs(deps.AuditLogStore).Register(adminBiz)
+		}
+		if deps.TemplateStore != nil {
+			handler.NewMessageTemplates(deps.TemplateStore).Register(adminBiz)
+		}
+		if deps.NotificationStore != nil {
+			handler.NewNotifications(deps.NotificationStore).Register(adminBiz)
+		}
+		if deps.WhatsApp != nil {
+			handler.NewWhatsApp(deps.WhatsApp).Register(adminBiz)
+		}
+	}
+
+	// Registration flow (Fase 2): submit publik + manajemen staff.
+	if deps.RegistrationStore != nil {
+		regHandler := handler.NewRegistrations(
+			deps.RegistrationStore, deps.CustomerStore, deps.SubscriptionStore,
+			deps.BillingService, deps.NotificationService, deps.SettingStore,
+			deps.AuditLogStore, deps.Logger,
+		)
+		regHandler.PortalAuth = deps.PortalAuth
+		// Zone publik (tanpa auth) — IP rate-limited.
+		pub := g.Group("")
+		if deps.IPLimiter != nil {
+			pub.Use(middleware.RequirePerIPRate(deps.IPLimiter))
+		}
+		regHandler.RegisterPublic(pub)
+		// Zone staff — admin + operator.
+		staff := g.Group("")
+		for _, mw := range authChain {
+			staff.Use(mw)
+		}
+		if deps.AuthSigner != nil {
+			staff.Use(middleware.RequireRole(roleAdmin, roleOperator))
+		}
+		regHandler.RegisterStaff(staff)
+	}
+
+	// Public packages (Fase 2): paket layanan untuk form pendaftaran publik.
+	if deps.PPPProfileStore != nil || deps.HotspotStore != nil {
+		pkgPub := g.Group("")
+		if deps.IPLimiter != nil {
+			pkgPub.Use(middleware.RequirePerIPRate(deps.IPLimiter))
+		}
+		handler.NewPublicPackages(deps.PPPProfileStore, deps.HotspotStore).RegisterPublic(pkgPub)
+	}
+
+	// Customer Portal (Fase 3) — scope JWT terpisah dari staff.
+	if deps.PortalAuth != nil && deps.AuthSigner != nil {
+		// Login publik (IP rate-limited).
+		custPub := g.Group("")
+		if deps.IPLimiter != nil {
+			custPub.Use(middleware.RequirePerIPRate(deps.IPLimiter))
+		}
+		handler.NewCustomerAuth(deps.PortalAuth, deps.AuthSigner).RegisterPublic(custPub)
+
+		// Endpoint portal (butuh customer access token).
+		custScope := g.Group("")
+		custScope.Use(middleware.RequireCustomerAuth(deps.AuthSigner))
+		portalHandler := handler.NewCustomerPortal(
+			deps.PortalAuth, deps.CustomerStore, deps.SubscriptionStore,
+			deps.InvoiceStore, deps.PaymentStore,
+		)
+		// Wire payment gateway jika dikonfigurasi (Fase 4).
+		portalHandler.PaymentSvc = deps.XenditGateway
+		portalHandler.Register(custScope)
+
+		// Tiket dukungan — customer portal (buat & lihat tiket sendiri).
+		if deps.TicketStore != nil {
+			handler.NewTickets(deps.TicketStore).RegisterCustomer(custScope)
+		}
+	}
+
+	// Tiket dukungan — staff endpoints (list, assign, resolve, delete).
+	if deps.TicketStore != nil {
+		ticketStaff := g.Group("")
+		for _, mw := range authChain {
+			ticketStaff.Use(mw)
+		}
+		if deps.AuthSigner != nil {
+			ticketStaff.Use(middleware.RequireRole(roleAdmin, roleOperator))
+		}
+		handler.NewTickets(deps.TicketStore).RegisterStaff(ticketStaff)
 	}
 }
 
-// roleAdmin shortcut konstanta (avoid import cycle ke service/auth).
-var roleAdmin = auth.RoleAdmin
+// roleAdmin / roleOperator shortcut konstanta (avoid import cycle ke service/auth).
+var (
+	roleAdmin    = auth.RoleAdmin
+	roleOperator = auth.RoleOperator
+)
 
 // RegisterDocs mounts OpenAPI spec + interactive docs UI (Scalar).
 // Register sebagai group di root router (bukan di /api/v1).

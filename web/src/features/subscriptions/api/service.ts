@@ -64,3 +64,12 @@ export async function reconcileSubscription(
 export async function removeSubscription(id: number): Promise<void> {
   await apiClient.delete(`${base}/${id}`)
 }
+
+// revealSubscriptionPassword — admin/operator only (backend gated). Password
+// MikroTik (PPPoE/hotspot) plaintext, didekripsi dari DB.
+export async function revealSubscriptionPassword(id: number): Promise<string> {
+  const res = await apiClient.get<Envelope<{ password: string }>>(
+    `${base}/${id}/password`,
+  )
+  return unwrap(res.data).password
+}

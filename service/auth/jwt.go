@@ -11,11 +11,12 @@ import (
 
 // Token type discriminator di field "typ".
 const (
-	TokenTypeAccess  = "access"
-	TokenTypeRefresh = "refresh"
+	TokenTypeAccess         = "access"
+	TokenTypeRefresh        = "refresh"
+	TokenTypeCustomerAccess = "customer_access"
 )
 
-// Claims adalah body JWT rosmon.
+// Claims adalah body JWT rosmon (staff).
 type Claims struct {
 	UserID   uint   `json:"uid"`
 	Username string `json:"usr"`
@@ -24,13 +25,24 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+// CustomerClaims adalah body JWT untuk customer portal — scope TERPISAH dari
+// staff. typ "customer_access" membuat token staff & customer saling tolak
+// (VerifyAccess vs VerifyCustomerAccess).
+type CustomerClaims struct {
+	CustomerID uint   `json:"cid"`
+	Phone      string `json:"phn"`
+	TokenTyp   string `json:"typ"` // "customer_access"
+	jwt.RegisteredClaims
+}
+
 // Signer membuat & verify JWT HS256. accessTTL & refreshTTL diisi dari
 // AuthConfig saat constructor (cmd/server/main.go).
 type Signer struct {
-	secret     []byte
-	accessTTL  time.Duration
-	refreshTTL time.Duration
-	now        func() time.Time // override-able untuk test
+	secret      []byte
+	accessTTL   time.Duration
+	refreshTTL  time.Duration
+	customerTTL time.Duration
+	now         func() time.Time // override-able untuk test
 }
 
 // NewSigner buat Signer baru. secret minimal 32 byte agar HS256 cukup kuat.
@@ -43,12 +55,24 @@ func NewSigner(secret string, accessTTL, refreshTTL time.Duration) *Signer {
 		refreshTTL = 7 * 24 * time.Hour
 	}
 	return &Signer{
-		secret:     []byte(secret),
-		accessTTL:  accessTTL,
-		refreshTTL: refreshTTL,
-		now:        time.Now,
+		secret:      []byte(secret),
+		accessTTL:   accessTTL,
+		refreshTTL:  refreshTTL,
+		customerTTL: 24 * time.Hour,
+		now:         time.Now,
 	}
 }
+
+// SetCustomerTTL override TTL access token customer portal (default 24h).
+// Dipanggil dari cmd/server/main.go bila JWT_CUSTOMER_TTL di-set.
+func (s *Signer) SetCustomerTTL(ttl time.Duration) {
+	if ttl > 0 {
+		s.customerTTL = ttl
+	}
+}
+
+// CustomerTTL exposes the configured customer access-token lifetime.
+func (s *Signer) CustomerTTL() time.Duration { return s.customerTTL }
 
 // AccessTTL exposes the configured access-token lifetime (untuk response).
 func (s *Signer) AccessTTL() time.Duration { return s.accessTTL }
@@ -120,6 +144,48 @@ func (s *Signer) VerifyRefresh(token string) (*Claims, error) {
 		return nil, ErrTokenWrongType
 	}
 	return c, nil
+}
+
+// SignCustomerAccess generate JWT access token untuk customer portal.
+func (s *Signer) SignCustomerAccess(customerID uint, phone string) (string, error) {
+	now := s.now()
+	claims := CustomerClaims{
+		CustomerID: customerID,
+		Phone:      phone,
+		TokenTyp:   TokenTypeCustomerAccess,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        uuid.NewString(),
+			Subject:   fmt.Sprintf("cust:%d", customerID),
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(s.customerTTL)),
+		},
+	}
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(s.secret)
+}
+
+// VerifyCustomerAccess verify token sebagai customer access. Menolak token
+// staff (typ != customer_access) dengan ErrTokenWrongType.
+func (s *Signer) VerifyCustomerAccess(token string) (*CustomerClaims, error) {
+	claims := &CustomerClaims{}
+	parsed, err := jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (any, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
+		return s.secret, nil
+	})
+	if err != nil {
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			return nil, ErrTokenExpired
+		}
+		return nil, fmt.Errorf("%w: %v", ErrTokenInvalid, err)
+	}
+	if !parsed.Valid {
+		return nil, ErrTokenInvalid
+	}
+	if claims.TokenTyp != TokenTypeCustomerAccess {
+		return nil, ErrTokenWrongType
+	}
+	return claims, nil
 }
 
 func (s *Signer) parse(token string) (*Claims, error) {
