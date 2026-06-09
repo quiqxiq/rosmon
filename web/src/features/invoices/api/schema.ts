@@ -26,6 +26,9 @@ export type InvoiceListFilters = {
   status?: string
   customer_id?: number
   subscription_id?: number
+  /** Filter berdasarkan bulan periode tagihan (period_start). year wajib bersama month. */
+  year?: number
+  month?: number
 }
 
 export type GenerateInvoiceInput = {

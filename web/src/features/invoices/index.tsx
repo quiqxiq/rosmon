@@ -1,6 +1,13 @@
 import { useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Main } from '@/components/layout/main'
 import { SimpleDataTable } from '@/components/data-table'
 import { useCustomers } from '@/features/customers/api/queries'
@@ -9,11 +16,35 @@ import { makeColumns } from './components/columns'
 import { InvoiceDetailDialog } from './components/invoice-detail-dialog'
 import { GenerateInvoiceDialog } from './components/generate-invoice-dialog'
 import { RecordPaymentDialog } from '@/features/payments/components/record-payment-dialog'
-import type { Invoice } from './api/schema'
+import type { Invoice, InvoiceListFilters } from './api/schema'
+
+const MONTHS = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+]
+const ALL = 'all'
+const currentYear = new Date().getFullYear()
+const YEARS = [currentYear, currentYear - 1, currentYear - 2]
 
 export function Invoices() {
-  const invoicesQuery = useInvoices()
   const customersQuery = useCustomers()
+
+  // Filter server-side: bulan (period_start) + customer. Default: semua.
+  const [month, setMonth] = useState<string>(ALL)
+  const [year, setYear] = useState<number>(currentYear)
+  const [customerId, setCustomerId] = useState<string>(ALL)
+
+  const filters = useMemo<InvoiceListFilters>(() => {
+    const f: InvoiceListFilters = {}
+    if (customerId !== ALL) f.customer_id = Number(customerId)
+    if (month !== ALL) {
+      f.year = year
+      f.month = Number(month)
+    }
+    return f
+  }, [customerId, month, year])
+
+  const invoicesQuery = useInvoices(filters)
 
   const [detailId, setDetailId] = useState<number | null>(null)
   const [showGenerate, setShowGenerate] = useState(false)
@@ -51,6 +82,53 @@ export function Invoices() {
             <Plus className='size-4' />
             Buat Invoice
           </Button>
+        </div>
+
+        <div className='flex flex-wrap items-center gap-2'>
+          <Select value={customerId} onValueChange={setCustomerId}>
+            <SelectTrigger className='h-9 w-[220px]'>
+              <SelectValue placeholder='Semua pelanggan' />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Semua pelanggan</SelectItem>
+              {(customersQuery.data ?? []).map((c) => (
+                <SelectItem key={c.id} value={String(c.id)}>
+                  {c.full_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={month} onValueChange={setMonth}>
+            <SelectTrigger className='h-9 w-[150px]'>
+              <SelectValue placeholder='Semua bulan' />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Semua bulan</SelectItem>
+              {MONTHS.map((label, i) => (
+                <SelectItem key={i} value={String(i + 1)}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={String(year)}
+            onValueChange={(v) => setYear(Number(v))}
+            disabled={month === ALL}
+          >
+            <SelectTrigger className='h-9 w-[110px]'>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {YEARS.map((y) => (
+                <SelectItem key={y} value={String(y)}>
+                  {y}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {invoicesQuery.isError ? (

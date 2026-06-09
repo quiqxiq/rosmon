@@ -19,9 +19,10 @@ import (
 // ── fake InvoiceStore ────────────────────────────────────────────────────────
 
 type fakeInvoiceStore struct {
-	mu   sync.Mutex
-	rows map[uint]model.Invoice
-	seq  uint
+	mu         sync.Mutex
+	rows       map[uint]model.Invoice
+	seq        uint
+	lastFilter store.InvoiceListFilter // capture filter terakhir yang diterima List
 }
 
 func newFakeInvoiceStore() *fakeInvoiceStore {
@@ -73,12 +74,17 @@ func (f *fakeInvoiceStore) GetByPaymentCode(_ context.Context, code string) (*mo
 func (f *fakeInvoiceStore) List(_ context.Context, fil store.InvoiceListFilter) ([]model.Invoice, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.lastFilter = fil
 	out := make([]model.Invoice, 0)
 	for _, inv := range f.rows {
 		if fil.CustomerID != 0 && inv.CustomerID != fil.CustomerID {
 			continue
 		}
 		if fil.Status != "" && inv.Status != fil.Status {
+			continue
+		}
+		if fil.Year > 0 && fil.Month > 0 &&
+			(inv.PeriodStart.Year() != fil.Year || int(inv.PeriodStart.Month()) != fil.Month) {
 			continue
 		}
 		out = append(out, inv)
