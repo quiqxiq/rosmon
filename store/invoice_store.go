@@ -15,6 +15,10 @@ type InvoiceListFilter struct {
 	CustomerID     uint
 	SubscriptionID uint
 	Status         string
+	// Year + Month memfilter berdasarkan bulan PERIODE tagihan (period_start).
+	// Keduanya harus >0 untuk aktif (konsisten dengan MonthlySummary).
+	Year  int
+	Month int
 }
 
 // FinancialSummary adalah hasil agregasi invoice per bulan untuk laporan keuangan.
@@ -108,6 +112,9 @@ func (s *gormInvoiceStore) List(ctx context.Context, f InvoiceListFilter) ([]mod
 	}
 	if f.Status != "" {
 		q = q.Where("status = ?", f.Status)
+	}
+	if f.Year > 0 && f.Month > 0 {
+		q = q.Where("EXTRACT(YEAR FROM period_start) = ? AND EXTRACT(MONTH FROM period_start) = ?", f.Year, f.Month)
 	}
 	var out []model.Invoice
 	return out, q.Find(&out).Error

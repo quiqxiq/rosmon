@@ -60,6 +60,16 @@ func (h *Invoices) List(c *gin.Context) {
 		}
 	}
 	f.Status = c.Query("status")
+	if v := c.Query("year"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			f.Year = n
+		}
+	}
+	if v := c.Query("month"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			f.Month = n
+		}
+	}
 
 	items, err := h.Store.List(c.Request.Context(), f)
 	if err != nil {
