@@ -1,0 +1,84 @@
+SubscriptionResponse:
+  type: object
+  required: [id, customer_id, device_id, service_type, mikrotik_username, status, sync_status, notes, created_at, updated_at]
+  properties:
+    id:
+      type: integer
+      format: int64
+    customer_id:
+      type: integer
+      format: int64
+    device_id:
+      type: integer
+      format: int64
+    ppp_profile_id:
+      type: integer
+      format: int64
+      nullable: true
+    hotspot_profile_id:
+      type: integer
+      format: int64
+      nullable: true
+    service_type:
+      type: string
+      enum: [pppoe, hotspot]
+    mikrotik_username:
+      type: string
+    status:
+      type: string
+      enum: [pending_install, active, isolir, suspended, terminated]
+    billing_day:
+      type: integer
+      minimum: 1
+      maximum: 28
+      nullable: true
+    next_invoice_date:
+      type: string
+      format: date-time
+      nullable: true
+    sync_status:
+      type: string
+    sync_notes:
+      type: string
+      nullable: true
+    activated_at:
+      type: string
+      format: date-time
+      nullable: true
+    terminated_at:
+      type: string
+      format: date-time
+      nullable: true
+    notes:
+      type: string
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+
+SubscriptionStatusPatchRequest:
+  type: object
+  required: [status]
+  properties:
+    status:
+      type: string
+      enum: [pending_install, active, isolir, suspended, terminated]
+      description: |
+        Status target subscription:
+        * `pending_install`: Pemasangan baru dalam antrian.
+        * `active`: Layanan aktif (kecepatan normal).
+        * `isolir`: Isolir otomatis/manual (kecepatan dibatasi / throttled).
+        * `suspended`: Suspend keras (PPPoE secret dinonaktifkan di router).
+        * `terminated`: Layanan dihentikan permanen (secret/user dihapus dari router).
+
+SubscriptionWriteResponse:
+  type: object
+  required: [subscription]
+  properties:
+    subscription:
+      $ref: '#/SubscriptionResponse'
+    warning:
+      type: string
+      description: Peringatan jika sinkronisasi ke router gagal/tertunda sementara DB sudah ter-update.

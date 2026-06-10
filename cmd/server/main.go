@@ -222,7 +222,7 @@ func main() {
 	billingCron := job.NewBillingCronJob(subscriptionStore, customerStore, settingStore, billingSvc, notifSvc, log)
 	startDailyJob(rootCtx, 7, 0, "billing_cron", billingCron.Run, log)
 
-	suspCheck := job.NewSuspensionCheckJob(subscriptionStore, customerStore, invoiceStore, settingStore, notifSvc, log)
+	suspCheck := job.NewSuspensionCheckJob(subscriptionStore, customerStore, invoiceStore, settingStore, notifSvc, auditLogStore, time.Now, log)
 	startDailyJob(rootCtx, 9, 0, "suspension_check", suspCheck.Run, log)
 
 	notifRetry := job.NewNotifRetryJob(notifSvc, log)

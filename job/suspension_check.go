@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/quiqxiq/rosmon/service/audit"
 	"github.com/quiqxiq/rosmon/service/notification"
 	"github.com/quiqxiq/rosmon/store"
 	"github.com/sirupsen/logrus"
@@ -25,6 +26,8 @@ type SuspensionCheckJob struct {
 	InvStore     store.InvoiceStore
 	SettingStore store.SettingStore
 	Notification *notification.Service
+	AuditLog     store.AuditLogStore // nil-safe: audit tidak ditulis jika nil
+	NowFunc      func() time.Time    // injectable untuk test; nil = time.Now
 	Log          *logrus.Logger
 }
 
@@ -34,19 +37,25 @@ func NewSuspensionCheckJob(
 	inv store.InvoiceStore,
 	settings store.SettingStore,
 	notif *notification.Service,
+	auditLog store.AuditLogStore,
+	nowFunc func() time.Time,
 	log *logrus.Logger,
 ) *SuspensionCheckJob {
 	if log == nil {
 		log = logrus.New()
 	}
+	if nowFunc == nil {
+		nowFunc = time.Now
+	}
 	return &SuspensionCheckJob{
 		SubStore: sub, CustStore: cust, InvStore: inv,
-		SettingStore: settings, Notification: notif, Log: log,
+		SettingStore: settings, Notification: notif,
+		AuditLog: auditLog, NowFunc: nowFunc, Log: log,
 	}
 }
 
 func (j *SuspensionCheckJob) Run(ctx context.Context) error {
-	now := time.Now()
+	now := j.NowFunc()
 
 	isolirAfter := j.settingInt(ctx, "billing.isolir_after_days", 3)
 	hardSuspendAfter := j.settingInt(ctx, "billing.hard_suspend_after_days", 14)
@@ -102,6 +111,8 @@ func (j *SuspensionCheckJob) Run(ctx context.Context) error {
 		if err := j.SubStore.UpdateSyncStatus(ctx, subID, "pending_profile_change", "auto-isolir: overdue invoice"); err != nil {
 			j.Log.WithError(err).WithField("subscription_id", subID).Warn("suspension_check: set sync_status failed")
 		}
+		audit.Log(ctx, j.AuditLog, j.Log, nil, "subscription_status_changed", "subscription", subID,
+			map[string]string{"status": sub.Status}, map[string]string{"status": "isolir", "trigger": "auto-isolir: overdue invoice"})
 		notifyCustomer(ctx, j.Notification, j.CustStore, j.SettingStore, sub.CustomerID, "service_isolir", nil)
 		j.Log.WithField("subscription_id", subID).Info("suspension_check: isolir applied")
 	}
@@ -122,6 +133,8 @@ func (j *SuspensionCheckJob) Run(ctx context.Context) error {
 		if err := j.SubStore.UpdateSyncStatus(ctx, subID, "pending_disable", "auto-suspend: overdue invoice"); err != nil {
 			j.Log.WithError(err).WithField("subscription_id", subID).Warn("suspension_check: set sync_status failed")
 		}
+		audit.Log(ctx, j.AuditLog, j.Log, nil, "subscription_status_changed", "subscription", subID,
+			map[string]string{"status": sub.Status}, map[string]string{"status": "suspended", "trigger": "auto-suspend: overdue invoice"})
 		notifyCustomer(ctx, j.Notification, j.CustStore, j.SettingStore, sub.CustomerID, "service_suspended", nil)
 		j.Log.WithField("subscription_id", subID).Info("suspension_check: suspended applied")
 	}

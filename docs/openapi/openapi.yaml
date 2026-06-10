@@ -425,6 +425,9 @@ paths:
   /registrations/{id}/complete-install:
     $ref: './paths/registrations.yaml#/~1registrations~1{id}~1complete-install'
 
+  /subscriptions/{id}/status:
+    $ref: './paths/subscriptions.yaml#/~1subscriptions~1{id}~1status'
+
   # Customer Portal (Fase 3). /customer/login = tanpa auth; sisanya butuh
   # customer access token. /payments/collect & portal-password = staff.
   /customer/login:
@@ -593,6 +596,11 @@ components:
     RegistrationRejectRequest:          { $ref: './schemas/registration.yaml#/RegistrationRejectRequest' }
     RegistrationAssignRequest:          { $ref: './schemas/registration.yaml#/RegistrationAssignRequest' }
     RegistrationCompleteInstallRequest: { $ref: './schemas/registration.yaml#/RegistrationCompleteInstallRequest' }
+
+    # Subscriptions (Phase 3)
+    SubscriptionResponse:           { $ref: './schemas/subscription.yaml#/SubscriptionResponse' }
+    SubscriptionStatusPatchRequest: { $ref: './schemas/subscription.yaml#/SubscriptionStatusPatchRequest' }
+    SubscriptionWriteResponse:      { $ref: './schemas/subscription.yaml#/SubscriptionWriteResponse' }
 
     # Customer Portal (Fase 3)
     CustomerLoginRequest:     { $ref: './schemas/customer-portal.yaml#/CustomerLoginRequest' }

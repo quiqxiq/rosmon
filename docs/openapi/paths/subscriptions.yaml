@@ -1,0 +1,42 @@
+/subscriptions/{id}/status:
+  parameters:
+    - name: id
+      in: path
+      required: true
+      description: ID subscription di database
+      schema:
+        type: integer
+        format: int64
+        example: 1
+  patch:
+    tags: [Subscriptions]
+    summary: Ubah status subscription (Admin/Operator)
+    description: |
+      Mengubah status subscription di DB secara langsung (DB-first), lalu
+      menyinkronkannya ke MikroTik router (set disabled/enabled, toggle profile isolir,
+      atau hapus account jika terminated). Jika router offline, return 200 dengan
+      pesan warning.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/subscription.yaml#/SubscriptionStatusPatchRequest'
+    responses:
+      '200':
+        description: Status berhasil diubah
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../schemas/envelope.yaml#/Envelope'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '../schemas/subscription.yaml#/SubscriptionWriteResponse'
+      '400':
+        $ref: '../components/responses.yaml#/ErrorValidation'
+      '401':
+        $ref: '../components/responses.yaml#/ErrorUnauthorized'
+      '404':
+        $ref: '../components/responses.yaml#/ErrorNotFound'
