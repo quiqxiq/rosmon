@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -19,10 +20,16 @@ func TestIntegration_SystemMonitorRouterboard(t *testing.T) {
 	c := testutil.NewClient(t)
 	sys := system.New(c)
 
+	// Skip if system/routerboard is not supported (e.g. on virtual CHR routers).
+	_, err := sys.Routerboard(testutil.Context(t))
+	if err != nil && strings.Contains(err.Error(), "no such command") {
+		t.Skip("skipping routerboard stream test: device does not support /system/routerboard")
+	}
+
 	const id = "it-routerboard"
 	var got atomic.Int32
 
-	err := sys.MonitorRouterboard(id, 1*time.Second, func(s *roslib.Sentence) {
+	err = sys.MonitorRouterboard(id, 1*time.Second, func(s *roslib.Sentence) {
 		if s.Word() == "!re" {
 			got.Add(1)
 			if got.Load() <= 3 {

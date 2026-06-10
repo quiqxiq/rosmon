@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useNavigate } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,12 +24,16 @@ export function ForgotPasswordForm({
   className,
   ...props
 }: React.HTMLAttributes<HTMLFormElement>) {
+  const navigate = useNavigate()
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: { email: '' },
   })
 
-  function onSubmit(_data: z.infer<typeof formSchema>) {}
+  function onSubmit(_data: z.infer<typeof formSchema>) {
+    navigate({ to: '/otp' })
+    form.reset()
+  }
 
   return (
     <Form {...form}>
@@ -50,8 +55,8 @@ export function ForgotPasswordForm({
             </FormItem>
           )}
         />
-        <Button type='submit' disabled className='mt-2'>
-          Send Reset Link — Coming Soon
+        <Button type='submit' className='mt-2'>
+          Continue
         </Button>
       </form>
     </Form>

@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/quiqxiq/rosmon/internal/testutil"
@@ -48,6 +49,9 @@ func TestIntegration_Routerboard(t *testing.T) {
 	sys := system.New(c)
 
 	rb, err := sys.Routerboard(testutil.Context(t))
+	if err != nil && strings.Contains(err.Error(), "no such command") {
+		t.Skip("skipping routerboard test: device does not support /system/routerboard")
+	}
 	require.NoError(t, err)
 	t.Logf("routerboard: model=%s firmware=%s/%s", rb.Model, rb.CurrentFirmware, rb.UpgradeFirmware)
 }

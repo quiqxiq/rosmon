@@ -111,7 +111,7 @@ func setupSuspFlowEnv(t *testing.T, nowFunc func() time.Time) suspFlowEnv {
 	invH.Audit = auditStore
 	invH.RegisterRead(g)
 	invH.RegisterWrite(g)
-	ph := handler.NewPayments(payStore, invStore, subStore, custStore, nil, auditStore, settStore, nil, log)
+	ph := handler.NewPayments(payStore, invStore, subStore, custStore, nil, auditStore, settStore, paySvc, log)
 	ph.Register(g)
 
 	return suspFlowEnv{

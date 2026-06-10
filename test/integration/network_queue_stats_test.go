@@ -19,12 +19,28 @@ func TestIntegration_QueueStatsByNameStream(t *testing.T) {
 	c := testutil.NewClient(t)
 	net := network.New(c)
 
-	const id = "it-queue-stats-name"
-	// Cari queue default "default" (biasanya ada di queue tree/simple)
-	name := "default"
+	ctx := testutil.Context(t)
+	// Create a temporary simple queue for the stream test.
+	reply, err := c.Path("/queue/simple").Add(ctx,
+		roslib.NewPair("name", "it-queue-stats-name"),
+		roslib.NewPair("target", "192.168.111.250/32"),
+	)
+	require.NoError(t, err)
+	var queueID string
+	if reply.Done != nil {
+		queueID = reply.Done.Map["ret"]
+	}
+	if queueID != "" {
+		defer func() {
+			_, _ = c.Path("/queue/simple").Remove(testutil.Context(t), queueID)
+		}()
+	}
+
+	const id = "it-queue-stats-name-stream"
+	name := "it-queue-stats-name"
 	var got atomic.Int32
 
-	err := net.QueueStatsByNameStream(id, name, 1*time.Second, func(s *roslib.Sentence) {
+	err = net.QueueStatsByNameStream(id, name, 1*time.Second, func(s *roslib.Sentence) {
 		if s.Word() == "!re" {
 			got.Add(1)
 			if got.Load() <= 3 {
@@ -49,10 +65,27 @@ func TestIntegration_ParentQueueStatsStream(t *testing.T) {
 	c := testutil.NewClient(t)
 	net := network.New(c)
 
+	ctx := testutil.Context(t)
+	// Create a temporary parent simple queue (dynamic=false).
+	reply, err := c.Path("/queue/simple").Add(ctx,
+		roslib.NewPair("name", "it-queue-parent"),
+		roslib.NewPair("target", "192.168.111.251/32"),
+	)
+	require.NoError(t, err)
+	var queueID string
+	if reply.Done != nil {
+		queueID = reply.Done.Map["ret"]
+	}
+	if queueID != "" {
+		defer func() {
+			_, _ = c.Path("/queue/simple").Remove(testutil.Context(t), queueID)
+		}()
+	}
+
 	const id = "it-queue-parents"
 	var got atomic.Int32
 
-	err := net.ParentQueueStatsStream(id, 1*time.Second, func(s *roslib.Sentence) {
+	err = net.ParentQueueStatsStream(id, 1*time.Second, func(s *roslib.Sentence) {
 		if s.Word() == "!re" {
 			got.Add(1)
 			if got.Load() <= 3 {
