@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/quiqxiq/rosmon/api/handler"
+	"github.com/quiqxiq/rosmon/service/payment"
 	"github.com/quiqxiq/rosmon/store"
 	"github.com/quiqxiq/rosmon/store/model"
 	"github.com/stretchr/testify/assert"
@@ -248,7 +249,12 @@ func setupCollectEngine(t *testing.T) (*gin.Engine, *fakeInvoiceStore, *fakePaym
 	payS := newFakePaymentStore()
 	subS := newFakeSubStore()
 	// notif/audit/settings/customers nil → best-effort skipped.
-	h := handler.NewPayments(payS, invS, subS, nil, nil, nil, nil, nil)
+	svc := payment.New(payment.Deps{
+		Payments:      payS,
+		Invoices:      invS,
+		Subscriptions: subS,
+	})
+	h := handler.NewPayments(payS, invS, subS, nil, nil, nil, nil, svc, nil)
 	r := gin.New()
 	h.Register(r.Group("/api/v1"))
 	return r, invS, payS, subS

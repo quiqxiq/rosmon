@@ -49,6 +49,9 @@ func NewServer(deps *Deps) http.Handler {
 	// Path: /docs → UI, /docs/openapi.yaml → raw spec.
 	RegisterDocs(r)
 
+	// Serve static files for proof of payment uploads
+	r.Static("/uploads", "./uploads")
+
 	v1 := r.Group("/api/v1")
 	RegisterRoutes(v1, deps)
 

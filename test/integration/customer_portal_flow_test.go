@@ -14,6 +14,7 @@ import (
 	"github.com/quiqxiq/rosmon/internal/testutil"
 	"github.com/quiqxiq/rosmon/service/auth"
 	"github.com/quiqxiq/rosmon/service/billing"
+	paymentSvc "github.com/quiqxiq/rosmon/service/payment"
 	"github.com/quiqxiq/rosmon/service/portal"
 	"github.com/quiqxiq/rosmon/store"
 	"github.com/quiqxiq/rosmon/store/model"
@@ -74,12 +75,26 @@ func TestIntegration_CustomerPortal_FullFlow(t *testing.T) {
 	apiPub := r.Group("/api")
 	handler.NewCustomerAuth(portalAuth, signer).RegisterPublic(apiPub)
 
+	auditStore := store.NewAuditLogStore(db)
+	settingStore := store.NewSettingStore(db)
+	payService := paymentSvc.New(paymentSvc.Deps{
+		Payments:      payStore,
+		Invoices:      invStore,
+		Customers:     custStore,
+		Settings:      settingStore,
+		Subscriptions: subStore,
+		AuditLog:      auditStore,
+		Log:           log,
+	})
+
 	apiCust := r.Group("/api")
 	apiCust.Use(middleware.RequireCustomerAuth(signer))
-	handler.NewCustomerPortal(portalAuth, custStore, subStore, invStore, payStore).Register(apiCust)
+	portalHandler := handler.NewCustomerPortal(portalAuth, custStore, subStore, invStore, payStore)
+	portalHandler.PaymentSvc = payService
+	portalHandler.Register(apiCust)
 
 	staff := r.Group("/api/v1")
-	handler.NewPayments(payStore, invStore, subStore, custStore, nil, nil, nil, log).Register(staff)
+	handler.NewPayments(payStore, invStore, subStore, custStore, nil, auditStore, settingStore, payService, log).Register(staff)
 
 	// 1. Admin onboard: set portal password.
 	require.NoError(t, portalAuth.SetPassword(ctx, cust.ID, "rahasia123"))

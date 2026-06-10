@@ -81,8 +81,9 @@ export function Payments() {
                 title: 'Metode',
                 options: [
                   { label: 'Tunai',    value: 'cash' },
-                  { label: 'Transfer', value: 'manual_transfer' },
-                  { label: 'Online',   value: 'xendit' },
+                  { label: 'Transfer', value: 'transfer' },
+                  { label: 'Portal',   value: 'portal' },
+                  { label: 'Online',   value: 'gateway' },
                 ],
               },
             ]}

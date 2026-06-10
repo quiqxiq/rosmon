@@ -28,10 +28,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { formatIDR } from '@/lib/format'
-import { useCreatePayment, useConfirmPayment } from '../api/queries'
+import { useCreatePayment } from '../api/queries'
 
 const schema = z.object({
-  method: z.enum(['cash', 'manual_transfer']),
+  method: z.enum(['cash', 'transfer']),
   amount: z.string().regex(/^\d+$/, 'Harus angka').refine(v => +v > 0, 'Jumlah harus > 0'),
   reference_number: z.string().optional(),
   bank_name: z.string().optional(),
@@ -57,7 +57,6 @@ export function RecordPaymentDialog({
   invoiceNumber,
 }: Props) {
   const createMutation = useCreatePayment()
-  const confirmMutation = useConfirmPayment()
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -82,22 +81,11 @@ export function RecordPaymentDialog({
         bank_name: values.bank_name || undefined,
       },
       {
-        onSuccess: (payment) => {
-          if (values.method === 'cash') {
-            // Langsung konfirmasi untuk pembayaran tunai
-            confirmMutation.mutate(payment.id, {
-              onSuccess: () => {
-                toast.success(`Pembayaran tunai ${invoiceNumber} dikonfirmasi`)
-                form.reset()
-                onOpenChange(false)
-              },
-              onError: (err) => toast.error('Gagal konfirmasi', { description: err.message }),
-            })
-          } else {
-            toast.success(`Pembayaran transfer ${invoiceNumber} dicatat, menunggu konfirmasi`)
-            form.reset()
-            onOpenChange(false)
-          }
+        onSuccess: () => {
+          const typeStr = values.method === 'cash' ? 'tunai' : 'transfer'
+          toast.success(`Pembayaran ${typeStr} ${invoiceNumber} berhasil dicatat`)
+          form.reset()
+          onOpenChange(false)
         },
         onError: (err) => {
           toast.error('Gagal mencatat pembayaran', { description: err.message })
@@ -106,7 +94,7 @@ export function RecordPaymentDialog({
     )
   }
 
-  const isPending = createMutation.isPending || confirmMutation.isPending
+  const isPending = createMutation.isPending
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -133,7 +121,7 @@ export function RecordPaymentDialog({
                     </FormControl>
                     <SelectContent>
                       <SelectItem value='cash'>Tunai (Cash) — langsung dikonfirmasi</SelectItem>
-                      <SelectItem value='manual_transfer'>Transfer Bank — perlu konfirmasi</SelectItem>
+                      <SelectItem value='transfer'>Transfer Bank — langsung dikonfirmasi</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -155,7 +143,7 @@ export function RecordPaymentDialog({
               )}
             />
 
-            {method === 'manual_transfer' && (
+            {method === 'transfer' && (
               <>
                 <FormField
                   control={form.control}
@@ -192,7 +180,7 @@ export function RecordPaymentDialog({
               </Button>
               <Button type='submit' disabled={isPending}>
                 {isPending && <Loader2 className='mr-2 size-4 animate-spin' />}
-                {method === 'cash' ? 'Simpan & Konfirmasi' : 'Simpan'}
+                Simpan & Konfirmasi
               </Button>
             </div>
           </form>

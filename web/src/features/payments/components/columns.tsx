@@ -15,12 +15,13 @@ function fmtDate(s?: string | null) {
 
 function MethodIcon({ method }: { method: string }) {
   if (method === 'cash') return <Banknote className='size-3.5 text-emerald-500' />
-  if (method === 'manual_transfer') return <CreditCard className='size-3.5 text-blue-500' />
+  if (method === 'transfer') return <CreditCard className='size-3.5 text-blue-500' />
+  if (method === 'portal') return <CreditCard className='size-3.5 text-amber-500' />
   return <Globe className='size-3.5 text-violet-500' />
 }
 
 function methodLabel(method: string) {
-  const labels: Record<string, string> = { cash: 'Tunai', manual_transfer: 'Transfer', xendit: 'Online' }
+  const labels: Record<string, string> = { cash: 'Tunai', transfer: 'Transfer', portal: 'Portal', gateway: 'Online' }
   return labels[method] ?? method
 }
 

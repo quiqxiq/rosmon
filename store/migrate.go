@@ -61,6 +61,11 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 	upgradeInstallationCompleteTemplate(db)
+	
+	// Update legacy payment methods to match cash|transfer|portal|gateway
+	db.Model(&model.Payment{}).Where("method = ?", "manual_transfer").Update("method", "transfer")
+	db.Model(&model.Payment{}).Where("method = ?", "xendit").Update("method", "gateway")
+
 	return backfillInvoicePaymentCodes(db)
 }
 

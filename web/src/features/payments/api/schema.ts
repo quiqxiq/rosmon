@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export type PaymentMethod = 'cash' | 'manual_transfer' | 'xendit'
+export type PaymentMethod = 'cash' | 'transfer' | 'portal' | 'gateway'
 export type PaymentStatus = 'pending' | 'confirmed' | 'rejected'
 
 export const PaymentSchema = z.object({
@@ -34,7 +34,7 @@ export type CreatePaymentInput = {
   invoice_id: number
   customer_id: number
   amount: number
-  method: 'cash' | 'manual_transfer'
+  method: 'cash' | 'transfer'
   reference_number?: string
   bank_name?: string
   proof_url?: string

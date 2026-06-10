@@ -63,7 +63,7 @@ export function ConfirmRejectDialog({ payment, mode, onClose }: Props) {
           {payment && (
             <DialogDescription>
               Pembayaran {formatIDR(payment.amount)} ·{' '}
-              {payment.method === 'cash' ? 'Tunai' : payment.method === 'manual_transfer' ? 'Transfer' : 'Online'}
+              {payment.method === 'cash' ? 'Tunai' : payment.method === 'transfer' ? 'Transfer' : payment.method === 'portal' ? 'Portal' : 'Online'}
             </DialogDescription>
           )}
         </DialogHeader>

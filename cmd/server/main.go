@@ -321,10 +321,14 @@ func main() {
 	// Konfigurasi Xendit (secret key, webhook token, dll) disimpan di system_settings
 	// dan dibaca per-request. Tidak perlu env var — semua bisa diubah dari UI Settings.
 	paymentService := paymentSvc.New(paymentSvc.Deps{
-		Payments:  paymentStore,
-		Invoices:  invoiceStore,
-		Customers: customerStore,
-		Settings:  settingStore,
+		Payments:      paymentStore,
+		Invoices:      invoiceStore,
+		Customers:     customerStore,
+		Settings:      settingStore,
+		Subscriptions: subscriptionStore,
+		Notification:  notifSvc,
+		AuditLog:      auditLogStore,
+		Log:           log,
 	})
 	log.Info("payment service ready (xendit config from system_settings)")
 

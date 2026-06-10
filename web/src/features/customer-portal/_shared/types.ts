@@ -56,7 +56,7 @@ export interface PortalInvoice {
   updated_at: string
 }
 
-export type PaymentMethod = 'cash' | 'manual_transfer' | 'xendit'
+export type PaymentMethod = 'cash' | 'transfer' | 'portal' | 'gateway'
 export type PaymentStatus = 'pending' | 'confirmed' | 'rejected'
 
 export interface PortalPayment {
@@ -67,6 +67,10 @@ export interface PortalPayment {
   method: PaymentMethod
   status: PaymentStatus
   confirmed_at: string | null
+  reference_number?: string
+  proof_url?: string
+  bank_name?: string
+  rejection_reason?: string
   // Gateway fields (populated for online payments)
   gateway_name?: string
   invoice_url?: string

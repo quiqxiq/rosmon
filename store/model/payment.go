@@ -3,8 +3,7 @@ package model
 import "time"
 
 // Payment adalah record pembayaran untuk Invoice.
-// Method manual: 'manual_transfer' | 'cash'.
-// Method gateway: 'xendit'.
+// Method: 'cash' | 'transfer' | 'portal' | 'gateway'.
 type Payment struct {
 	ID              uint     `gorm:"primaryKey"`
 	InvoiceID       uint     `gorm:"not null;index"`

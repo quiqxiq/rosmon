@@ -1,19 +1,16 @@
 package handler
 
 import (
-	"context"
 	"errors"
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/quiqxiq/rosmon/api/dto"
 	paymentSvc "github.com/quiqxiq/rosmon/service/payment"
 	"github.com/quiqxiq/rosmon/service/notification"
 	"github.com/quiqxiq/rosmon/store"
-	"github.com/quiqxiq/rosmon/store/model"
 	"github.com/sirupsen/logrus"
 )
 
@@ -110,103 +107,18 @@ func (h *XenditWebhook) Handle(c *gin.Context) {
 		"status":       evt.Status,
 	})
 
-	// 6. Lookup payment berdasarkan ExternalRef.
-	p, err := h.Payments.GetByExternalRef(ctx, evt.GatewayName, evt.ExternalRef)
-	if err != nil {
+	// Process payment webhook in the service layer.
+	if err := h.PaymentSvc.ProcessWebhook(ctx, evt); err != nil {
 		if errors.Is(err, store.ErrPaymentNotFound) {
-			// Bisa terjadi jika webhook datang sebelum UpdateGatewayInfo selesai (race condition).
-			// Kembalikan 200 agar Xendit tidak retry agresif.
 			log.Warn("xendit webhook: payment not found for external_ref")
 			c.JSON(http.StatusOK, gin.H{"status": "unknown", "message": "payment not found"})
 			return
 		}
-		log.WithError(err).Error("xendit webhook: lookup payment failed")
+		log.WithError(err).Error("xendit webhook: processing failed")
 		c.JSON(http.StatusInternalServerError, dto.Err("INTERNAL", "internal error", c.Request.URL.Path))
 		return
 	}
 
-	// 7. Idempotency: jika sudah confirmed, langsung OK.
-	if p.Status == "confirmed" {
-		log.Info("xendit webhook: already confirmed, skip")
-		c.JSON(http.StatusOK, gin.H{"status": "already_confirmed"})
-		return
-	}
-
-	switch evt.Status {
-	case "paid":
-		h.handlePaid(c, ctx, p, log)
-	case "expired", "failed":
-		h.handleExpiredOrFailed(ctx, p, evt.Status, log)
-		c.JSON(http.StatusOK, gin.H{"status": evt.Status})
-	default:
-		log.WithField("event_status", evt.Status).Info("xendit webhook: unhandled status, ignore")
-		c.JSON(http.StatusOK, gin.H{"status": "ignored"})
-	}
-}
-
-func (h *XenditWebhook) handlePaid(c *gin.Context, ctx context.Context, p *model.Payment, log *logrus.Entry) {
-	now := time.Now()
-	if err := h.Payments.UpdateStatus(ctx, p.ID, "confirmed", nil, &now, ""); err != nil {
-		log.WithError(err).Error("xendit webhook: update payment status failed")
-		c.JSON(http.StatusInternalServerError, dto.Err("INTERNAL", "update payment failed", c.Request.URL.Path))
-		return
-	}
-	p.Status = "confirmed"
-	p.ConfirmedAt = &now
-
-	// Reuse settlement logic: mark invoice paid + restore subscription via outbox.
-	h.applySettlement(ctx, p)
-
-	log.Info("xendit webhook: payment confirmed, settlement applied")
-	c.JSON(http.StatusOK, gin.H{"status": "confirmed"})
-}
-
-func (h *XenditWebhook) handleExpiredOrFailed(ctx context.Context, p *model.Payment, status string, log *logrus.Entry) {
-	_ = h.Payments.UpdateStatus(ctx, p.ID, "rejected", nil, nil, "xendit: "+status)
-	log.WithField("new_status", "rejected").Info("xendit webhook: payment expired/failed, marked rejected")
-}
-
-// applySettlement menandai invoice paid + memulihkan subscription via outbox.
-// Sama dengan applySettlement di api/handler/payments.go.
-func (h *XenditWebhook) applySettlement(ctx context.Context, p *model.Payment) {
-	now := time.Now()
-	if err := h.Invoices.UpdateStatus(ctx, p.InvoiceID, "paid", &now); err != nil {
-		h.Log.WithError(err).WithField("invoice_id", p.InvoiceID).Warn("xendit settlement: invoice update failed")
-	}
-
-	inv, err := h.Invoices.GetByID(ctx, p.InvoiceID)
-	if err != nil {
-		return
-	}
-
-	if h.Subs != nil {
-		if sub, subErr := h.Subs.Get(ctx, inv.SubscriptionID); subErr == nil {
-			switch sub.Status {
-			case "isolir":
-				_ = h.Subs.UpdateStatus(ctx, sub.ID, "active", nil, nil)
-				_ = h.Subs.UpdateSyncStatus(ctx, sub.ID, "pending_profile_change", "xendit payment settled — restore profile")
-			case "suspended":
-				_ = h.Subs.UpdateStatus(ctx, sub.ID, "active", nil, nil)
-				_ = h.Subs.UpdateSyncStatus(ctx, sub.ID, "pending_enable", "xendit payment settled — re-enable")
-			}
-		}
-	}
-
-	h.notifyPaid(ctx, inv, p)
-}
-
-func (h *XenditWebhook) notifyPaid(ctx context.Context, inv *model.Invoice, _ *model.Payment) {
-	if h.Notification == nil || h.Customers == nil {
-		return
-	}
-	cust, err := h.Customers.Get(ctx, inv.CustomerID)
-	if err != nil || cust.Phone == "" {
-		return
-	}
-	cid := cust.ID
-	h.Notification.NotifyAsync(&cid, cust.Phone, "payment_confirmed", map[string]string{
-		"customer_name":  cust.FullName,
-		"invoice_number": inv.InvoiceNumber,
-		"amount":         rupiah(inv.Amount),
-	})
+	log.Infof("xendit webhook: successfully processed status %s", evt.Status)
+	c.JSON(http.StatusOK, gin.H{"status": evt.Status})
 }

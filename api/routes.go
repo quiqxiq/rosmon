@@ -298,7 +298,7 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		}
 		handler.NewPayments(deps.PaymentStore, deps.InvoiceStore, deps.SubscriptionStore,
 			deps.CustomerStore, deps.NotificationService, deps.AuditLogStore, deps.SettingStore,
-			deps.Logger).Register(bizAuth)
+			deps.XenditGateway, deps.Logger).Register(bizAuth)
 	}
 
 	// Audit logs, message templates, notification logs, WhatsApp setup —
@@ -378,6 +378,10 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		// Wire payment gateway jika dikonfigurasi (Fase 4).
 		portalHandler.PaymentSvc = deps.XenditGateway
 		portalHandler.Register(custScope)
+
+		// File upload untuk customer portal (upload bukti manual)
+		uploadHandler := handler.NewUpload()
+		custScope.POST("/customer/upload", uploadHandler.UploadFile)
 
 		// Tiket dukungan — customer portal (buat & lihat tiket sendiri).
 		if deps.TicketStore != nil {

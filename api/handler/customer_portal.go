@@ -46,6 +46,7 @@ func (h *CustomerPortal) Register(g *gin.RouterGroup) {
 	r.POST("/invoices/:id/pay", h.PayInvoice)
 	r.GET("/payments", h.PaymentHistory)
 	r.POST("/change-password", h.ChangePassword)
+	r.GET("/payment-gateway/status", h.GetGatewayStatus)
 }
 
 // currentCustomerID mengambil CustomerID dari token customer.
@@ -178,9 +179,9 @@ func (h *CustomerPortal) PaymentHistory(c *gin.Context) {
 	WriteList(c, out, len(out))
 }
 
-// PayInvoice memulai pembayaran online untuk invoice milik customer.
+// PayInvoice memulai pembayaran online untuk invoice milik customer (jika gateway aktif),
+// atau menyimpan bukti pembayaran manual jika Content-Length > 0.
 // POST /customer/invoices/:id/pay
-// Response: {payment_id, invoice_url, expires_at} untuk redirect ke halaman checkout gateway.
 func (h *CustomerPortal) PayInvoice(c *gin.Context) {
 	cid, ok := currentCustomerID(c)
 	if !ok {
@@ -191,10 +192,42 @@ func (h *CustomerPortal) PayInvoice(c *gin.Context) {
 		return
 	}
 
-	// Cek apakah payment gateway dikonfigurasi.
-	if h.PaymentSvc == nil {
+	// 1. Cek apakah ada body untuk upload bukti manual.
+	if c.Request.ContentLength > 0 {
+		var uploadReq dto.PortalPaymentUploadRequest
+		if err := c.ShouldBindJSON(&uploadReq); err != nil {
+			WriteValidationErr(c, err)
+			return
+		}
+		if h.PaymentSvc == nil {
+			c.AbortWithStatusJSON(http.StatusServiceUnavailable,
+				dto.Err("SERVICE_UNAVAILABLE", "layanan pembayaran tidak tersedia", c.Request.URL.Path))
+			return
+		}
+		payment, err := h.PaymentSvc.CreatePortalPayment(c.Request.Context(), invoiceID, cid, uploadReq.ProofURL, uploadReq.BankName, uploadReq.ReferenceNumber)
+		if err != nil {
+			msg := err.Error()
+			switch {
+			case containsAny(msg, "sudah lunas", "sudah dibatalkan"):
+				c.AbortWithStatusJSON(http.StatusConflict,
+					dto.Err("CONFLICT", msg, c.Request.URL.Path))
+			case containsAny(msg, "bukan milik customer", "not found"):
+				c.AbortWithStatusJSON(http.StatusNotFound,
+					dto.Err("NOT_FOUND", "invoice not found", c.Request.URL.Path))
+			default:
+				c.AbortWithStatusJSON(http.StatusInternalServerError,
+					dto.Err("INTERNAL", "gagal mengunggah bukti pembayaran", c.Request.URL.Path))
+			}
+			return
+		}
+		WriteCreated(c, dto.FromModelPayment(*payment))
+		return
+	}
+
+	// 2. Jalur online gateway.
+	if h.PaymentSvc == nil || !h.PaymentSvc.IsEnabled(c.Request.Context()) {
 		c.AbortWithStatusJSON(http.StatusServiceUnavailable,
-			dto.Err("SERVICE_UNAVAILABLE", "payment gateway tidak dikonfigurasi", c.Request.URL.Path))
+			dto.Err("SERVICE_UNAVAILABLE", "pembayaran online tidak tersedia", c.Request.URL.Path))
 		return
 	}
 
@@ -205,7 +238,7 @@ func (h *CustomerPortal) PayInvoice(c *gin.Context) {
 		case containsAny(msg, "sudah lunas", "sudah dibatalkan"):
 			c.AbortWithStatusJSON(http.StatusConflict,
 				dto.Err("CONFLICT", msg, c.Request.URL.Path))
-		case containsAny(msg, "bukan milik customer"):
+		case containsAny(msg, "bukan milik customer", "not found"):
 			c.AbortWithStatusJSON(http.StatusNotFound,
 				dto.Err("NOT_FOUND", "invoice not found", c.Request.URL.Path))
 		default:
@@ -220,6 +253,14 @@ func (h *CustomerPortal) PayInvoice(c *gin.Context) {
 		InvoiceURL: result.InvoiceURL,
 		ExpiresAt:  result.ExpiresAt.Format("2006-01-02T15:04:05Z07:00"),
 	}))
+}
+
+func (h *CustomerPortal) GetGatewayStatus(c *gin.Context) {
+	enabled := false
+	if h.PaymentSvc != nil {
+		enabled = h.PaymentSvc.IsEnabled(c.Request.Context())
+	}
+	c.JSON(http.StatusOK, dto.OK(gin.H{"enabled": enabled}))
 }
 
 func containsAny(s string, subs ...string) bool {

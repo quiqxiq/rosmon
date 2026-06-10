@@ -28,8 +28,9 @@ function fmtDate(s?: string | null) {
 function PaymentMethodBadge({ method }: { method: string }) {
   const labels: Record<string, string> = {
     cash: 'Tunai',
-    manual_transfer: 'Transfer',
-    xendit: 'Online',
+    transfer: 'Transfer',
+    portal: 'Portal',
+    gateway: 'Online',
   }
   return <Badge variant='secondary'>{labels[method] ?? method}</Badge>
 }

@@ -5,7 +5,7 @@ import "github.com/quiqxiq/rosmon/store/model"
 // PaymentCollectRequest — body POST /payments/collect (settle-by-code, petugas).
 type PaymentCollectRequest struct {
 	Code   string `json:"code"   binding:"required,min=4,max=32"`
-	Method string `json:"method" binding:"omitempty,oneof=cash manual_transfer"`
+	Method string `json:"method" binding:"omitempty,oneof=cash transfer"`
 }
 
 // CustomerLoginRequest — body POST /api/customer/login.

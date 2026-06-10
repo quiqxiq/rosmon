@@ -37,8 +37,12 @@ func (s *stubInvoiceStore) Create(_ context.Context, _ *model.Invoice, _ []model
 	return nil
 }
 
-func (s *stubInvoiceStore) UpdateStatus(_ context.Context, _ uint, _ string, _ *time.Time) error {
-	return nil
+func (s *stubInvoiceStore) UpdateStatus(_ context.Context, id uint, status string, paidAt *time.Time) error {
+	if s.invoice != nil && s.invoice.ID == id {
+		s.invoice.Status = status
+		s.invoice.PaidAt = paidAt
+	}
+	return s.err
 }
 
 func (s *stubInvoiceStore) ListDueForBilling(_ context.Context, _ time.Time) ([]model.Invoice, error) {
@@ -82,7 +86,10 @@ func (s *stubPaymentStore) GetByID(_ context.Context, _ uint) (*model.Payment, e
 	return s.created, nil
 }
 
-func (s *stubPaymentStore) GetByExternalRef(_ context.Context, _, _ string) (*model.Payment, error) {
+func (s *stubPaymentStore) GetByExternalRef(_ context.Context, gatewayName, externalRef string) (*model.Payment, error) {
+	if s.created != nil && s.created.GatewayName == gatewayName && s.created.ExternalRef == externalRef {
+		return s.created, nil
+	}
 	return nil, store.ErrPaymentNotFound
 }
 
@@ -159,6 +166,65 @@ func (s *stubSettingStore) List(_ context.Context) ([]model.SystemSetting, error
 	return nil, nil
 }
 
+// ── stub subscription store ──────────────────────────────────────────────────
+
+type stubSubscriptionStore struct {
+	sub *model.Subscription
+	err error
+}
+
+func (s *stubSubscriptionStore) List(_ context.Context, _ store.SubscriptionListFilter) ([]model.Subscription, error) {
+	return nil, nil
+}
+func (s *stubSubscriptionStore) Get(_ context.Context, id uint) (model.Subscription, error) {
+	if s.sub != nil && s.sub.ID == id {
+		return *s.sub, s.err
+	}
+	return model.Subscription{}, store.ErrSubscriptionNotFound
+}
+func (s *stubSubscriptionStore) Create(_ context.Context, _ *model.Subscription) error {
+	return nil
+}
+func (s *stubSubscriptionStore) Update(_ context.Context, _ *model.Subscription) error {
+	return nil
+}
+func (s *stubSubscriptionStore) UpdateStatus(_ context.Context, id uint, status string, _, _ *time.Time) error {
+	if s.sub != nil && s.sub.ID == id {
+		s.sub.Status = status
+	}
+	return nil
+}
+func (s *stubSubscriptionStore) UpdateSyncStatus(_ context.Context, id uint, syncStatus, _ string) error {
+	if s.sub != nil && s.sub.ID == id {
+		s.sub.SyncStatus = syncStatus
+	}
+	return nil
+}
+func (s *stubSubscriptionStore) IncrSyncRetry(_ context.Context, _ uint, _ string) (int, error) {
+	return 0, nil
+}
+func (s *stubSubscriptionStore) ResetSyncRetry(_ context.Context, _ uint) error {
+	return nil
+}
+func (s *stubSubscriptionStore) ListPendingSync(_ context.Context, _ int) ([]model.Subscription, error) {
+	return nil, nil
+}
+func (s *stubSubscriptionStore) UpdateNextInvoiceDate(_ context.Context, _ uint, _ time.Time) error {
+	return nil
+}
+func (s *stubSubscriptionStore) Delete(_ context.Context, _ uint) error {
+	return nil
+}
+func (s *stubSubscriptionStore) ChurnByMonth(_ context.Context, _ int) ([]store.ChurnEntry, error) {
+	return nil, nil
+}
+func (s *stubSubscriptionStore) StatusCounts(_ context.Context) (*store.SubscriptionStatusCounts, error) {
+	return nil, nil
+}
+func (s *stubSubscriptionStore) CountCustomers(_ context.Context) (int, error) {
+	return 0, nil
+}
+
 // ── helpers ──────────────────────────────────────────────────────────────
 
 func fixedNow() time.Time {
@@ -168,16 +234,20 @@ func fixedNow() time.Time {
 // newService membuat Service dengan XenditAdapter yang akan melakukan HTTP call.
 // Untuk unit test kita pakai real XenditAdapter dengan fake baseURL.
 // Settings store menyediakan secret key agar buildGateway() berhasil.
-func newService(ps store.PaymentStore, is store.InvoiceStore, cs store.CustomerStore, ss *stubSettingStore) *paymentSvc.Service {
+func newService(ps store.PaymentStore, is store.InvoiceStore, cs store.CustomerStore, ss *stubSettingStore, subs store.SubscriptionStore) *paymentSvc.Service {
 	if ss == nil {
 		ss = newConfiguredSettings()
 	}
+	if subs == nil {
+		subs = &stubSubscriptionStore{}
+	}
 	return paymentSvc.New(paymentSvc.Deps{
-		Payments:  ps,
-		Invoices:  is,
-		Customers: cs,
-		Settings:  ss,
-		NowFunc:   fixedNow,
+		Payments:      ps,
+		Invoices:      is,
+		Customers:     cs,
+		Subscriptions: subs,
+		Settings:      ss,
+		NowFunc:       fixedNow,
 	})
 }
 
@@ -200,7 +270,7 @@ func TestInitiatePayment_HappyPath(t *testing.T) {
 	// kita tidak bisa test InitiatePayment end-to-end di unit test.
 	// Test ini hanya memverifikasi validation logic SEBELUM gateway dipanggil.
 	// Gateway call error akan terjadi (network) tapi payment record sudah dibuat.
-	svc := newService(ps, is, cs, newConfiguredSettings())
+	svc := newService(ps, is, cs, newConfiguredSettings(), nil)
 	// Karena XenditAdapter nyata akan gagal (no network), test cukup cek bahwa
 	// result.PaymentID dikirim dan error berisi gateway (bukan validasi).
 	_, err := svc.InitiatePayment(context.Background(), 1, 10)
@@ -224,7 +294,7 @@ func TestInitiatePayment_InvoiceAlreadyPaid(t *testing.T) {
 	is := &stubInvoiceStore{invoice: inv}
 	cs := &stubCustomerStore{customer: model.Customer{ID: 10}}
 
-	svc := newService(ps, is, cs, newConfiguredSettings())
+	svc := newService(ps, is, cs, newConfiguredSettings(), nil)
 	_, err := svc.InitiatePayment(context.Background(), 1, 10)
 
 	require.Error(t, err)
@@ -242,7 +312,7 @@ func TestInitiatePayment_WrongCustomer(t *testing.T) {
 	is := &stubInvoiceStore{invoice: inv}
 	cs := &stubCustomerStore{customer: model.Customer{ID: 10}}
 
-	svc := newService(ps, is, cs, newConfiguredSettings())
+	svc := newService(ps, is, cs, newConfiguredSettings(), nil)
 	_, err := svc.InitiatePayment(context.Background(), 1, 10)
 
 	require.Error(t, err)
@@ -269,7 +339,7 @@ func TestInitiatePayment_GatewayError_RejectsPayment(t *testing.T) {
 	is := &stubInvoiceStore{invoice: inv}
 	cs := &stubCustomerStore{customer: cust}
 
-	svc := newService(ps, is, cs, newConfiguredSettings())
+	svc := newService(ps, is, cs, newConfiguredSettings(), nil)
 	_, err := svc.InitiatePayment(context.Background(), 1, 10)
 
 	// Error dari gateway (network atau mock) — bukan validasi
@@ -325,3 +395,186 @@ func TestXenditAdapter_ParseWebhookEvent_Expired(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "expired", evt.Status)
 }
+
+func TestService_CreateManual(t *testing.T) {
+	inv := &model.Invoice{
+		ID:             1,
+		CustomerID:     10,
+		SubscriptionID: 2,
+		Amount:         150000,
+		Status:         "issued",
+	}
+	cust := model.Customer{ID: 10}
+	sub := &model.Subscription{ID: 2, Status: "isolir"}
+
+	ps := &stubPaymentStore{}
+	is := &stubInvoiceStore{invoice: inv}
+	cs := &stubCustomerStore{customer: cust}
+	subs := &stubSubscriptionStore{sub: sub}
+
+	svc := newService(ps, is, cs, nil, subs)
+
+	p := &model.Payment{
+		InvoiceID:  1,
+		CustomerID: 10,
+		Amount:     150000,
+		Method:     "cash",
+	}
+
+	actor := uint(1)
+	res, err := svc.CreateManual(context.Background(), p, &actor)
+	require.NoError(t, err)
+	assert.Equal(t, "confirmed", res.Status)
+	assert.Equal(t, &actor, res.ConfirmedBy)
+	assert.NotNil(t, res.ConfirmedAt)
+
+	// Settle: invoice paid, subscription active
+	assert.Equal(t, "paid", inv.Status)
+	assert.Equal(t, "active", sub.Status)
+	assert.Equal(t, "pending_profile_change", sub.SyncStatus)
+}
+
+func TestService_CreatePortalPayment(t *testing.T) {
+	inv := &model.Invoice{
+		ID:         1,
+		CustomerID: 10,
+		Amount:     150000,
+		Status:     "issued",
+	}
+	cust := model.Customer{ID: 10}
+
+	ps := &stubPaymentStore{}
+	is := &stubInvoiceStore{invoice: inv}
+	cs := &stubCustomerStore{customer: cust}
+
+	svc := newService(ps, is, cs, nil, nil)
+
+	res, err := svc.CreatePortalPayment(context.Background(), 1, 10, "https://proof.local/jpg", "BCA", "REF123")
+	require.NoError(t, err)
+	assert.Equal(t, "pending", res.Status)
+	assert.Equal(t, "portal", res.Method)
+	assert.Equal(t, "https://proof.local/jpg", res.ProofURL)
+	assert.Equal(t, "BCA", res.BankName)
+	assert.Equal(t, "REF123", res.ReferenceNumber)
+}
+
+func TestService_Confirm(t *testing.T) {
+	inv := &model.Invoice{
+		ID:             1,
+		CustomerID:     10,
+		SubscriptionID: 3,
+		Amount:         150000,
+		Status:         "issued",
+	}
+	sub := &model.Subscription{ID: 3, Status: "suspended"}
+
+	ps := &stubPaymentStore{
+		created: &model.Payment{
+			ID:         42,
+			InvoiceID:  1,
+			CustomerID: 10,
+			Amount:     150000,
+			Method:     "portal",
+			Status:     "pending",
+		},
+	}
+	is := &stubInvoiceStore{invoice: inv}
+	subs := &stubSubscriptionStore{sub: sub}
+
+	svc := newService(ps, is, nil, nil, subs)
+
+	actor := uint(2)
+	res, err := svc.Confirm(context.Background(), 42, &actor)
+	require.NoError(t, err)
+	assert.Equal(t, "confirmed", res.Status)
+	assert.Equal(t, &actor, res.ConfirmedBy)
+	assert.NotNil(t, res.ConfirmedAt)
+
+	assert.Equal(t, "paid", inv.Status)
+	assert.Equal(t, "active", sub.Status)
+	assert.Equal(t, "pending_enable", sub.SyncStatus)
+}
+
+func TestService_Reject(t *testing.T) {
+	ps := &stubPaymentStore{
+		created: &model.Payment{
+			ID:         42,
+			InvoiceID:  1,
+			CustomerID: 10,
+			Amount:     150000,
+			Method:     "portal",
+			Status:     "pending",
+		},
+	}
+
+	svc := newService(ps, nil, nil, nil, nil)
+
+	actor := uint(2)
+	res, err := svc.Reject(context.Background(), 42, "gambarnya buram", &actor)
+	require.NoError(t, err)
+	assert.Equal(t, "rejected", res.Status)
+	assert.Equal(t, "gambarnya buram", res.RejectionReason)
+}
+
+func TestService_ProcessWebhook_Paid(t *testing.T) {
+	p := &model.Payment{
+		ID:          42,
+		InvoiceID:   1,
+		CustomerID:  10,
+		Amount:      150000,
+		Method:      "gateway",
+		Status:      "pending",
+		GatewayName: "xendit",
+		ExternalRef: "xend_123",
+	}
+	inv := &model.Invoice{
+		ID:         1,
+		CustomerID: 10,
+		Status:     "issued",
+	}
+
+	ps := &stubPaymentStore{created: p}
+	is := &stubInvoiceStore{invoice: inv}
+	svc := newService(ps, is, nil, nil, nil)
+
+	evt := paymentSvc.PaymentEvent{
+		ExternalRef: "xend_123",
+		Status:      "paid",
+		Amount:      150000,
+		GatewayName: "xendit",
+	}
+
+	err := svc.ProcessWebhook(context.Background(), evt)
+	require.NoError(t, err)
+	assert.Equal(t, "confirmed", p.Status)
+	assert.Equal(t, "paid", inv.Status)
+}
+
+func TestService_ProcessWebhook_Expired(t *testing.T) {
+	p := &model.Payment{
+		ID:          42,
+		InvoiceID:   1,
+		CustomerID:  10,
+		Amount:      150000,
+		Method:      "gateway",
+		Status:      "pending",
+		GatewayName: "xendit",
+		ExternalRef: "xend_123",
+	}
+
+	ps := &stubPaymentStore{created: p}
+	svc := newService(ps, nil, nil, nil, nil)
+
+	evt := paymentSvc.PaymentEvent{
+		ExternalRef: "xend_123",
+		Status:      "expired",
+		Amount:      150000,
+		GatewayName: "xendit",
+	}
+
+	err := svc.ProcessWebhook(context.Background(), evt)
+	require.NoError(t, err)
+	assert.Equal(t, "rejected", p.Status)
+	assert.Equal(t, "gateway: expired", p.RejectionReason)
+}
+

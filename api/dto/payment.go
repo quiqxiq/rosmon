@@ -33,10 +33,18 @@ type PaymentCreateRequest struct {
 	InvoiceID       uint   `json:"invoice_id"       binding:"required,gt=0"`
 	CustomerID      uint   `json:"customer_id"      binding:"required,gt=0"`
 	Amount          int64  `json:"amount"           binding:"required,gt=0"`
-	Method          string `json:"method"           binding:"required,oneof=manual_transfer cash"`
+	Method          string `json:"method"           binding:"required,oneof=transfer cash"`
 	ReferenceNumber string `json:"reference_number" binding:"max=100"`
 	ProofURL        string `json:"proof_url"        binding:"max=500"`
 	BankName        string `json:"bank_name"        binding:"max=100"`
+	IdempotencyKey  string `json:"idempotency_key"  binding:"max=200"`
+}
+
+// PortalPaymentUploadRequest untuk unggah bukti pembayaran oleh pelanggan via portal.
+type PortalPaymentUploadRequest struct {
+	ProofURL        string `json:"proof_url"        binding:"required,max=500"`
+	BankName        string `json:"bank_name"        binding:"max=100"`
+	ReferenceNumber string `json:"reference_number" binding:"max=100"`
 }
 
 // InitiatePaymentResponse adalah response untuk POST /customer/invoices/:id/pay.
