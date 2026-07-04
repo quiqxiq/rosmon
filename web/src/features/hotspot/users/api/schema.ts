@@ -8,7 +8,7 @@ import { z } from 'zod'
 // as opaque strings.
 export const HotspotUserRecordSchema = z
   .object({
-    '.id': z.string(),
+    id: z.string(),
     name: z.string().optional(),
     password: z.string().optional(),
     profile: z.string().optional(),

@@ -1,8 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { SettingsNotificationConfig } from '@/features/settings/notification-config'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-export const Route = createFileRoute(
-  '/_authenticated/settings/notification-config',
-)({
-  component: SettingsNotificationConfig,
+// Route lama /settings/notification-config diarahkan ke /settings/whatsapp.
+export const Route = createFileRoute('/_authenticated/settings/notification-config')({
+  beforeLoad: () => {
+    throw redirect({ to: '/settings/whatsapp', replace: true })
+  },
 })

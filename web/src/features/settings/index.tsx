@@ -1,46 +1,22 @@
 import { Outlet } from '@tanstack/react-router'
 import {
-  Bell,
   Building2,
   CreditCard,
   Database,
-  MessageSquare,
-  Monitor,
-  Palette,
+  MessageCircle,
   Receipt,
-  UserCog,
-  Wrench,
+  Send,
 } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { Main } from '@/components/layout/main'
 import { SidebarNav } from './components/sidebar-nav'
 
 const sidebarNavItems = [
-  {
-    title: 'Profile',
-    href: '/settings',
-    icon: <UserCog size={18} />,
-  },
-  {
-    title: 'Akun',
-    href: '/settings/account',
-    icon: <Wrench size={18} />,
-  },
-  {
-    title: 'Tampilan',
-    href: '/settings/appearance',
-    icon: <Palette size={18} />,
-  },
-  {
-    title: 'Notifikasi',
-    href: '/settings/notifications',
-    icon: <Bell size={18} />,
-  },
-  {
-    title: 'Display',
-    href: '/settings/display',
-    icon: <Monitor size={18} />,
-  },
+  // { title: 'Profile', href: '/settings', icon: <UserCog size={18} /> },         // tidak ada API backend
+  // { title: 'Akun', href: '/settings/account', icon: <Wrench size={18} /> },     // tidak ada API backend
+  // { title: 'Tampilan', href: '/settings/appearance', icon: <Palette size={18} /> }, // UI only
+  // { title: 'Notifikasi', href: '/settings/notifications', icon: <Bell size={18} /> }, // browser notif, bukan sistem
+  // { title: 'Display', href: '/settings/display', icon: <Monitor size={18} /> }, // UI only
   {
     title: 'Umum',
     href: '/settings/general',
@@ -52,9 +28,14 @@ const sidebarNavItems = [
     icon: <Receipt size={18} />,
   },
   {
-    title: 'WA & Telegram',
-    href: '/settings/notification-config',
-    icon: <MessageSquare size={18} />,
+    title: 'WhatsApp',
+    href: '/settings/whatsapp',
+    icon: <MessageCircle size={18} />,
+  },
+  {
+    title: 'Telegram',
+    href: '/settings/telegram',
+    icon: <Send size={18} />,
   },
   {
     title: 'Payment Gateway',
@@ -77,7 +58,7 @@ export function Settings() {
             Settings
           </h1>
           <p className='text-muted-foreground'>
-            Kelola akun dan konfigurasi sistem.
+            Kelola konfigurasi sistem.
           </p>
         </div>
         <Separator className='my-4 lg:my-6' />

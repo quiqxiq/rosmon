@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 	"github.com/quiqxiq/rosmon/api/dto"
@@ -49,8 +50,18 @@ func NewServer(deps *Deps) http.Handler {
 	// Path: /docs → UI, /docs/openapi.yaml → raw spec.
 	RegisterDocs(r)
 
-	// Serve static files for proof of payment uploads
-	r.Static("/uploads", "./uploads")
+	// Serve uploaded proof-of-payment files.
+	// Auth-protected: hanya staff atau customer yang sudah login yang bisa akses.
+	// Fallback ?access_token= didukung agar <img src="...?access_token=JWT"> bisa bekerja.
+	uploadsGroup := r.Group("/uploads")
+	if deps.AuthSigner != nil {
+		uploadsGroup.Use(middleware.RequireAnyAuth(deps.AuthSigner))
+	}
+	uploadsGroup.GET("/:filename", func(c *gin.Context) {
+		// filepath.Base mencegah path traversal (mis. "../etc/passwd")
+		filename := filepath.Base(c.Param("filename"))
+		c.File(filepath.Join("./uploads", filename))
+	})
 
 	v1 := r.Group("/api/v1")
 	RegisterRoutes(v1, deps)

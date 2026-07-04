@@ -36,7 +36,7 @@ export function HotspotProfiles() {
     syncMutation.mutate(undefined, {
       onSuccess: (res) => {
         toast.success('Profiles synced from RouterOS', {
-          description: `${res.mappings_synced} mappings · ${res.scripts_updated} scripts updated · ${res.scripts_skipped} skipped`,
+          description: `${res.synced.length} synced · ${res.created.length} created · ${res.orphan.length} orphans found`,
         })
       },
       onError: (err) => {

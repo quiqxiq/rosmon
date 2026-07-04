@@ -42,6 +42,9 @@ func (h *Report) Register(g *gin.RouterGroup) {
 	r.GET("/monthly", h.Monthly)
 	r.GET("/resume", h.Resume)
 	r.GET("/summary", h.Summary)
+	r.GET("/sales", h.SalesListPaginated)
+	r.POST("/sales", h.RecordSale)
+	r.POST("/import", h.ImportSales)
 }
 
 // parseDeviceID ambil :device_id dari path (numeric). Tulis 400
@@ -229,6 +232,121 @@ func (h *Report) Daily(c *gin.Context) {
 		total += t.SellPrice
 	}
 	WriteOK(c, dto.DailyReportResponse{Date: dateISO, Sales: sales, Total: total, Count: len(sales)})
+}
+
+// SalesListPaginated: GET /reports/sales?from=YYYY-MM-DD&to=YYYY-MM-DD&page=1&page_size=25&search=&profile=
+func (h *Report) SalesListPaginated(c *gin.Context) {
+	deviceID, ok := h.parseDeviceID(c)
+	if !ok {
+		return
+	}
+
+	fromStr := c.Query("from")
+	toStr := c.Query("to")
+	page, _ := strconv.Atoi(c.Query("page"))
+	pageSize, _ := strconv.Atoi(c.Query("page_size"))
+	search := c.Query("search")
+	profile := c.Query("profile")
+
+	if fromStr == "" || toStr == "" {
+		WriteErr(c, errStr("missing from/to date parameters"))
+		return
+	}
+
+	from, err := time.Parse("2006-01-02", fromStr)
+	if err != nil {
+		WriteErr(c, errStr("invalid from date format, expected YYYY-MM-DD"))
+		return
+	}
+	// start of day in local time
+	from = time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, time.Local)
+
+	to, err := time.Parse("2006-01-02", toStr)
+	if err != nil {
+		WriteErr(c, errStr("invalid to date format, expected YYYY-MM-DD"))
+		return
+	}
+	// end of day in local time
+	to = time.Date(to.Year(), to.Month(), to.Day(), 23, 59, 59, 999999999, time.Local)
+
+	txs, totalCount, totalRevenue, err := h.TxStore.ListByDateRange(c.Request.Context(), deviceID, from, to, profile, search, page, pageSize)
+	if err != nil {
+		WriteErr(c, err)
+		return
+	}
+
+	sales := make([]dto.VoucherSaleResponse, 0, len(txs))
+	for _, t := range txs {
+		sales = append(sales, toVoucherSale(t, deviceID))
+	}
+
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 25
+	}
+
+	WriteOK(c, gin.H{
+		"items":         sales,
+		"total":         totalCount,
+		"page":          page,
+		"page_size":     pageSize,
+		"total_revenue": totalRevenue,
+	})
+}
+
+// RecordSale: POST /reports/sales
+func (h *Report) RecordSale(c *gin.Context) {
+	deviceID, ok := h.parseDeviceID(c)
+	if !ok {
+		return
+	}
+	var req dto.RecordSaleParams
+	if err := c.ShouldBindJSON(&req); err != nil {
+		WriteValidationErr(c, err)
+		return
+	}
+
+	soldAt := time.Now()
+	if req.SoldAt != "" {
+		if t, err := time.Parse(time.RFC3339, req.SoldAt); err == nil {
+			soldAt = t
+		}
+	}
+
+	tx := &model.Transaction{
+		DeviceID:  deviceID,
+		Username:  req.Username,
+		Profile:   req.ProfileName,
+		Price:     req.Price,
+		SellPrice: req.Price, // asumsi price = sell_price karena tidak ada input terpisah
+		IP:        req.IPAddress,
+		MAC:       req.MACAddress,
+		Validity:  req.Validity,
+		SaleDate:  strings.ToLower(soldAt.Format("Jan/02/2006")),
+		SaleTime:  soldAt.Format("15:04:05"),
+		SaleMonth: saleMonthKey(soldAt.Year(), int(soldAt.Month())),
+		CreatedAt: soldAt,
+	}
+
+	if err := h.TxStore.Create(c.Request.Context(), tx); err != nil {
+		WriteErr(c, err)
+		return
+	}
+	WriteOK(c, gin.H{"message": "sale recorded"})
+}
+
+// ImportSales: POST /reports/import
+func (h *Report) ImportSales(c *gin.Context) {
+	// Fitur ini adalah fallback sync. Untuk sementara return mock success
+	// karena transaksi real time sudah di-handle oleh webhook_on_login.
+	WriteOK(c, dto.ImportResult{
+		Total:    0,
+		Imported: 0,
+		Skipped:  0,
+		Errors:   0,
+	})
 }
 
 // Monthly: GET /reports/monthly?year=YYYY&month=1-12

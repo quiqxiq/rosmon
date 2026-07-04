@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/quiqxiq/rosmon/api/dto"
+	"github.com/quiqxiq/rosmon/domain"
 	"github.com/quiqxiq/rosmon/mikrotik"
 	"github.com/quiqxiq/rosmon/mikrotik/hotspot"
 	"github.com/quiqxiq/rosmon/mikrotik/ppp"
@@ -70,6 +72,115 @@ func (h *Subscriptions) Register(g *gin.RouterGroup) {
 // MikroTik pelanggan. Dipanggil dari routes.go di grup ber-RequireRole.
 func (h *Subscriptions) RegisterAdmin(g *gin.RouterGroup) {
 	g.GET("/subscriptions/:id/password", h.RevealPassword)
+}
+
+// RegisterDevice memasang endpoint device-scoped untuk monitoring subscription
+// dengan data sesi real-time dari router. HARUS dipasang di bawah route group
+// yang sudah punya DeviceMiddleware agar mustClients(c) tersedia.
+func (h *Subscriptions) RegisterDevice(g *gin.RouterGroup) {
+	g.GET("/subscriptions", h.DeviceSubscriptions)
+}
+
+// DeviceSubscriptions mengembalikan semua subscription untuk device ini,
+// diperkaya dengan data sesi aktif real-time dari router.
+// - PPPoE  → join /ppp/active by domain.PPPActive.Name
+// - Hotspot permanent → join /ip/hotspot/active by domain.HotspotActive.User
+// - Voucher otomatis tidak masuk (tidak ada di tabel subscriptions)
+// GET /devices/:device_id/subscriptions
+func (h *Subscriptions) DeviceSubscriptions(c *gin.Context) {
+	deviceID, err := strconv.ParseUint(c.Param("device_id"), 10, 64)
+	if err != nil {
+		WriteErr(c, err)
+		return
+	}
+	ctx := c.Request.Context()
+
+	// 1. Ambil semua subscription untuk device ini dari DB.
+	subs, err := h.Store.List(ctx, store.SubscriptionListFilter{
+		DeviceID: uint(deviceID),
+	})
+	if err != nil {
+		WriteErr(c, err)
+		return
+	}
+
+	// 2. Fetch sesi aktif dari router secara concurrent (PPPoE + hotspot).
+	cs := mustClients(c)
+	fetchCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var (
+		pppActives []domain.PPPActive
+		hsActives  []domain.HotspotActive
+		wg         sync.WaitGroup
+		mu         sync.Mutex
+	)
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		if as, fetchErr := cs.PPP.ActiveList(fetchCtx); fetchErr == nil {
+			mu.Lock()
+			pppActives = as
+			mu.Unlock()
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		if as, fetchErr := cs.Hot.ActiveList(fetchCtx); fetchErr == nil {
+			mu.Lock()
+			hsActives = as
+			mu.Unlock()
+		}
+	}()
+	wg.Wait()
+
+	// 3. Build lookup maps O(1) per subscription.
+	pppMap := make(map[string]domain.PPPActive, len(pppActives))
+	for _, a := range pppActives {
+		pppMap[a.Name] = a // Name = PPPoE username di /ppp/active
+	}
+	hsMap := make(map[string]domain.HotspotActive, len(hsActives))
+	for _, a := range hsActives {
+		hsMap[a.User] = a // User = hotspot username di /ip/hotspot/active
+	}
+
+	// 4. Enrich tiap subscription dengan data sesi + deteksi drift kritis.
+	out := make([]dto.SubscriptionEnrichedResponse, len(subs))
+	for i, sub := range subs {
+		r := dto.SubscriptionEnrichedResponse{
+			Subscription: dto.FromModelSubscription(sub),
+		}
+		switch sub.ServiceType {
+		case "pppoe":
+			if sess, ok := pppMap[sub.MikrotikUsername]; ok {
+				r.Session = &dto.LiveSession{
+					Uptime:   sess.Uptime,
+					Address:  sess.Address,
+					CallerID: sess.CallerID,
+				}
+			}
+		case "hotspot":
+			if sess, ok := hsMap[sub.MikrotikUsername]; ok {
+				r.Session = &dto.LiveSession{
+					Uptime:   sess.Uptime,
+					Address:  sess.Address,
+					BytesIn:  sess.BytesIn,
+					BytesOut: sess.BytesOut,
+				}
+			}
+		}
+		// Drift kritis: user aktif di router padahal DB melarangnya.
+		if r.Session != nil {
+			switch sub.Status {
+			case "suspended":
+				r.RouterDrift = "online_while_suspended"
+			case "terminated":
+				r.RouterDrift = "online_while_terminated"
+			}
+		}
+		out[i] = r
+	}
+	WriteList(c, out, len(out))
 }
 
 // RevealPassword mengembalikan password MikroTik (PPPoE/hotspot) plaintext.

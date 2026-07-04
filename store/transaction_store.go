@@ -20,6 +20,10 @@ type TransactionStore interface {
 	// ListByDeviceYear mengembalikan semua transaksi device untuk satu tahun
 	// kalender. Dipakai endpoint /reports/resume untuk agregasi per-bulan.
 	ListByDeviceYear(ctx context.Context, deviceID uint, year int) ([]model.Transaction, error)
+	// ListByDateRange mengembalikan transaksi device dalam rentang tanggal (inclusive),
+	// dengan filter opsional (profile, search) dan pagination.
+	// Returned: slice transaksi, total count untuk pagination, dan total revenue (sum sell_price).
+	ListByDateRange(ctx context.Context, deviceID uint, from, to time.Time, profile, search string, page, pageSize int) ([]model.Transaction, int64, int64, error)
 	// ExistsByUserComment cek apakah ada transaksi untuk kombinasi
 	// (device_id, username, comment) — dipakai webhook handler untuk
 	// dedup re-login (hanya first login yang ter-record).
@@ -55,6 +59,53 @@ func (s *gormTransactionStore) ListByDeviceDate(ctx context.Context, deviceID ui
 		Where("device_id = ? AND sale_date = ?", deviceID, date).
 		Order("created_at desc").Limit(defaultTransactionLimit).Find(&txs).Error
 	return txs, err
+}
+
+// ListByDateRange mengambil transaksi dalam rentang created_at [from, to],
+// dengan filter profile/search opsional, dan pagination (page 1-based).
+func (s *gormTransactionStore) ListByDateRange(
+	ctx context.Context, deviceID uint,
+	from, to time.Time,
+	profile, search string,
+	page, pageSize int,
+) ([]model.Transaction, int64, int64, error) {
+	buildQ := func() *gorm.DB {
+		q := s.db.WithContext(ctx).Model(&model.Transaction{}).
+			Where("device_id = ? AND created_at >= ? AND created_at <= ?", deviceID, from, to)
+		if profile != "" {
+			q = q.Where("profile = ?", profile)
+		}
+		if search != "" {
+			q = q.Where("username ILIKE ?", "%"+search+"%")
+		}
+		return q
+	}
+
+	var total int64
+	if err := buildQ().Count(&total).Error; err != nil {
+		return nil, 0, 0, err
+	}
+
+	var revenue struct {
+		Total int64
+	}
+	if total > 0 {
+		if err := buildQ().Select("COALESCE(SUM(sell_price), 0) as total").Scan(&revenue).Error; err != nil {
+			return nil, 0, 0, err
+		}
+	}
+
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 25
+	}
+	offset := (page - 1) * pageSize
+
+	var txs []model.Transaction
+	err := buildQ().Order("created_at desc").Limit(pageSize).Offset(offset).Find(&txs).Error
+	return txs, total, revenue.Total, err
 }
 
 func (s *gormTransactionStore) ListByDeviceYear(ctx context.Context, deviceID uint, year int) ([]model.Transaction, error) {

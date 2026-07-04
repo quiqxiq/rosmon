@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { qk } from '@/lib/api/query-keys'
-import * as svc from './service'
 import type {
   SubscriptionCreateInput,
+  SubscriptionEnrichedItem,
   SubscriptionListFilters,
   SubscriptionUpdateInput,
 } from './schema'
+import * as svc from './service'
 
 export function useSubscriptions(filters?: SubscriptionListFilters) {
   return useQuery({
@@ -59,5 +60,15 @@ export function useRemoveSubscription() {
   return useMutation({
     mutationFn: (id: number) => svc.removeSubscription(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['subscriptions'] }),
+  })
+}
+
+export function useSubscriptionsByDevice(deviceId: number) {
+  return useQuery({
+    queryKey: qk.subscriptionsByDevice(deviceId),
+    queryFn: () => svc.listSubscriptionsByDevice(deviceId),
+    enabled: deviceId > 0,
+    refetchInterval: 30_000, // auto-refresh tiap 30 detik
+    staleTime: 15_000,
   })
 }

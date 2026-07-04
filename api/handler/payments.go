@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/quiqxiq/rosmon/api/dto"
+	"github.com/quiqxiq/rosmon/api/sse"
 	"github.com/quiqxiq/rosmon/service/notification"
 	payment "github.com/quiqxiq/rosmon/service/payment"
 	"github.com/quiqxiq/rosmon/store"
@@ -27,6 +28,7 @@ type Payments struct {
 	Settings     store.SettingStore
 	PaymentSvc   *payment.Service
 	Log          *logrus.Logger
+	Hub          *sse.Hub
 }
 
 func NewPayments(
@@ -39,6 +41,7 @@ func NewPayments(
 	settings store.SettingStore,
 	paymentSvc *payment.Service,
 	log *logrus.Logger,
+	hub *sse.Hub,
 ) *Payments {
 	if log == nil {
 		log = logrus.New()
@@ -46,13 +49,14 @@ func NewPayments(
 	return &Payments{
 		Store: ps, InvStore: is, SubStore: ss, Customers: cs,
 		Notification: notif, Audit: auditStore, Settings: settings,
-		PaymentSvc: paymentSvc, Log: log,
+		PaymentSvc: paymentSvc, Log: log, Hub: hub,
 	}
 }
 
 func (h *Payments) Register(g *gin.RouterGroup) {
 	r := g.Group("/payments")
 	r.GET("", h.List)
+	r.GET("/stream", h.StreamPayments)
 	r.GET("/:id", h.Get)
 	r.POST("", h.Create)
 	r.POST("/collect", h.Collect)
@@ -73,6 +77,7 @@ func (h *Payments) List(c *gin.Context) {
 		}
 	}
 	f.Status = c.Query("status")
+	f.Method = c.Query("method")
 
 	items, err := h.Store.List(c.Request.Context(), f)
 	if err != nil {
@@ -251,6 +256,30 @@ func (h *Payments) Reject(c *gin.Context) {
 		return
 	}
 	WriteOK(c, dto.FromModelPayment(*rejected))
+}
+
+// StreamPayments membuka SSE stream untuk admin menerima notifikasi real-time
+// saat pelanggan mengunggah bukti pembayaran baru di portal.
+// GET /payments/stream
+func (h *Payments) StreamPayments(c *gin.Context) {
+	if h.Hub == nil {
+		c.AbortWithStatusJSON(http.StatusServiceUnavailable,
+			dto.Err("SERVICE_UNAVAILABLE", "SSE hub tidak tersedia", c.Request.URL.Path))
+		return
+	}
+	release, err := h.Hub.Reserve(sse.TopicPayments, "")
+	if err != nil {
+		c.Header("Retry-After", "30")
+		c.AbortWithStatusJSON(http.StatusTooManyRequests,
+			dto.Err("RATE_LIMIT", "terlalu banyak subscriber SSE", c.Request.URL.Path))
+		return
+	}
+	defer release()
+	broker := h.Hub.GetOrCreate(sse.TopicPayments,
+		func(b *sse.Broker) error { return nil },
+		func() {},
+	)
+	sse.Stream(c, broker)
 }
 
 // markPaid mengembalikan salinan invoice dengan status paid (untuk response;

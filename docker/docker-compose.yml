@@ -1,5 +1,4 @@
 services:
-
   postgres:
     image: postgres:17-alpine
     container_name: rosmon-postgres
@@ -67,6 +66,7 @@ services:
         condition: service_healthy
     volumes:
       - backend_data:/app/data
+      - uploads_data:/app/uploads
 
   frontend:
     build:
@@ -82,3 +82,4 @@ volumes:
   postgres_data:
   influx_data:
   backend_data:
+  uploads_data:

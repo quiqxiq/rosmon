@@ -15,6 +15,7 @@ type PaymentListFilter struct {
 	InvoiceID  uint
 	CustomerID uint
 	Status     string
+	Method     string
 }
 
 type PaymentStore interface {
@@ -70,6 +71,9 @@ func (s *gormPaymentStore) List(ctx context.Context, f PaymentListFilter) ([]mod
 	}
 	if f.Status != "" {
 		q = q.Where("status = ?", f.Status)
+	}
+	if f.Method != "" {
+		q = q.Where("method = ?", f.Method)
 	}
 	var out []model.Payment
 	return out, q.Find(&out).Error

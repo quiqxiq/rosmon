@@ -19,6 +19,10 @@ const (
 	TopicPPPInactive     = "ppp-inactive"
 )
 
+// TopicPayments untuk notifikasi admin real-time saat pelanggan mengunggah
+// bukti pembayaran manual di portal. Topic global (bukan per-device).
+const TopicPayments = "payments"
+
 // TopicLog membentuk topic untuk subscription /log/print follow dengan
 // filter topics. Kosong = semua topics.
 func TopicLog(topics string) string {

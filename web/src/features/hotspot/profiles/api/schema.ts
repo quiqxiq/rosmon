@@ -49,9 +49,8 @@ export type HotspotProfileParams = z.infer<typeof HotspotProfileParamsSchema>
 // Result of POST /hotspot/profiles/sync — counters reported by the backend
 // after rewriting on-login scripts to the multi-tenant format.
 export const SyncProfilesResultSchema = z.object({
-  profiles_scanned: z.number().int(),
-  mappings_synced: z.number().int(),
-  scripts_updated: z.number().int(),
-  scripts_skipped: z.number().int(),
+  synced: z.array(z.string()),
+  created: z.array(z.string()),
+  orphan: z.array(z.string()),
 })
 export type SyncProfilesResult = z.infer<typeof SyncProfilesResultSchema>

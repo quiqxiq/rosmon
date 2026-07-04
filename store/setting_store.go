@@ -7,6 +7,7 @@ import (
 
 	"github.com/quiqxiq/rosmon/store/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var ErrSettingNotFound = errors.New("store: setting not found")
@@ -14,6 +15,9 @@ var ErrSettingNotFound = errors.New("store: setting not found")
 type SettingStore interface {
 	Get(ctx context.Context, key string) (string, error)
 	Set(ctx context.Context, key, value string) error
+	// SetOrCreate mengubah value jika key ada, atau membuat baris baru jika belum.
+	// Berbeda dengan Set yang mengembalikan ErrSettingNotFound kalau key belum ada.
+	SetOrCreate(ctx context.Context, key, value string) error
 	List(ctx context.Context) ([]model.SystemSetting, error)
 }
 
@@ -46,6 +50,25 @@ func (s *gormSettingStore) Set(ctx context.Context, key, value string) error {
 		return ErrSettingNotFound
 	}
 	return nil
+}
+
+// SetOrCreate upsert key-value di system_settings. Aman untuk key dinamis
+// (notification.event.*) yang mungkin belum ada di DB.
+func (s *gormSettingStore) SetOrCreate(ctx context.Context, key, value string) error {
+	now := time.Now()
+	row := model.SystemSetting{
+		Key:       key,
+		Value:     value,
+		ValueType: "string",
+		GroupName: "notification",
+		UpdatedAt: now,
+	}
+	return s.db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "key"}},
+			DoUpdates: clause.Assignments(map[string]any{"value": value, "updated_at": now}),
+		}).
+		Create(&row).Error
 }
 
 func (s *gormSettingStore) List(ctx context.Context) ([]model.SystemSetting, error) {

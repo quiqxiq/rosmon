@@ -66,7 +66,7 @@ type ProfileAddArgs struct {
 	Name              string // wajib
 	AddressPool       string
 	RateLimit         string
-	SharedUsers       int
+	SharedUsers       string
 	StatusAutorefresh string // mis. "1m"
 	OnLogin           string // body script — biasanya hasil scripts/onlogin.Build*
 	ParentQueue       string
@@ -86,8 +86,8 @@ func (c *Client) ProfileAdd(ctx context.Context, a ProfileAddArgs) (string, erro
 	if a.RateLimit != "" {
 		pairs = append(pairs, roslib.NewPair("rate-limit", a.RateLimit))
 	}
-	if a.SharedUsers > 0 {
-		pairs = append(pairs, roslib.NewPair("shared-users", mikrotik.Itoa(int64(a.SharedUsers))))
+	if a.SharedUsers != "" {
+		pairs = append(pairs, roslib.NewPair("shared-users", a.SharedUsers))
 	}
 	if a.StatusAutorefresh != "" {
 		pairs = append(pairs, roslib.NewPair("status-autorefresh", a.StatusAutorefresh))
@@ -117,7 +117,7 @@ type ProfileSetArgs struct {
 	Name              string
 	AddressPool       string
 	RateLimit         string
-	SharedUsers       *int
+	SharedUsers       *string
 	StatusAutorefresh string
 	OnLogin           *string
 	ParentQueue       string
@@ -140,7 +140,7 @@ func (c *Client) ProfileSet(ctx context.Context, a ProfileSetArgs) error {
 		pairs = append(pairs, roslib.NewPair("rate-limit", a.RateLimit))
 	}
 	if a.SharedUsers != nil {
-		pairs = append(pairs, roslib.NewPair("shared-users", mikrotik.Itoa(int64(*a.SharedUsers))))
+		pairs = append(pairs, roslib.NewPair("shared-users", *a.SharedUsers))
 	}
 	if a.StatusAutorefresh != "" {
 		pairs = append(pairs, roslib.NewPair("status-autorefresh", a.StatusAutorefresh))

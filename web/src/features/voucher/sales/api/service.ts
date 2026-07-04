@@ -1,7 +1,6 @@
 import { apiClient } from '@/lib/api/client'
 import type { Envelope, MessageResult } from '@/lib/api/types'
 import { unwrap } from '@/lib/api/unwrap'
-import { generateMockSales } from './mock'
 import type {
   DailyReport,
   DashboardSummary,
@@ -27,7 +26,7 @@ export async function recordSale(
   params: RecordSaleParams,
 ): Promise<void> {
   await apiClient.post<Envelope<MessageResult>>(
-    `${voucherBase(routerId)}/sales`,
+    `${reportsBase(routerId)}/sales`,
     params,
   )
 }
@@ -37,7 +36,7 @@ export async function recordSale(
 // to call repeatedly — duplicate idempotency keys are skipped.
 export async function importSales(routerId: number): Promise<ImportResult> {
   const res = await apiClient.post<Envelope<ImportResult>>(
-    `${voucherBase(routerId)}/import`,
+    `${reportsBase(routerId)}/import`,
   )
   return unwrap(res.data)
 }
@@ -136,36 +135,15 @@ export async function exportSalesExcel(
   return res.data
 }
 
-// ─────────────────── Sales listing (MOCKED — Phase 6) ───────────────────
-
-// TODO(backend): replace this mock once the real endpoint lands:
-//   GET /routers/:routerId/vouchers/sales
-//     ?from=&to=&page=&page_size=&search=&profile=&server=
-// The mock honors the same params + pagination + filtering semantics so
-// the UI doesn't need to change — only this function body does.
-//
-// `_routerId` is intentionally unused while mocked but kept in the
-// signature so the real implementation can drop in without callers
-// changing.
+// GET /routers/:routerId/reports/sales
+//   ?from=&to=&page=&page_size=&search=&profile=&server=
 export async function listSales(
-  _routerId: number,
+  routerId: number,
   params: SalesListParams,
 ): Promise<SalesListResponse> {
-  // Simulate ~150ms of network latency so React Query's loading states
-  // are visible in dev. Cheap and worth the realism.
-  await new Promise((resolve) => setTimeout(resolve, 150))
-
-  const { filtered, totalRevenue } = generateMockSales(params)
-
-  // Apply pagination AFTER filtering — same order the real backend uses.
-  const start = (params.page - 1) * params.page_size
-  const items = filtered.slice(start, start + params.page_size)
-
-  return {
-    items,
-    total: filtered.length,
-    page: params.page,
-    page_size: params.page_size,
-    total_revenue: totalRevenue,
-  }
+  const res = await apiClient.get<Envelope<SalesListResponse>>(
+    `${reportsBase(routerId)}/sales`,
+    { params },
+  )
+  return unwrap(res.data)
 }

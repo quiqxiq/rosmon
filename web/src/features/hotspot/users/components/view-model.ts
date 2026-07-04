@@ -36,7 +36,7 @@ export function toUserViewModel(
 ): HotspotUserViewModel {
   const expAt = parseExpiryFromComment(raw.comment)
   return {
-    id: raw['.id'],
+    id: raw.id,
     name: raw.name ?? '',
     password: raw.password ?? '',
     profile: raw.profile ?? '',

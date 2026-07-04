@@ -20,6 +20,7 @@ import {
   Palette,
   Receipt,
   ScrollText,
+  Send,
   Server,
   Settings,
   Ticket,
@@ -54,7 +55,7 @@ export const sidebarData: SidebarData = {
             { title: 'Profiles', url: '/hotspot/profiles' },
             { title: 'Billing', url: '/hotspot/billing' },
             { title: 'Active', url: '/hotspot/active' },
-            { title: 'Hosts', url: '/hotspot/hosts' },
+            // { title: 'Hosts', url: '/hotspot/hosts' }, // belum dipakai secara aktif
           ],
         },
         {
@@ -73,7 +74,7 @@ export const sidebarData: SidebarData = {
           items: [
             { title: 'Generate', url: '/voucher/generate' },
             { title: 'Print Queue', url: '/voucher/print' },
-            { title: 'Sales', url: '/voucher/sales' },
+            { title: 'Sales', url: '/voucher/sales' }, // belum dipakai
           ],
         },
       ],
@@ -88,8 +89,11 @@ export const sidebarData: SidebarData = {
         },
         {
           title: 'Subscriptions',
-          url: '/subscriptions',
           icon: CreditCard,
+          items: [
+            { title: 'Management', url: '/subscriptions' },
+            { title: 'Monitoring', url: '/subscriptions/monitoring' },
+          ],
         },
         {
           title: 'Invoices',
@@ -116,11 +120,6 @@ export const sidebarData: SidebarData = {
     {
       title: 'Communications',
       items: [
-        {
-          title: 'WhatsApp',
-          url: '/admin/whatsapp',
-          icon: MessageCircle,
-        },
         {
           title: 'Message Templates',
           url: '/admin/message-templates',
@@ -185,26 +184,11 @@ export const sidebarData: SidebarData = {
           title: 'Settings',
           icon: Settings,
           items: [
-            {
-              title: 'Profile',
-              url: '/settings',
-              icon: UserCog,
-            },
-            {
-              title: 'Akun',
-              url: '/settings/account',
-              icon: Wrench,
-            },
-            {
-              title: 'Tampilan',
-              url: '/settings/appearance',
-              icon: Palette,
-            },
-            {
-              title: 'Notifikasi UI',
-              url: '/settings/notifications',
-              icon: Bell,
-            },
+            // { title: 'Profile', url: '/settings', icon: UserCog },     // tidak ada API backend
+            // { title: 'Akun', url: '/settings/account', icon: Wrench }, // tidak ada API backend
+            { title: 'Tampilan', url: '/settings/appearance', icon: Palette }, // UI only
+            // { title: 'Notifikasi UI', url: '/settings/notifications', icon: Bell }, // browser notifications, bukan sistem
+            // { title: 'Display', url: '/settings/display', icon: Building2 }, // UI only
             {
               title: 'Umum',
               url: '/settings/general',
@@ -216,9 +200,14 @@ export const sidebarData: SidebarData = {
               icon: Receipt,
             },
             {
-              title: 'WA & Telegram',
-              url: '/settings/notification-config',
-              icon: MessageSquare,
+              title: 'WhatsApp',
+              url: '/settings/whatsapp',
+              icon: MessageCircle,
+            },
+            {
+              title: 'Telegram',
+              url: '/settings/telegram',
+              icon: Send,
             },
             {
               title: 'Payment Gateway',
@@ -232,27 +221,15 @@ export const sidebarData: SidebarData = {
             },
           ],
         },
-        {
-          title: 'Help Center',
-          url: '/help-center',
-          icon: HelpCircle,
-        },
+        // { title: 'Help Center', url: '/help-center', icon: HelpCircle }, // ComingSoon placeholder
       ],
     },
-    {
-      title: 'Example',
-      items: [
-        {
-          title: 'Tasks',
-          url: '/tasks',
-          icon: CheckSquare,
-        },
-        {
-          title: 'Users',
-          url: '/pengguna',
-          icon: Users2,
-        },
-      ],
-    },
+    // {
+    //   title: 'Example',   // Boilerplate shadcn — data statis, tidak terhubung backend
+    //   items: [
+    //     { title: 'Tasks', url: '/tasks', icon: CheckSquare },
+    //     { title: 'Users', url: '/pengguna', icon: Users2 },
+    //   ],
+    // },
   ],
 }

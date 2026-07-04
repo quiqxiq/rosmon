@@ -1,12 +1,15 @@
 import { type ColumnDef } from '@tanstack/react-table'
 import { format } from 'date-fns'
 import { id as localeId } from 'date-fns/locale'
-import { Banknote, Check, CreditCard, Globe, X } from 'lucide-react'
+import { Banknote, Check, CreditCard, Globe, Paperclip, X } from 'lucide-react'
+import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import { DataTableColumnHeader } from '@/components/data-table'
 import { formatIDR } from '@/lib/format'
 import type { Payment } from '../api/schema'
 import { PaymentStatusBadge } from './payment-status-badge'
+
+const API_BASE = (import.meta.env.VITE_API_URL ?? 'http://localhost:8080').replace(/\/+$/, '')
 
 function fmtDate(s?: string | null) {
   if (!s) return '—'
@@ -23,6 +26,23 @@ function MethodIcon({ method }: { method: string }) {
 function methodLabel(method: string) {
   const labels: Record<string, string> = { cash: 'Tunai', transfer: 'Transfer', portal: 'Portal', gateway: 'Online' }
   return labels[method] ?? method
+}
+
+function ProofLink({ proofUrl }: { proofUrl: string }) {
+  const token = useAuthStore((s) => s.auth.accessToken)
+  const href = `${API_BASE}${proofUrl}?access_token=${encodeURIComponent(token)}`
+  return (
+    <a
+      href={href}
+      target='_blank'
+      rel='noopener noreferrer'
+      className='flex items-center gap-1 text-xs text-primary hover:underline'
+      onClick={(e) => e.stopPropagation()}
+    >
+      <Paperclip className='size-3' />
+      Lihat
+    </a>
+  )
 }
 
 type Actions = {
@@ -76,6 +96,15 @@ export function makeColumns(actions: Actions): ColumnDef<Payment, unknown>[] {
       header: ({ column }) => <DataTableColumnHeader column={column} title='Status' />,
       cell: ({ row }) => <PaymentStatusBadge status={row.original.status} />,
       filterFn: (row, id, value: string[]) => value.includes(row.getValue(id)),
+    },
+    {
+      id: 'proof',
+      header: () => <span className='text-xs text-muted-foreground'>Bukti</span>,
+      cell: ({ row }) => {
+        const p = row.original
+        if (!p.proof_url) return <span className='text-xs text-muted-foreground'>—</span>
+        return <ProofLink proofUrl={p.proof_url} />
+      },
     },
     {
       accessorKey: 'created_at',

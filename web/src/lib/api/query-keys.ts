@@ -18,8 +18,7 @@ export const qk = {
 
   // ────────────────────────── status ──────────────────────────
   // Hotspot user status probe (router + mac). Captive-portal use case.
-  userStatus: (router: string, mac: string) =>
-    ['status', router, mac] as const,
+  userStatus: (router: string, mac: string) => ['status', router, mac] as const,
 
   // ────────────────────────── settings (admin, global singleton) ──────────────────────────
   settings: () => ['settings'] as const,
@@ -62,13 +61,11 @@ export const qk = {
   pppSecrets: (rid: number) => ['ppp', 'secrets', rid] as const,
   pppActive: (rid: number) => ['ppp', 'active', rid] as const,
   pppInactive: (rid: number) => ['ppp', 'inactive', rid] as const,
-  pppInactiveCount: (rid: number) =>
-    ['ppp', 'inactive', 'count', rid] as const,
+  pppInactiveCount: (rid: number) => ['ppp', 'inactive', 'count', rid] as const,
   pppProfiles: (rid: number) => ['ppp', 'profiles', rid] as const,
 
   // ────────────────────────── network ──────────────────────────
-  networkInterfaces: (rid: number) =>
-    ['network', 'interfaces', rid] as const,
+  networkInterfaces: (rid: number) => ['network', 'interfaces', rid] as const,
   interfaceTraffic: (rid: number, iface: string) =>
     ['network', 'traffic', rid, iface] as const,
   networkPools: (rid: number) => ['network', 'pools', rid] as const,
@@ -84,8 +81,7 @@ export const qk = {
   systemClock: (rid: number) => ['system', 'clock', rid] as const,
   systemIdentity: (rid: number) => ['system', 'identity', rid] as const,
   routerboard: (rid: number) => ['system', 'routerboard', rid] as const,
-  expireMonitor: (rid: number) =>
-    ['system', 'expire-monitor', rid] as const,
+  expireMonitor: (rid: number) => ['system', 'expire-monitor', rid] as const,
   schedulers: (rid: number) => ['system', 'schedulers', rid] as const,
   scripts: (rid: number) => ['system', 'scripts', rid] as const,
   systemDashboard: (rid: number) => ['system', 'dashboard', rid] as const,
@@ -143,9 +139,11 @@ export const qk = {
     ['hotspot', 'profile-configs', rid, name] as const,
 
   // ────────────────────────── ppp (extended) ──────────────────────────
-  pppProfile: (rid: number, pid: string) => ['ppp', 'profiles', rid, pid] as const,
+  pppProfile: (rid: number, pid: string) =>
+    ['ppp', 'profiles', rid, pid] as const,
   pppProfilesDB: (rid: number) => ['ppp', 'profiles-db', rid] as const,
-  pppProfileDB: (rid: number, id: number) => ['ppp', 'profiles-db', rid, id] as const,
+  pppProfileDB: (rid: number, id: number) =>
+    ['ppp', 'profiles-db', rid, id] as const,
 
   // ────────────────────────── network (extended) ──────────────────────────
   networkArp: (rid: number, mac?: string) =>
@@ -161,13 +159,17 @@ export const qk = {
   customer: (id: number) => ['customers', id] as const,
 
   // ────────────────────────── subscriptions (DB, not device-scoped) ──────────────────────────
-  subscriptions: (filters?: QKFilters) => ['subscriptions', filters ?? {}] as const,
+  subscriptions: (filters?: QKFilters) =>
+    ['subscriptions', filters ?? {}] as const,
   subscription: (id: number) => ['subscriptions', id] as const,
+  subscriptionsByDevice: (deviceId: number) =>
+    ['subscriptions', 'device', deviceId] as const,
 
   // ────────────────────────── reports · selling ──────────────────────────
   reportSelling: (rid: number, filters?: QKFilters) =>
     ['report', 'selling', rid, filters ?? {}] as const,
-  reportSellingToday: (rid: number) => ['report', 'selling', 'today', rid] as const,
+  reportSellingToday: (rid: number) =>
+    ['report', 'selling', 'today', rid] as const,
   reportSellingSummary: (rid: number, filters?: QKFilters) =>
     ['report', 'selling', 'summary', rid, filters ?? {}] as const,
 
@@ -175,12 +177,17 @@ export const qk = {
   messageTemplates: () => ['message-templates'] as const,
   messageTemplate: (slug: string) => ['message-templates', slug] as const,
   auditLogs: (filters?: QKFilters) => ['audit-logs', filters ?? {}] as const,
-  notificationsLog: (filters?: QKFilters) => ['notifications', filters ?? {}] as const,
+  notificationsLog: (filters?: QKFilters) =>
+    ['notifications', filters ?? {}] as const,
   whatsappStatus: () => ['whatsapp', 'status'] as const,
   whatsappQR: () => ['whatsapp', 'qr'] as const,
+  whatsappContacts: () => ['whatsapp', 'contacts'] as const,
+  whatsappGroups: () => ['whatsapp', 'groups'] as const,
+  notifEvents: () => ['notification-events'] as const,
 
   // ────────────────────────── registrations (Fase 2, staff) ──────────────────────────
-  registrations: (filters?: QKFilters) => ['registrations', filters ?? {}] as const,
+  registrations: (filters?: QKFilters) =>
+    ['registrations', filters ?? {}] as const,
   registration: (id: number) => ['registrations', id] as const,
 
   // ────────────────────────── public packages (Fase 2, landing) ──────────────────────────
@@ -190,7 +197,8 @@ export const qk = {
   // ────────────────────────── invoices & payments (admin) ──────────────────────────
   invoices: (filters?: QKFilters) => ['invoices', filters ?? {}] as const,
   invoice: (id: number) => ['invoices', id] as const,
-  invoicePayments: (invoiceId: number) => ['invoices', invoiceId, 'payments'] as const,
+  invoicePayments: (invoiceId: number) =>
+    ['invoices', invoiceId, 'payments'] as const,
   payments: (filters?: QKFilters) => ['payments', filters ?? {}] as const,
   payment: (id: number) => ['payments', id] as const,
 
@@ -198,7 +206,8 @@ export const qk = {
   portalMe: () => ['portal', 'me'] as const,
   portalSubscriptions: () => ['portal', 'subscriptions'] as const,
   portalSubscription: (id: number) => ['portal', 'subscriptions', id] as const,
-  portalInvoices: (filters?: QKFilters) => ['portal', 'invoices', filters ?? {}] as const,
+  portalInvoices: (filters?: QKFilters) =>
+    ['portal', 'invoices', filters ?? {}] as const,
   portalInvoice: (id: number) => ['portal', 'invoices', id] as const,
   portalPayments: () => ['portal', 'payments'] as const,
 } as const

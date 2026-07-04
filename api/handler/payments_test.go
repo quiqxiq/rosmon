@@ -254,7 +254,7 @@ func setupCollectEngine(t *testing.T) (*gin.Engine, *fakeInvoiceStore, *fakePaym
 		Invoices:      invS,
 		Subscriptions: subS,
 	})
-	h := handler.NewPayments(payS, invS, subS, nil, nil, nil, nil, svc, nil)
+	h := handler.NewPayments(payS, invS, subS, nil, nil, nil, nil, svc, nil, nil)
 	r := gin.New()
 	h.Register(r.Group("/api/v1"))
 	return r, invS, payS, subS

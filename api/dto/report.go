@@ -85,6 +85,26 @@ type VoucherSaleResponse struct {
 	CreatedAt      string `json:"created_at"`
 }
 
+// RecordSaleParams adalah input untuk POST /reports/sales
+type RecordSaleParams struct {
+	Username    string `json:"username" binding:"required"`
+	ProfileName string `json:"profile_name"`
+	Price       int    `json:"price"`
+	Validity    string `json:"validity"`
+	Server      string `json:"server"`
+	IPAddress   string `json:"ip_address"`
+	MACAddress  string `json:"mac_address"`
+	SoldAt      string `json:"sold_at"`
+}
+
+// ImportResult adalah response untuk POST /reports/import
+type ImportResult struct {
+	Total    int `json:"total"`
+	Imported int `json:"imported"`
+	Skipped  int `json:"skipped"`
+	Errors   int `json:"errors"`
+}
+
 // DailyReportResponse — GET /reports/daily
 type DailyReportResponse struct {
 	Date  string                `json:"date"`  // YYYY-MM-DD

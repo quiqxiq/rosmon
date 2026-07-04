@@ -130,7 +130,7 @@ func (s *Service) InitiatePayment(ctx context.Context, invoiceID, customerID uin
 		InvoiceID:      invoiceID,
 		CustomerID:     customerID,
 		Amount:         inv.Amount,
-		Method:         "xendit",
+		Method:         "gateway",
 		Status:         "pending",
 		GatewayName:    "xendit",
 		IdempotencyKey: idempotencyKey,
@@ -265,6 +265,7 @@ func (s *Service) CreatePortalPayment(ctx context.Context, invoiceID, customerID
 	}
 
 	// 2. Buat Payment record pending.
+	now := s.nowFunc()
 	p := &model.Payment{
 		InvoiceID:       invoiceID,
 		CustomerID:      customerID,
@@ -274,6 +275,7 @@ func (s *Service) CreatePortalPayment(ctx context.Context, invoiceID, customerID
 		ProofURL:        proofURL,
 		BankName:        bankName,
 		Status:          "pending",
+		IdempotencyKey:  fmt.Sprintf("portal-inv%d-cust%d-%d", invoiceID, customerID, now.UnixMilli()),
 	}
 
 	// 3. Simpan ke DB.
@@ -472,4 +474,3 @@ func rupiah(amount int64) string {
 	}
 	return "Rp " + string(out)
 }
-

@@ -1,6 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { WhatsApp } from '@/features/whatsapp'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
+// Route lama /admin/whatsapp diarahkan ke /settings/whatsapp.
 export const Route = createFileRoute('/_authenticated/admin/whatsapp/')({
-  component: WhatsApp,
+  beforeLoad: () => {
+    throw redirect({ to: '/settings/whatsapp', replace: true })
+  },
 })

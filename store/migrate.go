@@ -133,6 +133,14 @@ func seedSystemSettings(db *gorm.DB) error {
 		{Key: "notification.telegram_enabled", Value: "false", ValueType: "bool", GroupName: "notification", Description: "Aktifkan notifikasi via Telegram Bot (untuk admin)"},
 		{Key: "notification.telegram_bot_token", Value: "", ValueType: "secret", GroupName: "notification", Description: "Telegram Bot Token dari @BotFather"},
 		{Key: "notification.telegram_chat_id", Value: "", ValueType: "string", GroupName: "notification", Description: "Telegram Chat ID target admin (group/channel/user)"},
+		// Notification event routing — target per event (CSV token).
+		// Token: wa_admin | wa_group:<jid> | wa_number:<phone> | tg_admin
+		{Key: "notification.event.invoice_issued.targets", Value: "wa_admin", ValueType: "string", GroupName: "notification", Description: "Target notifikasi saat tagihan terbit"},
+		{Key: "notification.event.invoice_reminder.targets", Value: "wa_admin", ValueType: "string", GroupName: "notification", Description: "Target notifikasi pengingat jatuh tempo"},
+		{Key: "notification.event.service_isolir.targets", Value: "wa_admin", ValueType: "string", GroupName: "notification", Description: "Target notifikasi layanan diisolir"},
+		{Key: "notification.event.service_suspend.targets", Value: "wa_admin", ValueType: "string", GroupName: "notification", Description: "Target notifikasi layanan disuspend"},
+		{Key: "notification.event.payment_received.targets", Value: "wa_admin", ValueType: "string", GroupName: "notification", Description: "Target notifikasi pembayaran diterima"},
+		{Key: "notification.event.registration_approved.targets", Value: "wa_admin", ValueType: "string", GroupName: "notification", Description: "Target notifikasi registrasi disetujui"},
 	}
 	for _, s := range defaults {
 		s := s

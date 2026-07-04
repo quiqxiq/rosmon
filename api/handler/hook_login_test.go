@@ -72,6 +72,10 @@ type fakeTxStore struct {
 	txs []model.Transaction
 }
 
+func (f *fakeTxStore) ListByDateRange(ctx context.Context, deviceID uint, start, end time.Time, search string, trxType string, page, limit int) ([]model.Transaction, int64, int64, error) {
+	return nil, 0, 0, nil
+}
+
 func newFakeTxStore() *fakeTxStore { return &fakeTxStore{} }
 
 func (f *fakeTxStore) Create(ctx context.Context, tx *model.Transaction) error {

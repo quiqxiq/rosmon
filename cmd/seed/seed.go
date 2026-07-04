@@ -161,8 +161,8 @@ type hotspotProfileDef struct {
 
 func hotspotProfileDefs() []hotspotProfileDef {
 	return []hotspotProfileDef{
-		{Name: "hs-basic", Role: "permanent", RateLimit: "5M/5M", AddressPool: "hs-pool", PriceMonthly: 100000, Description: "Hotspot Basic 5Mbps (bulanan)"},
-		{Name: "hs-kantor", Role: "permanent", RateLimit: "20M/20M", AddressPool: "hs-pool", PriceMonthly: 250000, Description: "Hotspot Kantor 20Mbps (bulanan)"},
+		{Name: "hs-basic", Role: "permanent", RateLimit: "5M/5M", AddressPool: "hotspot-pool", PriceMonthly: 100000, Description: "Hotspot Basic 5Mbps (bulanan)"},
+		{Name: "hs-kantor", Role: "permanent", RateLimit: "20M/20M", AddressPool: "hotspot-pool", PriceMonthly: 250000, Description: "Hotspot Kantor 20Mbps (bulanan)"},
 		{Name: "hs-harian", Role: "voucher", RateLimit: "5M/5M", ExpiryMode: "rem", Validity: "1d", Price: 3000, SellPrice: 5000, Description: "Voucher Harian 5Mbps / 1 hari"},
 		{Name: "hs-mingguan", Role: "voucher", RateLimit: "10M/10M", ExpiryMode: "rem", Validity: "7d", Price: 10000, SellPrice: 15000, Description: "Voucher Mingguan 10Mbps / 7 hari"},
 	}
@@ -389,14 +389,11 @@ func (s *seeder) syncRouterOSPPPProfiles(ctx context.Context, pppC *mkppp.Client
 
 func (s *seeder) syncRouterOSHotspotProfiles(ctx context.Context, hotC *mkhot.Client) error {
 	for _, def := range hotspotProfileDefs() {
-		if def.Role == "voucher" {
-			continue
-		}
 		_, err := hotC.ProfileAdd(ctx, mkhot.ProfileAddArgs{
 			Name:        def.Name,
 			RateLimit:   def.RateLimit,
 			AddressPool: def.AddressPool,
-			SharedUsers: 1,
+			SharedUsers: "1",
 		})
 		if err != nil {
 			if isAlreadyExistsErr(err) {

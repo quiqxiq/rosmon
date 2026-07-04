@@ -169,6 +169,9 @@ func (h *HotspotProfiles) Create(c *gin.Context) {
 		return
 	}
 	warning := h.propagateAdd(c, deviceID, *p)
+	if p.Role == "voucher" {
+		h.tryInjectOnLogin(c, deviceID, *p)
+	}
 	c.JSON(http.StatusCreated, dto.OK(dto.HotspotProfileWriteResponse{
 		Profile: dto.FromModelHotspotProfile(*p),
 		Warning: warning,
@@ -262,18 +265,20 @@ func (h *HotspotProfiles) Update(c *gin.Context) {
 		return
 	}
 
+	// Propagate fields to RouterOS (rate_limit, shared_users, etc).
+	warning := h.propagateSet(c, deviceID, p)
+
 	// Best-effort inject on-login for voucher profiles.
 	if p.Role == "voucher" {
 		h.tryInjectOnLogin(c, deviceID, p)
-	} else {
-		warning := h.propagateSet(c, deviceID, p)
-		if warning != "" {
-			WriteOK(c, dto.HotspotProfileWriteResponse{
-				Profile: dto.FromModelHotspotProfile(p),
-				Warning: warning,
-			})
-			return
-		}
+	}
+
+	if warning != "" {
+		WriteOK(c, dto.HotspotProfileWriteResponse{
+			Profile: dto.FromModelHotspotProfile(p),
+			Warning: warning,
+		})
+		return
 	}
 	WriteOK(c, dto.HotspotProfileWriteResponse{
 		Profile: dto.FromModelHotspotProfile(p),
@@ -379,7 +384,8 @@ func (h *HotspotProfiles) Sync(c *gin.Context) {
 			Active:            true,
 		}
 		if role == "voucher" {
-			newP.ExpiryMode = "0"
+			newP.ExpiryMode = "remc"
+			newP.SharedUsers = 1
 		}
 		created, err := h.Store.Upsert(ctx, newP)
 		if err != nil {
@@ -452,11 +458,15 @@ func (h *HotspotProfiles) propagateAdd(c *gin.Context, deviceID uint, p model.Ho
 	}
 	ctx, cancel := context.WithTimeout(c.Request.Context(), propagateTimeout)
 	defer cancel()
+	sharedUsersStr := mikrotik.Itoa(int64(p.SharedUsers))
+	if p.SharedUsers == 0 {
+		sharedUsersStr = "unlimited"
+	}
 	_, err := cs.Hot.ProfileAdd(ctx, hotspot.ProfileAddArgs{
 		Name:              p.Name,
 		RateLimit:         p.RateLimit,
 		AddressPool:       p.AddressPool,
-		SharedUsers:       p.SharedUsers,
+		SharedUsers:       sharedUsersStr,
 		StatusAutorefresh: p.StatusAutorefresh,
 		ParentQueue:       p.ParentQueue,
 	})
@@ -477,12 +487,15 @@ func (h *HotspotProfiles) propagateSet(c *gin.Context, deviceID uint, p model.Ho
 		}
 		return mapHotspotProfileErr(err, p)
 	}
-	sharedUsers := p.SharedUsers
+	sharedUsersStr := mikrotik.Itoa(int64(p.SharedUsers))
+	if p.SharedUsers == 0 {
+		sharedUsersStr = "unlimited"
+	}
 	return mapHotspotProfileErr(cs.Hot.ProfileSet(ctx, hotspot.ProfileSetArgs{
 		ID:                rp.ID,
 		RateLimit:         p.RateLimit,
 		AddressPool:       p.AddressPool,
-		SharedUsers:       &sharedUsers,
+		SharedUsers:       &sharedUsersStr,
 		StatusAutorefresh: p.StatusAutorefresh,
 		ParentQueue:       p.ParentQueue,
 	}), p)

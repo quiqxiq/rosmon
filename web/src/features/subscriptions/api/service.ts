@@ -4,6 +4,7 @@ import { unwrap } from '@/lib/api/unwrap'
 import type {
   Subscription,
   SubscriptionCreateInput,
+  SubscriptionEnrichedItem,
   SubscriptionListFilters,
   SubscriptionUpdateInput,
   SubscriptionWriteResult,
@@ -12,7 +13,7 @@ import type {
 const base = '/subscriptions'
 
 export async function listSubscriptions(
-  filters?: SubscriptionListFilters,
+  filters?: SubscriptionListFilters
 ): Promise<Subscription[]> {
   const res = await apiClient.get<Envelope<Subscription[]>>(base, {
     params: filters,
@@ -21,42 +22,42 @@ export async function listSubscriptions(
 }
 
 export async function createSubscription(
-  payload: SubscriptionCreateInput,
+  payload: SubscriptionCreateInput
 ): Promise<SubscriptionWriteResult> {
   const res = await apiClient.post<Envelope<SubscriptionWriteResult>>(
     base,
-    payload,
+    payload
   )
   return unwrap(res.data)
 }
 
 export async function updateSubscription(
   id: number,
-  payload: SubscriptionUpdateInput,
+  payload: SubscriptionUpdateInput
 ): Promise<SubscriptionWriteResult> {
   const res = await apiClient.put<Envelope<SubscriptionWriteResult>>(
     `${base}/${id}`,
-    payload,
+    payload
   )
   return unwrap(res.data)
 }
 
 export async function patchSubscriptionStatus(
   id: number,
-  status: string,
+  status: string
 ): Promise<SubscriptionWriteResult> {
   const res = await apiClient.patch<Envelope<SubscriptionWriteResult>>(
     `${base}/${id}/status`,
-    { status },
+    { status }
   )
   return unwrap(res.data)
 }
 
 export async function reconcileSubscription(
-  id: number,
+  id: number
 ): Promise<SubscriptionWriteResult> {
   const res = await apiClient.post<Envelope<SubscriptionWriteResult>>(
-    `${base}/${id}/reconcile`,
+    `${base}/${id}/reconcile`
   )
   return unwrap(res.data)
 }
@@ -69,7 +70,16 @@ export async function removeSubscription(id: number): Promise<void> {
 // MikroTik (PPPoE/hotspot) plaintext, didekripsi dari DB.
 export async function revealSubscriptionPassword(id: number): Promise<string> {
   const res = await apiClient.get<Envelope<{ password: string }>>(
-    `${base}/${id}/password`,
+    `${base}/${id}/password`
   )
   return unwrap(res.data).password
+}
+
+export async function listSubscriptionsByDevice(
+  deviceId: number
+): Promise<SubscriptionEnrichedItem[]> {
+  const res = await apiClient.get<Envelope<SubscriptionEnrichedItem[]>>(
+    `/devices/${deviceId}/subscriptions`
+  )
+  return unwrap(res.data)
 }

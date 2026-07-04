@@ -239,3 +239,64 @@ func normalizeNumber(phone, cc string) string {
 	}
 	return d
 }
+
+// Contact adalah entri kontak WhatsApp (individu) yang disederhanakan untuk UI.
+type Contact struct {
+	JID  string `json:"jid"`
+	Name string `json:"name"`
+}
+
+// Group adalah grup WhatsApp tempat akun terdaftar sebagai anggota.
+type Group struct {
+	JID  string `json:"jid"`
+	Name string `json:"name"`
+}
+
+// Contacts mengembalikan daftar kontak yang tersimpan di whatsmeow store.
+// Hanya memanggil store lokal (tidak perlu request ke server WA).
+// Error kalau belum Connected().
+func (m *Manager) Contacts(ctx context.Context) ([]Contact, error) {
+	m.mu.RLock()
+	client := m.client
+	m.mu.RUnlock()
+	if client == nil || !client.IsLoggedIn() {
+		return nil, fmt.Errorf("whatsapp: belum login")
+	}
+	raw, err := client.Store.Contacts.GetAllContacts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("whatsapp: get contacts: %w", err)
+	}
+	out := make([]Contact, 0, len(raw))
+	for jid, info := range raw {
+		name := info.FullName
+		if name == "" {
+			name = info.PushName
+		}
+		if name == "" {
+			name = jid.User
+		}
+		out = append(out, Contact{JID: jid.String(), Name: name})
+	}
+	return out, nil
+}
+
+// Groups mengembalikan daftar grup WhatsApp yang diikuti akun yang terpasang.
+// Memerlukan request ke server WA — harus dalam keadaan Connected().
+func (m *Manager) Groups(ctx context.Context) ([]Group, error) {
+	m.mu.RLock()
+	client := m.client
+	m.mu.RUnlock()
+	if client == nil || !client.IsConnected() || !client.IsLoggedIn() {
+		return nil, fmt.Errorf("whatsapp: belum terhubung/login")
+	}
+	groups, err := client.GetJoinedGroups(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("whatsapp: get groups: %w", err)
+	}
+	out := make([]Group, len(groups))
+	for i, g := range groups {
+		out[i] = Group{JID: g.JID.String(), Name: g.Name}
+	}
+	return out, nil
+}
+

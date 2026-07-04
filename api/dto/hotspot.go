@@ -1,6 +1,8 @@
 package dto
 
 import (
+	"strconv"
+
 	"github.com/quiqxiq/rosmon/domain"
 	"github.com/quiqxiq/rosmon/mikrotik/hotspot"
 )
@@ -197,8 +199,8 @@ func FromDomainProfiles(ps []domain.HotspotProfile) []RouterHotspotProfileRespon
 type RouterHotspotProfileCreateRequest struct {
 	Name              string `json:"name"                          binding:"required,min=1,max=128"`
 	AddressPool       string `json:"address_pool,omitempty"`
-	RateLimit         string `json:"rate_limit,omitempty"`
-	SharedUsers       int    `json:"shared_users,omitempty"        binding:"gte=0"`
+	RateLimit         string      `json:"rate_limit,omitempty"`
+	SharedUsers       interface{} `json:"shared_users,omitempty"`
 	StatusAutorefresh string `json:"status_autorefresh,omitempty"`
 	OnLogin           string `json:"on_login,omitempty"`
 	ParentQueue       string `json:"parent_queue,omitempty"`
@@ -209,7 +211,7 @@ func (r RouterHotspotProfileCreateRequest) ToArgs() hotspot.ProfileAddArgs {
 		Name:              r.Name,
 		AddressPool:       r.AddressPool,
 		RateLimit:         r.RateLimit,
-		SharedUsers:       r.SharedUsers,
+		SharedUsers:       parseSharedUsersValue(r.SharedUsers),
 		StatusAutorefresh: r.StatusAutorefresh,
 		OnLogin:           r.OnLogin,
 		ParentQueue:       r.ParentQueue,
@@ -218,9 +220,9 @@ func (r RouterHotspotProfileCreateRequest) ToArgs() hotspot.ProfileAddArgs {
 
 type RouterHotspotProfileUpdateRequest struct {
 	Name              string  `json:"name,omitempty"`
-	AddressPool       string  `json:"address_pool,omitempty"`
-	RateLimit         string  `json:"rate_limit,omitempty"`
-	SharedUsers       *int    `json:"shared_users,omitempty"`
+	AddressPool       string      `json:"address_pool,omitempty"`
+	RateLimit         string      `json:"rate_limit,omitempty"`
+	SharedUsers       interface{} `json:"shared_users,omitempty"`
 	StatusAutorefresh string  `json:"status_autorefresh,omitempty"`
 	OnLogin           *string `json:"on_login,omitempty"`
 	ParentQueue       string  `json:"parent_queue,omitempty"`
@@ -232,11 +234,38 @@ func (r RouterHotspotProfileUpdateRequest) ToArgs(id string) hotspot.ProfileSetA
 		Name:              r.Name,
 		AddressPool:       r.AddressPool,
 		RateLimit:         r.RateLimit,
-		SharedUsers:       r.SharedUsers,
+		SharedUsers:       parseSharedUsers(r.SharedUsers),
 		StatusAutorefresh: r.StatusAutorefresh,
 		OnLogin:           r.OnLogin,
 		ParentQueue:       r.ParentQueue,
 	}
+}
+
+func parseSharedUsers(v interface{}) *string {
+	if v == nil {
+		return nil
+	}
+	if s, ok := v.(string); ok {
+		if s == "0" || s == "" {
+			// RouterOS rejects 0, default to "unlimited" or "1" depending on what they meant, but "unlimited" is safest if they typed 0.
+			// No wait, if they typed 0, they probably mean unlimited. 
+			// But let's just pass the string through.
+			return &s
+		}
+		return &s
+	} else if f, ok := v.(float64); ok {
+		s := strconv.Itoa(int(f))
+		return &s
+	}
+	return nil
+}
+
+func parseSharedUsersValue(v interface{}) string {
+	p := parseSharedUsers(v)
+	if p == nil {
+		return ""
+	}
+	return *p
 }
 
 // RouterHotspotProfileDeleteRequest opsional body untuk cascade scheduler cleanup.

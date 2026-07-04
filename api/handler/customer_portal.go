@@ -2,12 +2,15 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/quiqxiq/rosmon/api/dto"
 	"github.com/quiqxiq/rosmon/api/middleware"
+	"github.com/quiqxiq/rosmon/api/sse"
 	"github.com/quiqxiq/rosmon/service/auth"
 	"github.com/quiqxiq/rosmon/service/payment"
 	"github.com/quiqxiq/rosmon/service/portal"
@@ -17,13 +20,15 @@ import (
 // CustomerPortal handler — endpoint self-service pelanggan (/api/customer/*).
 // Semua di-scope ke CustomerID dari token (anti-IDOR).
 type CustomerPortal struct {
-	Portal     *portal.CustomerAuth
-	Customers  store.CustomerStore
-	Subs       store.SubscriptionStore
-	Invoices   store.InvoiceStore
-	Payments   store.PaymentStore
+	Portal    *portal.CustomerAuth
+	Customers store.CustomerStore
+	Subs      store.SubscriptionStore
+	Invoices  store.InvoiceStore
+	Payments  store.PaymentStore
 	// PaymentSvc nil jika Xendit tidak dikonfigurasi → endpoint /pay mengembalikan 503.
 	PaymentSvc *payment.Service
+	// Hub untuk SSE notifikasi admin real-time. Nil = notifikasi dilewati (no-op).
+	Hub *sse.Hub
 }
 
 func NewCustomerPortal(
@@ -199,12 +204,17 @@ func (h *CustomerPortal) PayInvoice(c *gin.Context) {
 			WriteValidationErr(c, err)
 			return
 		}
+		// Pastikan proof_url berasal dari server ini, bukan URL eksternal sembarang.
+		if !strings.HasPrefix(uploadReq.ProofURL, "/uploads/") {
+			WriteValidationErr(c, fmt.Errorf("proof_url harus dimulai dari /uploads/"))
+			return
+		}
 		if h.PaymentSvc == nil {
 			c.AbortWithStatusJSON(http.StatusServiceUnavailable,
 				dto.Err("SERVICE_UNAVAILABLE", "layanan pembayaran tidak tersedia", c.Request.URL.Path))
 			return
 		}
-		payment, err := h.PaymentSvc.CreatePortalPayment(c.Request.Context(), invoiceID, cid, uploadReq.ProofURL, uploadReq.BankName, uploadReq.ReferenceNumber)
+		pmt, err := h.PaymentSvc.CreatePortalPayment(c.Request.Context(), invoiceID, cid, uploadReq.ProofURL, uploadReq.BankName, uploadReq.ReferenceNumber)
 		if err != nil {
 			msg := err.Error()
 			switch {
@@ -220,7 +230,18 @@ func (h *CustomerPortal) PayInvoice(c *gin.Context) {
 			}
 			return
 		}
-		WriteCreated(c, dto.FromModelPayment(*payment))
+		// Notifikasi admin via SSE (non-fatal, best-effort).
+		if h.Hub != nil {
+			broker := h.Hub.GetOrCreate(sse.TopicPayments,
+				func(b *sse.Broker) error { return nil },
+				func() {},
+			)
+			broker.Publish(sse.Event{
+				Type: "payment_uploaded",
+				Data: dto.FromModelPayment(*pmt),
+			})
+		}
+		WriteCreated(c, dto.FromModelPayment(*pmt))
 		return
 	}
 
@@ -275,7 +296,6 @@ func containsAny(s string, subs ...string) bool {
 	}
 	return false
 }
-
 
 func (h *CustomerPortal) ChangePassword(c *gin.Context) {
 	cid, ok := currentCustomerID(c)

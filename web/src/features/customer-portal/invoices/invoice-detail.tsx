@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { useParams } from '@tanstack/react-router'
-import { 
-  Check, 
-  Copy, 
-  CreditCard, 
-  ExternalLink, 
-  Loader2, 
-  QrCode, 
-  UploadCloud, 
-  FileText, 
-  Trash2, 
-  CheckCircle2, 
+import {
+  Check,
+  Copy,
+  CreditCard,
+  ExternalLink,
+  Loader2,
+  QrCode,
+  UploadCloud,
+  FileText,
+  Trash2,
+  CheckCircle2,
   XCircle
 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
@@ -27,14 +27,30 @@ import { Label } from '@/components/ui/label'
 import { formatIDR } from '@/lib/format'
 import { formatIDDate, formatPeriod, invoiceStatus } from '../_shared/format'
 import { PortalHeader } from '../_shared/portal-header'
-import { 
-  useInitiateOnlinePayment, 
-  usePortalInvoice, 
-  usePaymentGatewayStatus, 
-  useUploadProof, 
-  useCreatePortalPayment 
+import {
+  useInitiateOnlinePayment,
+  usePortalInvoice,
+  usePaymentGatewayStatus,
+  useUploadProof,
+  useCreatePortalPayment
 } from './api/queries'
 import { usePortalPayments } from '@/features/customer-portal/payments/api/queries'
+import { usePortalAuthStore } from '@/stores/portal-auth-store'
+
+function ProofImage({ proofUrl }: { proofUrl: string }) {
+  const token = usePortalAuthStore((s) => s.customerToken)
+  const base = (import.meta.env.VITE_API_URL ?? 'http://localhost:8080').replace(/\/+$/, '')
+  const src = `${base}${proofUrl}?access_token=${encodeURIComponent(token)}`
+  return (
+    <div className='mt-1 rounded-lg border overflow-hidden max-h-48 bg-white flex items-center justify-center p-2'>
+      <img
+        src={src}
+        alt='Bukti Transfer'
+        className='max-h-44 object-contain rounded'
+      />
+    </div>
+  )
+}
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -49,11 +65,11 @@ export function InvoiceDetail() {
   const { id } = useParams({ strict: false })
   const invoiceId = Number(id)
   const queryClient = useQueryClient()
-  
+
   const { data: invoice, isLoading: isInvoiceLoading } = usePortalInvoice(invoiceId)
   const { data: gatewayStatus, isLoading: isGatewayLoading } = usePaymentGatewayStatus()
   const { data: payments, isLoading: isPaymentsLoading } = usePortalPayments()
-  
+
   const [copied, setCopied] = useState(false)
   const [bankName, setBankName] = useState('')
   const [referenceNumber, setReferenceNumber] = useState('')
@@ -248,7 +264,7 @@ export function InvoiceDetail() {
                     Menunggu Konfirmasi
                   </p>
                   <p className='text-xs text-amber-700/80 dark:text-amber-500/80 leading-relaxed'>
-                    Bukti transfer Anda telah terkirim dan sedang diverifikasi oleh admin. 
+                    Bukti transfer Anda telah terkirim dan sedang diverifikasi oleh admin.
                     Layanan internet akan diaktifkan secara otomatis setelah pembayaran disetujui.
                   </p>
                 </div>
@@ -263,13 +279,7 @@ export function InvoiceDetail() {
                 <div className='text-right font-bold'>{formatIDR(pendingPayment.amount)}</div>
               </div>
               {pendingPayment.proof_url && (
-                <div className='mt-1 rounded-lg border overflow-hidden max-h-48 bg-white flex items-center justify-center p-2'>
-                  <img 
-                    src={`${(import.meta.env.VITE_API_URL ?? 'http://localhost:8080').replace(/\/+$/, '')}${pendingPayment.proof_url}`} 
-                    alt="Bukti Transfer" 
-                    className="max-h-44 object-contain rounded"
-                  />
-                </div>
+                <ProofImage proofUrl={pendingPayment.proof_url} />
               )}
             </CardContent>
           </Card>

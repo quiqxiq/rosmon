@@ -24,16 +24,9 @@ const CtxKeyCustomerClaims = "customer_claims"
 // Ini dibutuhkan untuk SSE (EventSource) yang tidak bisa kirim custom header.
 func RequireAuth(signer *auth.Signer) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		header := c.GetHeader("Authorization")
-		token, ok := extractBearer(header)
+		token, ok := extractBearerOrQuery(c)
 		if !ok {
-			// Fallback: SSE clients pass token via ?access_token=<jwt>
-			if qt := strings.TrimSpace(c.Query("access_token")); qt != "" {
-				token, ok = qt, true
-			}
-		}
-		if !ok {
-			abortUnauthorized(c, "missing or malformed Authorization header")
+			abortUnauthorized(c, "missing or malformed Authorization")
 			return
 		}
 		claims, err := signer.VerifyAccess(token)
@@ -90,14 +83,9 @@ func ClaimsFrom(c *gin.Context) (*auth.Claims, bool) {
 // portal pelanggan, TERPISAH dari staff). Token staff ditolak (typ mismatch).
 func RequireCustomerAuth(signer *auth.Signer) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		token, ok := extractBearer(c.GetHeader("Authorization"))
+		token, ok := extractBearerOrQuery(c)
 		if !ok {
-			if qt := strings.TrimSpace(c.Query("access_token")); qt != "" {
-				token, ok = qt, true
-			}
-		}
-		if !ok {
-			abortUnauthorized(c, "missing or malformed Authorization header")
+			abortUnauthorized(c, "missing or malformed Authorization")
 			return
 		}
 		claims, err := signer.VerifyCustomerAccess(token)
@@ -117,6 +105,35 @@ func RequireCustomerAuth(signer *auth.Signer) gin.HandlerFunc {
 	}
 }
 
+// RequireAnyAuth menerima token staff (auth.Claims) ATAU token customer
+// (auth.CustomerClaims). Dipakai untuk endpoint yang perlu diakses keduanya
+// — mis. /uploads/* untuk serve bukti pembayaran.
+// Staff valid → set CtxKeyClaims. Customer valid → set CtxKeyCustomerClaims.
+// Keduanya gagal → 401.
+// Support ?access_token= query param (untuk <img src> yang tidak bisa set header).
+func RequireAnyAuth(signer *auth.Signer) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token, ok := extractBearerOrQuery(c)
+		if !ok {
+			abortUnauthorized(c, "missing or malformed Authorization")
+			return
+		}
+		// Coba staff JWT dulu.
+		if claims, err := signer.VerifyAccess(token); err == nil {
+			c.Set(CtxKeyClaims, claims)
+			c.Next()
+			return
+		}
+		// Coba customer JWT.
+		if custClaims, err := signer.VerifyCustomerAccess(token); err == nil {
+			c.Set(CtxKeyCustomerClaims, custClaims)
+			c.Next()
+			return
+		}
+		abortUnauthorized(c, "invalid token")
+	}
+}
+
 // CustomerClaimsFrom mengambil customer claims dari gin.Context.
 func CustomerClaimsFrom(c *gin.Context) (*auth.CustomerClaims, bool) {
 	v, ok := c.Get(CtxKeyCustomerClaims)
@@ -125,6 +142,18 @@ func CustomerClaimsFrom(c *gin.Context) (*auth.CustomerClaims, bool) {
 	}
 	claims, ok := v.(*auth.CustomerClaims)
 	return claims, ok
+}
+
+// extractBearerOrQuery mencoba extract token dari Authorization header,
+// jika tidak ada fallback ke query param ?access_token= (untuk SSE dan img src).
+func extractBearerOrQuery(c *gin.Context) (string, bool) {
+	if token, ok := extractBearer(c.GetHeader("Authorization")); ok {
+		return token, true
+	}
+	if qt := strings.TrimSpace(c.Query("access_token")); qt != "" {
+		return qt, true
+	}
+	return "", false
 }
 
 // extractBearer parse "Bearer <token>" → token. Case-insensitive prefix.

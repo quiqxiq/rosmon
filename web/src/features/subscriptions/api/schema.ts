@@ -70,3 +70,19 @@ export const SUBSCRIPTION_STATUSES: SubscriptionStatus[] = [
   'suspended',
   'terminated',
 ]
+
+// ── Live monitoring types ──────────────────────────────────────────────────
+
+export type LiveSession = {
+  uptime?: string
+  address?: string
+  caller_id?: string // PPPoE: MAC/caller identifier
+  bytes_in?: number // hotspot permanent
+  bytes_out?: number // hotspot permanent
+}
+
+export type SubscriptionEnrichedItem = {
+  subscription: Subscription
+  session: LiveSession | null // null = offline
+  router_drift: string // "" | "online_while_suspended" | "online_while_terminated"
+}

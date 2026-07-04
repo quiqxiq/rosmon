@@ -260,6 +260,9 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 			subAdminOp.Use(middleware.RequireRole(roleAdmin, roleOperator))
 		}
 		sh.RegisterAdmin(subAdminOp)
+		// Device-scoped subscription monitoring — enriched dengan live session dari router.
+		// Dipasang di bawah `dev` yang sudah punya DeviceMiddleware.
+		sh.RegisterDevice(dev)
 	}
 
 	// Settings, Invoices, Payments — business layer billing.
@@ -298,12 +301,12 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		}
 		handler.NewPayments(deps.PaymentStore, deps.InvoiceStore, deps.SubscriptionStore,
 			deps.CustomerStore, deps.NotificationService, deps.AuditLogStore, deps.SettingStore,
-			deps.XenditGateway, deps.Logger).Register(bizAuth)
+			deps.XenditGateway, deps.Logger, deps.Hub).Register(bizAuth)
 	}
 
-	// Audit logs, message templates, notification logs, WhatsApp setup —
-	// admin only. Read-only (audit/notifications) + template editing + WA setup.
-	if deps.AuditLogStore != nil || deps.TemplateStore != nil || deps.NotificationStore != nil || deps.WhatsApp != nil {
+	// Audit logs, message templates, notification logs, WhatsApp setup,
+	// notification event routing — admin only.
+	if deps.AuditLogStore != nil || deps.TemplateStore != nil || deps.NotificationStore != nil || deps.WhatsApp != nil || deps.SettingStore != nil {
 		adminBiz := g.Group("")
 		for _, mw := range authChain {
 			adminBiz.Use(mw)
@@ -320,8 +323,14 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		if deps.NotificationStore != nil {
 			handler.NewNotifications(deps.NotificationStore).Register(adminBiz)
 		}
-		if deps.WhatsApp != nil {
-			handler.NewWhatsApp(deps.WhatsApp).Register(adminBiz)
+		// WhatsApp gateway + contacts/groups + telegram test.
+		waH := handler.NewWhatsApp(deps.WhatsApp)
+		waH.Settings = deps.SettingStore
+		waH.Register(adminBiz)
+		waH.RegisterTelegramTest(adminBiz)
+		// Notification event routing (GET/PUT /notification-events/*).
+		if deps.SettingStore != nil {
+			handler.NewNotificationEvents(deps.SettingStore).Register(adminBiz)
 		}
 	}
 
@@ -377,6 +386,8 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		)
 		// Wire payment gateway jika dikonfigurasi (Fase 4).
 		portalHandler.PaymentSvc = deps.XenditGateway
+		// Wire SSE hub untuk notifikasi admin real-time saat bukti pembayaran diupload.
+		portalHandler.Hub = deps.Hub
 		portalHandler.Register(custScope)
 
 		// File upload untuk customer portal (upload bukti manual)
