@@ -162,6 +162,11 @@ func (s *stubSettingStore) Set(_ context.Context, key, value string) error {
 	return nil
 }
 
+func (s *stubSettingStore) SetOrCreate(_ context.Context, key, value string) error {
+	s.settings[key] = value
+	return nil
+}
+
 func (s *stubSettingStore) List(_ context.Context) ([]model.SystemSetting, error) {
 	return nil, nil
 }

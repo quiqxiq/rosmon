@@ -26,6 +26,7 @@ func (f *fakeSettings) Get(_ context.Context, k string) (string, error) {
 	return v, nil
 }
 func (f *fakeSettings) Set(_ context.Context, k, v string) error { f.m[k] = v; return nil }
+func (f *fakeSettings) SetOrCreate(_ context.Context, k, v string) error { f.m[k] = v; return nil }
 func (f *fakeSettings) List(_ context.Context) ([]model.SystemSetting, error) { return nil, nil }
 
 var _ store.SettingStore = (*fakeSettings)(nil)

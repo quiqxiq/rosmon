@@ -138,6 +138,7 @@ func (f *fakeSettingStore) Get(_ context.Context, key string) (string, error) {
 	return "", nil
 }
 func (f *fakeSettingStore) Set(_ context.Context, _ string, _ string) error { return nil }
+func (f *fakeSettingStore) SetOrCreate(_ context.Context, _ string, _ string) error { return nil }
 func (f *fakeSettingStore) List(_ context.Context) ([]model.SystemSetting, error) { return nil, nil }
 
 // fakeCustStore stub sederhana.
