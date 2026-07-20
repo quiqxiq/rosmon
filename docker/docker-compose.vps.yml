@@ -11,8 +11,7 @@
 
 services:
   backend:
-    ports:
-      - "127.0.0.1:8088:8080"
+
     env_file:
       - ../.env
     environment:
@@ -37,5 +36,4 @@ services:
       dockerfile: Dockerfile
       args:
         - VITE_API_URL=
-    ports:
-      - "127.0.0.1:8081:80"
+
