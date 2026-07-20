@@ -32,5 +32,10 @@ services:
       # JWT, DEVICE_PASSWORD_KEY, ADMIN_* dibaca dari .env via env_file di atas
 
   frontend:
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=
     ports:
       - "127.0.0.1:8081:80"
