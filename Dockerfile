@@ -1,10 +1,13 @@
 # Build stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
-# Install git for downloading some go packages if required
-RUN apk add --no-cache git
+# Install git and curl (needed for toolchain download)
+RUN apk add --no-cache git curl
+
+# Allow Go to auto-download the toolchain version required by go.mod (1.26.x)
+ENV GOTOOLCHAIN=auto
 
 # Copy dependency manifests
 COPY go.mod go.sum ./
