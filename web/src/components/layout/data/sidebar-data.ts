@@ -5,16 +5,13 @@ import {
   Bell,
   Boxes,
   Building2,
-  CheckSquare,
   ClipboardList,
   Cpu,
   CreditCard,
   Database,
   FileText,
-  HelpCircle,
   LayoutDashboard,
   MessageCircle,
-  MessageSquare,
   MessageSquareText,
   Network,
   Palette,
@@ -26,9 +23,7 @@ import {
   Ticket,
   UserCog,
   Users,
-  Users2,
   Wifi,
-  Wrench,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 

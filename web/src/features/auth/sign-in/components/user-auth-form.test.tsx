@@ -144,8 +144,8 @@ describe('UserAuthForm', () => {
           id: expect.any(Number),
         })
       )
-      expect(mocks.setAccessTokenMock || mocks.setAccessToken).toHaveBeenCalledOnce()
-      expect(mocks.setAccessTokenMock || mocks.setAccessToken).toHaveBeenCalledWith('mock-access-token')
+      expect(mocks.setAccessToken).toHaveBeenCalledOnce()
+      expect(mocks.setAccessToken).toHaveBeenCalledWith('mock-access-token')
 
       await vi.waitFor(() =>
         expect(mocks.navigate).toHaveBeenCalledWith({ to: '/dashboard', replace: true })
