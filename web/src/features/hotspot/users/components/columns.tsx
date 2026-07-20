@@ -156,6 +156,24 @@ export const columns: ColumnDef<HotspotUserViewModel>[] = [
     },
   },
   {
+    accessorKey: 'comment',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='Comment' />
+    ),
+    cell: ({ row }) => (
+      <span className='text-xs text-muted-foreground max-w-[150px] truncate block' title={row.original.comment}>
+        {row.original.comment || '—'}
+      </span>
+    ),
+    filterFn: (row, id, value) => {
+      const v = row.getValue(id)
+      if (typeof v === 'string') {
+         return v.toLowerCase().includes(String(value).toLowerCase())
+      }
+      return false
+    },
+  },
+  {
     id: 'actions',
     cell: DataTableRowActions,
   },

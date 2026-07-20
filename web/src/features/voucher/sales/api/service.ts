@@ -13,7 +13,6 @@ import type {
   SalesListResponse,
 } from './schema'
 
-const voucherBase = (rid: number) => `/devices/${rid}/vouchers`
 const reportsBase = (rid: number) => `/devices/${rid}/reports`
 
 // ─────────────────── Sales mutations ───────────────────

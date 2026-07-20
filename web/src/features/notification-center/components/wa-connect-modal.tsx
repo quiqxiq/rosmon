@@ -11,7 +11,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { useLogoutWhatsApp, useWhatsAppQR, useWhatsAppStatus } from '../api/queries'
+import { useLogoutWhatsApp, useWhatsAppQR, useWhatsAppStatus, usePairWhatsAppPhone } from '../api/queries'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 
 interface WaConnectModalProps {
   open: boolean
@@ -25,6 +27,11 @@ export function WaConnectModal({ open, onOpenChange }: WaConnectModalProps) {
 
   const qrQuery = useWhatsAppQR(open && !connected)
   const logoutMut = useLogoutWhatsApp()
+  const pairMut = usePairWhatsAppPhone()
+
+  const [method, setMethod] = useState<'qr' | 'phone'>('qr')
+  const [phone, setPhone] = useState('')
+  const [pairCode, setPairCode] = useState('')
 
   function handleLogout() {
     logoutMut.mutate(undefined, {
@@ -37,7 +44,14 @@ export function WaConnectModal({ open, onOpenChange }: WaConnectModalProps) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(v) => {
+      onOpenChange(v)
+      if (!v) {
+        setMethod('qr')
+        setPairCode('')
+        setPhone('')
+      }
+    }}>
       <DialogContent className='sm:max-w-md'>
         <DialogHeader>
           <DialogTitle className='flex items-center gap-2'>
@@ -71,6 +85,41 @@ export function WaConnectModal({ open, onOpenChange }: WaConnectModalProps) {
                 Cabut Perangkat (Logout)
               </Button>
             </>
+          ) : method === 'phone' ? (
+            <div className='flex w-full flex-col gap-4 px-2'>
+              <div className='space-y-1.5'>
+                <Label>Nomor Telepon</Label>
+                <Input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder='628123456789'
+                />
+                <p className='text-[11px] text-muted-foreground'>
+                  Gunakan kode negara tanpa simbol +, misal 62 untuk Indonesia.
+                </p>
+              </div>
+              <Button
+                disabled={!phone || pairMut.isPending}
+                onClick={() => {
+                  pairMut.mutate(phone, {
+                    onSuccess: (res) => setPairCode(res.code),
+                    onError: (err) =>
+                      toast.error('Gagal mendapatkan kode', {
+                        description: parseAPIError(err),
+                      }),
+                  })
+                }}
+              >
+                {pairMut.isPending && <Loader2 className='mr-2 size-4 animate-spin' />}
+                Dapatkan Kode Pairing
+              </Button>
+              {pairCode && (
+                <div className='mt-2 flex flex-col items-center gap-2 rounded-lg bg-muted p-4 text-center'>
+                  <p className='text-sm font-medium'>Masukkan kode ini di WhatsApp Anda:</p>
+                  <p className='text-3xl font-mono font-bold tracking-[0.2em]'>{pairCode}</p>
+                </div>
+              )}
+            </div>
           ) : qrQuery.isLoading ? (
             <div className='flex h-56 items-center justify-center'>
               <Loader2 className='size-8 animate-spin text-muted-foreground' />
@@ -103,6 +152,22 @@ export function WaConnectModal({ open, onOpenChange }: WaConnectModalProps) {
                 Coba Lagi
               </Button>
             </div>
+          )}
+
+          {!connected && (
+            <Button
+              variant='link'
+              size='sm'
+              className='mt-2 text-xs text-muted-foreground'
+              onClick={() => {
+                setMethod(method === 'qr' ? 'phone' : 'qr')
+                setPairCode('')
+              }}
+            >
+              {method === 'qr'
+                ? 'Gunakan Tautkan dengan Nomor Telepon'
+                : 'Gunakan QR Code'}
+            </Button>
           )}
         </div>
       </DialogContent>

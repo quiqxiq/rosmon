@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Check, ChevronDown, Phone, Search, Users, X } from 'lucide-react'
+import { Check, ChevronDown, Phone, Users, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/command'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { cn } from '@/lib/utils'
 import type { WhatsAppContactItem } from '../api/schema'
 import { parseToken, tokenLabel, tokenToString, type TargetToken } from '../api/schema'
 

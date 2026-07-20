@@ -30,6 +30,11 @@ export async function getWhatsAppQR(): Promise<WhatsAppQR | null> {
   }
 }
 
+export async function pairWhatsAppPhone(phone: string): Promise<{ code: string }> {
+  const res = await apiClient.post<Envelope<{ code: string }>>('/whatsapp/pair-phone', { phone })
+  return unwrap(res.data)
+}
+
 export async function logoutWhatsApp(): Promise<void> {
   await apiClient.post('/whatsapp/logout')
 }

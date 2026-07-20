@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { qk } from '@/lib/api/query-keys'
 import type {
   SubscriptionCreateInput,
-  SubscriptionEnrichedItem,
   SubscriptionListFilters,
   SubscriptionUpdateInput,
 } from './schema'

@@ -10,9 +10,17 @@ import {
   useHotspotUsersStream,
 } from './api/queries'
 import { HotspotUsersTable } from './components/hotspot-users-table'
-import { toUserViewModel } from './components/view-model'
+import { type HotspotUserViewModel, toUserViewModel } from './components/view-model'
 import { UserDialogs } from './dialogs/user-dialogs'
 import { useUsersDialogStore } from './store/users-dialog-store'
+import { useSystemSettings } from '@/features/settings/api/queries'
+import { useHotspotProfiles } from '@/features/hotspot/profiles/api/queries'
+import { parseRouterOSNumber } from '@/features/hotspot/_shared/format'
+import {
+  usePrintStore,
+  type PrintTemplate,
+} from '@/features/voucher/print-render/store/print-store'
+import type { GeneratedVoucher } from '@/features/voucher/generate/data/schema'
 
 export function HotspotUsers() {
   const routerId = useActiveRouterId()
@@ -22,6 +30,39 @@ export function HotspotUsers() {
   // is null.
   const sse = useHotspotUsersStream(routerId ?? 0)
   const openDialog = useUsersDialogStore((s) => s.open)
+
+  const profilesQuery = useHotspotProfiles(routerId ?? 0)
+  const { data: settings } = useSystemSettings()
+  const settingValue = (key: string) =>
+    settings?.find((s) => s.key === key)?.value ?? ''
+  const openPrint = usePrintStore((s) => s.open)
+
+  const handlePrint = (users: HotspotUserViewModel[], template: string) => {
+    if (users.length === 0) return
+    const profile = users[0]?.profile ?? 'Mixed'
+    const profileItem = profilesQuery.data?.find((p) => p.name === profile)
+
+    const vouchers: GeneratedVoucher[] = users.map((u) => ({
+      id: u.id,
+      username: u.name,
+      password: u.password,
+      profile: u.profile,
+      comment: u.comment,
+    }))
+
+    openPrint({
+      template: template as PrintTemplate,
+      vouchers,
+      meta: {
+        profile,
+        server: users[0]?.server ?? 'all',
+        validity: profileItem?.validity ?? '—',
+        sellingPrice: parseRouterOSNumber(profileItem?.selling_price),
+        hotspotName: settingValue('general.company_name') || profile,
+        loginUrl: settingValue('general.hotspot_login_url'),
+      },
+    })
+  }
 
   // Build view models once per query result. `now` captured here so the
   // expired-flag is consistent across all rows for this render.
@@ -129,7 +170,7 @@ export function HotspotUsers() {
             Failed to load hotspot users. Click Refresh to retry.
           </div>
         ) : (
-          <HotspotUsersTable data={viewModels} />
+          <HotspotUsersTable data={viewModels} onPrint={handlePrint} />
         )}
       </Main>
       <UserDialogs />

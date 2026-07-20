@@ -3,6 +3,7 @@ import {
   type ColumnDef,
   type SortingState,
   type ColumnFiltersState,
+  type PaginationState,
   flexRender,
   getCoreRowModel,
   getFacetedRowModel,
@@ -54,6 +55,10 @@ export function SimpleDataTable<TData>({
 }: SimpleDataTableProps<TData>) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize,
+  })
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -61,10 +66,10 @@ export function SimpleDataTable<TData>({
     columns,
     state: {
       sorting,
-      pagination: { pageIndex: 0, pageSize },
+      pagination,
       columnFilters,
     },
-    onPaginationChange: () => {},
+    onPaginationChange: setPagination,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getPaginationRowModel: getPaginationRowModel(),

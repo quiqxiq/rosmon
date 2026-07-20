@@ -168,7 +168,7 @@ export function makeMonitoringColumns(
     {
       id: 'status',
       header: 'DB Status',
-      accessorFn: (row) => row.original.subscription.status,
+      accessorFn: (row) => row.subscription.status,
       cell: ({ row }) => {
         const s = row.original.subscription.status as SubscriptionStatus
         return (
@@ -193,7 +193,7 @@ export function makeMonitoringColumns(
     {
       id: 'sync',
       header: 'Sync',
-      accessorFn: (row) => row.original.subscription.sync_status,
+      accessorFn: (row) => row.subscription.sync_status,
       cell: ({ row }) => {
         const sub = row.original.subscription
         const isError = sub.sync_status === 'error'

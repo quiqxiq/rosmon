@@ -42,6 +42,13 @@ func (h *HotspotVoucher) Generate(c *gin.Context) {
 	}
 
 	spec := req.ToDomain()
+	gencode := fmt.Sprintf("G%d", time.Now().UnixMilli())
+	if spec.Comment == "" {
+		spec.Comment = gencode
+	} else {
+		spec.Comment = spec.Comment + " " + gencode
+	}
+
 	created, err := workflows.GenerateVouchers(c.Request.Context(), h.WF, spec)
 
 	if err != nil {
@@ -61,7 +68,6 @@ func (h *HotspotVoucher) Generate(c *gin.Context) {
 		return
 	}
 
-	gencode := fmt.Sprintf("G%d", time.Now().UnixMilli())
 	WriteOK(c, dto.VoucherGenerateResponse{
 		Vouchers: fromGenerated(created),
 		Count:    len(created),

@@ -318,6 +318,18 @@ func (h *HotspotProfiles) Delete(c *gin.Context) {
 		WriteErr(c, err)
 		return
 	}
+
+	// Propagate best-effort ke MikroTik (hapus profile + on-login scheduler)
+	if h.DevMgr != nil {
+		if cs, err := h.DevMgr.Get(deviceID); err == nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if rp, err := cs.Hot.ProfileByName(ctx, p.Name); err == nil {
+				_ = workflows.DeleteProfile(ctx, cs.WF, rp.ID, rp.Name)
+			}
+		}
+	}
+
 	WriteNoContent(c)
 }
 

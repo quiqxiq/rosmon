@@ -23,6 +23,7 @@ func (h *WhatsApp) Register(g *gin.RouterGroup) {
 	r := g.Group("/whatsapp")
 	r.GET("/status", h.Status)
 	r.GET("/qr", h.QR)
+	r.POST("/pair-phone", h.PairPhone)
 	r.POST("/logout", h.Logout)
 	r.POST("/test", h.Test)
 	r.GET("/contacts", h.Contacts)
@@ -60,6 +61,30 @@ func (h *WhatsApp) QR(c *gin.Context) {
 		return
 	}
 	WriteOK(c, dto.WhatsAppQRResponse{Code: code})
+}
+
+// PairPhone memulai pairing via kode telepon (8 karakter).
+func (h *WhatsApp) PairPhone(c *gin.Context) {
+	if h.Mgr == nil {
+		h.unavailable(c)
+		return
+	}
+	if h.Mgr.Connected() {
+		c.AbortWithStatusJSON(http.StatusConflict,
+			dto.Err("CONFLICT", "whatsapp already connected", c.Request.URL.Path))
+		return
+	}
+	var req dto.WhatsAppPairPhoneRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		WriteValidationErr(c, err)
+		return
+	}
+	code, err := h.Mgr.PairPhone(c.Request.Context(), req.Phone)
+	if err != nil {
+		WriteErr(c, err)
+		return
+	}
+	WriteOK(c, dto.WhatsAppPairPhoneResponse{Code: code})
 }
 
 func (h *WhatsApp) Logout(c *gin.Context) {

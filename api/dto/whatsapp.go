@@ -12,6 +12,16 @@ type WhatsAppQRResponse struct {
 	Code string `json:"code"`
 }
 
+// WhatsAppPairPhoneRequest body untuk POST /whatsapp/pair-phone.
+type WhatsAppPairPhoneRequest struct {
+	Phone string `json:"phone" binding:"required,min=3,max=20"`
+}
+
+// WhatsAppPairPhoneResponse response dari POST /whatsapp/pair-phone.
+type WhatsAppPairPhoneResponse struct {
+	Code string `json:"code"`
+}
+
 // WhatsAppTestRequest body untuk POST /whatsapp/test.
 type WhatsAppTestRequest struct {
 	Phone   string `json:"phone"   binding:"required,min=3,max=20"`

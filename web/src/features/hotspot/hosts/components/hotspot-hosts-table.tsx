@@ -3,6 +3,7 @@ import {
   type ColumnFiltersState,
   type SortingState,
   type VisibilityState,
+  type PaginationState,
   flexRender,
   getCoreRowModel,
   getFacetedRowModel,
@@ -53,6 +54,10 @@ export function HotspotHostsTable({ data }: HotspotHostsTableProps) {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  })
   const [hostFilter, setHostFilter] = useState<HostFilter>('all')
 
   // Quick-filter tabs gate the dataset before TanStack does its own
@@ -77,12 +82,12 @@ export function HotspotHostsTable({ data }: HotspotHostsTableProps) {
     columns,
     state: {
       sorting,
-      pagination: { pageIndex: 0, pageSize: 10 },
+      pagination,
       rowSelection,
       columnFilters,
       columnVisibility,
     },
-    onPaginationChange: () => {},
+    onPaginationChange: setPagination,
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,

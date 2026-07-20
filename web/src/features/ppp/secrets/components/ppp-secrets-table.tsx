@@ -3,6 +3,7 @@ import {
   type SortingState,
   type VisibilityState,
   type ColumnFiltersState,
+  type PaginationState,
   flexRender,
   getCoreRowModel,
   getFacetedRowModel,
@@ -46,6 +47,10 @@ export function PPPSecretsTable({ data }: PPPSecretsTableProps) {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  })
 
   const profileOptions = useMemo(() => {
     const set = new Set<string>()
@@ -61,12 +66,12 @@ export function PPPSecretsTable({ data }: PPPSecretsTableProps) {
     columns,
     state: {
       sorting,
-      pagination: { pageIndex: 0, pageSize: 10 },
+      pagination,
       rowSelection,
       columnFilters,
       columnVisibility,
     },
-    onPaginationChange: () => {},
+    onPaginationChange: setPagination,
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,

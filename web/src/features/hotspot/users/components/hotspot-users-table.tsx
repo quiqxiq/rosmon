@@ -3,6 +3,7 @@ import {
   type SortingState,
   type VisibilityState,
   type ColumnFiltersState,
+  type PaginationState,
   flexRender,
   getCoreRowModel,
   getFacetedRowModel,
@@ -12,9 +13,16 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { Trash2 } from 'lucide-react'
+import { Printer, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useUsersDialogStore } from '../store/users-dialog-store'
 import {
   Table,
@@ -38,6 +46,7 @@ import { DataTableRowActions } from './data-table-row-actions'
 
 type HotspotUsersTableProps = {
   data: HotspotUserViewModel[]
+  onPrint?: (users: HotspotUserViewModel[], template: string) => void
 }
 
 // Static filter facet for the enabled-status column. Profile and server
@@ -48,12 +57,16 @@ const ENABLED_OPTIONS = [
   { label: 'Disabled', value: 'disabled' },
 ]
 
-export function HotspotUsersTable({ data }: HotspotUsersTableProps) {
+export function HotspotUsersTable({ data, onPrint }: HotspotUsersTableProps) {
   const openDialog = useUsersDialogStore((s) => s.open)
   const [rowSelection, setRowSelection] = useState({})
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  })
 
   // Derive distinct profile/server options from the data we're rendering
   // so filters never get stuck on values that no longer exist.
@@ -78,12 +91,12 @@ export function HotspotUsersTable({ data }: HotspotUsersTableProps) {
     columns,
     state: {
       sorting,
-      pagination: { pageIndex: 0, pageSize: 10 },
+      pagination,
       rowSelection,
       columnFilters,
       columnVisibility,
     },
-    onPaginationChange: () => {},
+    onPaginationChange: setPagination,
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
@@ -123,6 +136,56 @@ export function HotspotUsersTable({ data }: HotspotUsersTableProps) {
           },
         ]}
       />
+      <div className='flex items-center gap-2'>
+        <Input
+          placeholder='Filter by comment (e.g. G170...)'
+          value={(table.getColumn('comment')?.getFilterValue() as string) ?? ''}
+          onChange={(event) => table.getColumn('comment')?.setFilterValue(event.target.value)}
+          className='h-8 w-64'
+        />
+        {onPrint && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant='outline' size='sm' className='gap-1.5 ml-auto'>
+                <Printer className='size-4' />
+                Print ({table.getFilteredRowModel().rows.length})
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align='end'>
+              <DropdownMenuItem
+                onClick={() =>
+                  onPrint(
+                    table.getFilteredRowModel().rows.map((r) => r.original),
+                    'default',
+                  )
+                }
+              >
+                Default Template
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  onPrint(
+                    table.getFilteredRowModel().rows.map((r) => r.original),
+                    'thermal',
+                  )
+                }
+              >
+                Thermal Template
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  onPrint(
+                    table.getFilteredRowModel().rows.map((r) => r.original),
+                    'small',
+                  )
+                }
+              >
+                Small Template
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
       <div className='hidden overflow-hidden rounded-md border md:block'>
         <Table>
           <TableHeader>

@@ -35,4 +35,5 @@ export type HotspotUserMutation = z.infer<typeof HotspotUserMutationSchema>
 // Optional list filter — only `profile` is supported per OpenAPI.
 export type HotspotUserListFilters = {
   profile?: string
+  comment?: string
 }

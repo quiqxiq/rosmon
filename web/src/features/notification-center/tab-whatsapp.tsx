@@ -22,20 +22,17 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
-import { Separator } from '@/components/ui/separator'
 import { parseAPIError } from '@/lib/api/errors'
 import {
   useLogoutWhatsApp,
   useNotifSettings,
   useSendWhatsAppTest,
   useUpdateSetting,
-  useWhatsAppContacts,
   useWhatsAppGroups,
   useWhatsAppStatus,
 } from './api/queries'
 import { WaConnectModal } from './components/wa-connect-modal'
-import { EventRoutingTable } from './components/event-routing-table'
+import { Textarea } from '@/components/ui/textarea'
 
 export function TabWhatsApp() {
   const statusQuery = useWhatsAppStatus()

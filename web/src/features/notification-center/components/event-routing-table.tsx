@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -15,6 +13,7 @@ import { parseAPIError } from '@/lib/api/errors'
 import type { NotifEventConfig, WhatsAppContactItem } from '../api/schema'
 import { useNotifEvents, useUpdateNotifEvent } from '../api/queries'
 import { EventTargetPicker } from './event-target-picker'
+import { Button } from '@/components/ui/button'
 
 interface EventRoutingTableProps {
   groups: WhatsAppContactItem[]

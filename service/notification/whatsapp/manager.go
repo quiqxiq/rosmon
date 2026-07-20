@@ -15,11 +15,16 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.mau.fi/whatsmeow"
 	waE2E "go.mau.fi/whatsmeow/proto/waE2E"
+	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
 	waLog "go.mau.fi/whatsmeow/util/log"
 	"google.golang.org/protobuf/proto"
 )
+
+func init() {
+	store.DeviceProps.Os = proto.String("Rosmon")
+}
 
 // Deps adalah dependency Manager.
 type Deps struct {
@@ -145,6 +150,44 @@ func (m *Manager) Login(_ context.Context) (string, error) {
 	case <-time.After(5 * time.Second):
 		return "", fmt.Errorf("whatsapp: timeout menunggu QR")
 	}
+}
+
+// PairPhone memulai pairing menggunakan nomor HP alih-alih QR code.
+// Mengembalikan pairing code 8 karakter (misal: "A1B2-C3D4").
+func (m *Manager) PairPhone(ctx context.Context, phone string) (string, error) {
+	m.mu.RLock()
+	client := m.client
+	m.mu.RUnlock()
+	if client == nil {
+		return "", fmt.Errorf("whatsapp: manager belum di-start")
+	}
+	if client.Store.ID != nil {
+		return "", fmt.Errorf("whatsapp: sudah login")
+	}
+
+	// Connect dulu sebelum minta pairing code
+	if !client.IsConnected() {
+		if err := client.Connect(); err != nil {
+			return "", fmt.Errorf("whatsapp: connect: %w", err)
+		}
+		// Wait for the connection to fully establish before requesting a pairing code
+		time.Sleep(1500 * time.Millisecond)
+	}
+
+	// Normalisasi nomor telepon
+	phone = normalizeNumber(phone, m.countryCode)
+	if phone == "" {
+		return "", fmt.Errorf("whatsapp: nomor tidak valid")
+	}
+
+	code, err := client.PairPhone(ctx, phone, true, whatsmeow.PairClientChrome, "Chrome (Linux)")
+	if err != nil {
+		m.log.WithError(err).Error("whatsapp: PairPhone error details")
+		return "", fmt.Errorf("whatsapp: pair phone: %w", err)
+	}
+
+	m.log.WithField("code", code).Info("whatsapp: pairing code generated")
+	return code, nil
 }
 
 // Logout memutus tautan device & menghapus sesi lokal.

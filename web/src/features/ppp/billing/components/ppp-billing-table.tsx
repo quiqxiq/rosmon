@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   type SortingState,
   type ColumnFiltersState,
+  type PaginationState,
   flexRender,
   getCoreRowModel,
   getFacetedRowModel,
@@ -44,6 +45,10 @@ const STATUS_OPTIONS = [
 export function PPPBillingTable({ data }: PPPBillingTableProps) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  })
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -51,10 +56,10 @@ export function PPPBillingTable({ data }: PPPBillingTableProps) {
     columns,
     state: {
       sorting,
-      pagination: { pageIndex: 0, pageSize: 10 },
+      pagination,
       columnFilters,
     },
-    onPaginationChange: () => {},
+    onPaginationChange: setPagination,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getPaginationRowModel: getPaginationRowModel(),

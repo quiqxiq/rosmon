@@ -3,6 +3,7 @@ import {
   type ColumnFiltersState,
   type SortingState,
   type VisibilityState,
+  type PaginationState,
   flexRender,
   getCoreRowModel,
   getFacetedRowModel,
@@ -45,6 +46,10 @@ export function HotspotActiveTable({ data }: HotspotActiveTableProps) {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  })
 
   // Distinct server/loginBy facets derived from rendered data so filters
   // never include stale options when sessions churn.
@@ -65,12 +70,12 @@ export function HotspotActiveTable({ data }: HotspotActiveTableProps) {
     columns,
     state: {
       sorting,
-      pagination: { pageIndex: 0, pageSize: 10 },
+      pagination,
       rowSelection,
       columnFilters,
       columnVisibility,
     },
-    onPaginationChange: () => {},
+    onPaginationChange: setPagination,
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,

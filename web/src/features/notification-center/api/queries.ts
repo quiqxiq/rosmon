@@ -23,6 +23,12 @@ export function useWhatsAppQR(enabled: boolean) {
   })
 }
 
+export function usePairWhatsAppPhone() {
+  return useMutation({
+    mutationFn: (phone: string) => svc.pairWhatsAppPhone(phone),
+  })
+}
+
 export function useLogoutWhatsApp() {
   const qc = useQueryClient()
   return useMutation({
