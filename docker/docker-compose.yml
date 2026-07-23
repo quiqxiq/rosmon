@@ -62,8 +62,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+        required: false
       influxdb3:
         condition: service_healthy
+        required: false
     volumes:
       - backend_data:/app/data
       - uploads_data:/app/uploads
