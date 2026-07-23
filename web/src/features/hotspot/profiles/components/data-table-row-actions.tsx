@@ -3,6 +3,7 @@ import { type Row } from '@tanstack/react-table'
 import { Bell, BellOff, Pencil, Trash2, Users } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { toast } from 'sonner'
+import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -21,6 +22,9 @@ type DataTableRowActionsProps = {
 export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const profile = row.original
   const openDialog = useProfilesDialogStore((s) => s.open)
+  const role = useAuthStore((s) => s.auth.user?.role)
+
+  if (role === 'viewer') return null
 
   const handleEdit = () => {
     openDialog('edit', { target: profile })

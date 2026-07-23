@@ -62,6 +62,14 @@ export function useRemoveSubscription() {
   })
 }
 
+export function useBatchRemoveSubscriptions() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (ids: number[]) => svc.batchRemoveSubscriptions(ids),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['subscriptions'] }),
+  })
+}
+
 export function useSubscriptionsByDevice(deviceId: number) {
   return useQuery({
     queryKey: qk.subscriptionsByDevice(deviceId),

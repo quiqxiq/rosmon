@@ -99,7 +99,6 @@ func TestFromDomainPPPProfile_exposesDisabledAndScripts(t *testing.T) {
 }
 
 func TestRouterPPPProfileCreateRequest_ToArgs_mapsAllFields(t *testing.T) {
-	dis := true
 	req := dto.RouterPPPProfileCreateRequest{
 		Name:           "vip",
 		LocalAddr:      "10.0.0.1",
@@ -110,7 +109,6 @@ func TestRouterPPPProfileCreateRequest_ToArgs_mapsAllFields(t *testing.T) {
 		ParentQueue:    "global",
 		OnUp:           ":log info up",
 		OnDown:         ":log info down",
-		Disabled:       &dis,
 		Comment:        "premium",
 	}
 	args := req.ToArgs()
@@ -120,8 +118,6 @@ func TestRouterPPPProfileCreateRequest_ToArgs_mapsAllFields(t *testing.T) {
 	require.Equal(t, "global", args.ParentQueue)
 	require.Equal(t, ":log info up", args.OnUp)
 	require.Equal(t, ":log info down", args.OnDown)
-	require.NotNil(t, args.Disabled)
-	require.True(t, *args.Disabled)
 }
 
 func TestFromDomainPPPActive_dropsEncodingSessionID(t *testing.T) {

@@ -4,19 +4,26 @@ import {
   CreditCard,
   Database,
   MessageCircle,
+  Palette,
   Receipt,
   Send,
+  UserCog,
 } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { Main } from '@/components/layout/main'
 import { SidebarNav } from './components/sidebar-nav'
 
 const sidebarNavItems = [
-  // { title: 'Profile', href: '/settings', icon: <UserCog size={18} /> },         // tidak ada API backend
-  // { title: 'Akun', href: '/settings/account', icon: <Wrench size={18} /> },     // tidak ada API backend
-  // { title: 'Tampilan', href: '/settings/appearance', icon: <Palette size={18} /> }, // UI only
-  // { title: 'Notifikasi', href: '/settings/notifications', icon: <Bell size={18} /> }, // browser notif, bukan sistem
-  // { title: 'Display', href: '/settings/display', icon: <Monitor size={18} /> }, // UI only
+  {
+    title: 'Profil Saya',
+    href: '/settings',
+    icon: <UserCog size={18} />,
+  },
+  {
+    title: 'Tampilan',
+    href: '/settings/appearance',
+    icon: <Palette size={18} />,
+  },
   {
     title: 'Umum',
     href: '/settings/general',

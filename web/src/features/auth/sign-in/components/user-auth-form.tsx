@@ -52,8 +52,15 @@ export function UserAuthForm({
 
   function onSubmit(data: z.infer<typeof formSchema>) {
     loginMutation.mutate(data, {
-      onSuccess: () => {
-        const targetPath = redirectTo || '/dashboard'
+      onSuccess: (res) => {
+        let targetPath = redirectTo || '/dashboard'
+        const role = res.user?.role
+        if (targetPath.includes('/admin') && role !== 'admin') {
+          targetPath = '/dashboard'
+        }
+        if (targetPath.includes('/registrations') && role !== 'admin' && role !== 'operator') {
+          targetPath = '/dashboard'
+        }
         navigate({ to: targetPath, replace: true })
       },
       onError: (error) => {

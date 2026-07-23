@@ -138,7 +138,7 @@ func (r RouterPPPProfileCreateRequest) ToArgs() ppp.ProfileAddArgs {
 		Name: r.Name, LocalAddr: r.LocalAddr, RemoteAddr: r.RemoteAddr,
 		RateLimit: r.RateLimit, SessionTimeout: r.SessionTimeout, IdleTimeout: r.IdleTimeout,
 		ParentQueue: r.ParentQueue, OnUp: r.OnUp, OnDown: r.OnDown,
-		Disabled: r.Disabled, Comment: r.Comment,
+		Comment: r.Comment,
 	}
 }
 
@@ -161,7 +161,7 @@ func (r RouterPPPProfileUpdateRequest) ToArgs(id string) ppp.ProfileSetArgs {
 		ID: id, Name: r.Name, LocalAddr: r.LocalAddr, RemoteAddr: r.RemoteAddr,
 		RateLimit: r.RateLimit, SessionTimeout: r.SessionTimeout, IdleTimeout: r.IdleTimeout,
 		ParentQueue: r.ParentQueue, OnUp: r.OnUp, OnDown: r.OnDown,
-		Disabled: r.Disabled, Comment: r.Comment,
+		Comment: r.Comment,
 	}
 }
 

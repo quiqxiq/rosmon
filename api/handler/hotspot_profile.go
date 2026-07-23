@@ -20,17 +20,23 @@ func NewHotspotProfile(hot *hotspot.Client, wf *workflows.Clients) *HotspotProfi
 }
 
 func (h *HotspotProfile) Register(g *gin.RouterGroup) {
+	h.RegisterSplit(g, g)
+}
+
+func (h *HotspotProfile) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
 	mk := func(c *gin.Context) *HotspotProfile {
 		cs := mustClients(c)
 		return NewHotspotProfile(cs.Hot, cs.WF)
 	}
-	p := g.Group("/hotspot/profiles")
-	p.GET("", func(c *gin.Context) { mk(c).List(c) })
-	p.GET("/by-name/:name", func(c *gin.Context) { mk(c).GetByName(c) })
-	p.GET("/:id", func(c *gin.Context) { mk(c).Get(c) })
-	p.POST("", func(c *gin.Context) { mk(c).Create(c) })
-	p.PUT("/:id", func(c *gin.Context) { mk(c).Update(c) })
-	p.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
+	r := readGroup.Group("/hotspot/profiles")
+	r.GET("", func(c *gin.Context) { mk(c).List(c) })
+	r.GET("/by-name/:name", func(c *gin.Context) { mk(c).GetByName(c) })
+	r.GET("/:id", func(c *gin.Context) { mk(c).Get(c) })
+
+	w := writeGroup.Group("/hotspot/profiles")
+	w.POST("", func(c *gin.Context) { mk(c).Create(c) })
+	w.PUT("/:id", func(c *gin.Context) { mk(c).Update(c) })
+	w.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
 }
 
 func (h *HotspotProfile) List(c *gin.Context) {

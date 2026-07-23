@@ -6,7 +6,6 @@ import (
 
 	"github.com/quiqxiq/rosmon/store/model"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 var (
@@ -69,6 +68,17 @@ func (s *gormPPPProfileStore) GetByName(ctx context.Context, deviceID uint, name
 }
 
 func (s *gormPPPProfileStore) Create(ctx context.Context, p *model.PPPProfile) error {
+	var existing model.PPPProfile
+	err := s.db.WithContext(ctx).Unscoped().
+		Where("device_id = ? AND name = ?", p.DeviceID, p.Name).
+		First(&existing).Error
+	if err == nil {
+		if existing.DeletedAt.Valid {
+			p.ID = existing.ID
+			p.DeletedAt = gorm.DeletedAt{Valid: false}
+			return s.db.WithContext(ctx).Unscoped().Save(p).Error
+		}
+	}
 	return s.db.WithContext(ctx).Create(p).Error
 }
 
@@ -106,26 +116,23 @@ func (s *gormPPPProfileStore) Delete(ctx context.Context, id uint) error {
 func (s *gormPPPProfileStore) Upsert(ctx context.Context, p *model.PPPProfile) (created bool, err error) {
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var existing model.PPPProfile
-		lookupErr := tx.Where("device_id = ? AND name = ?", p.DeviceID, p.Name).First(&existing).Error
-		created = errors.Is(lookupErr, gorm.ErrRecordNotFound)
-		if lookupErr != nil && !created {
+		lookupErr := tx.Unscoped().Where("device_id = ? AND name = ?", p.DeviceID, p.Name).First(&existing).Error
+		created = errors.Is(lookupErr, gorm.ErrRecordNotFound) || existing.DeletedAt.Valid
+		if lookupErr != nil && !errors.Is(lookupErr, gorm.ErrRecordNotFound) {
 			return lookupErr
 		}
-		if !created {
+		if lookupErr == nil {
 			p.ID = existing.ID
 			p.CreatedAt = existing.CreatedAt
-			// Preserve operator-set fields.
-			p.PriceMonthly = existing.PriceMonthly
-			p.Description = existing.Description
-			p.IsPublic = existing.IsPublic
+			p.DeletedAt = gorm.DeletedAt{Valid: false}
+			if !existing.DeletedAt.Valid {
+				p.PriceMonthly = existing.PriceMonthly
+				p.Description = existing.Description
+				p.IsPublic = existing.IsPublic
+			}
+			return tx.Unscoped().Save(p).Error
 		}
-		return tx.Clauses(clause.OnConflict{
-			Columns: []clause.Column{{Name: "device_id"}, {Name: "name"}},
-			DoUpdates: clause.AssignmentColumns([]string{
-				"rate_limit", "local_address", "remote_address", "session_timeout",
-				"idle_timeout", "parent_queue", "active", "updated_at",
-			}),
-		}).Create(p).Error
+		return tx.Create(p).Error
 	})
 	return created, err
 }

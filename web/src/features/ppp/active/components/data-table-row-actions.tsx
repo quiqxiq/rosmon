@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { type Row } from '@tanstack/react-table'
 import { toast } from 'sonner'
 import { useActiveRouterId } from '@/stores/active-router-store'
+import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -25,7 +26,10 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const session = row.original
   const routerId = useActiveRouterId() ?? 0
   const disconnectMutation = useDisconnectPPPActive(routerId)
+  const role = useAuthStore((s) => s.auth.user?.role)
   const [open, setOpen] = useState(false)
+
+  if (role === 'viewer') return null
 
   const handleConfirm = async () => {
     try {

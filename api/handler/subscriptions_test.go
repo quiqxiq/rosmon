@@ -193,6 +193,18 @@ func (f *fakeSubscriptionStore) StatusCounts(_ context.Context) (*store.Subscrip
 	return &store.SubscriptionStatusCounts{}, nil
 }
 func (f *fakeSubscriptionStore) CountCustomers(_ context.Context) (int, error) { return 0, nil }
+func (f *fakeSubscriptionStore) BatchDelete(_ context.Context, ids []uint) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var n int64
+	for _, id := range ids {
+		if _, ok := f.rows[id]; ok {
+			delete(f.rows, id)
+			n++
+		}
+	}
+	return n, nil
+}
 
 var _ store.SubscriptionStore = (*fakeSubscriptionStore)(nil)
 

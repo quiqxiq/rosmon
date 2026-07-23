@@ -21,15 +21,15 @@ type Subscription struct {
 	ID               uint            `gorm:"primaryKey"`
 	CustomerID       uint            `gorm:"not null;index"`
 	Customer         Customer        `gorm:"foreignKey:CustomerID;constraint:OnDelete:RESTRICT"`
-	DeviceID         uint            `gorm:"not null;uniqueIndex:idx_sub_dev_type_user,priority:1"`
+	DeviceID         uint            `gorm:"not null;uniqueIndex:idx_sub_dev_type_user,where:deleted_at IS NULL,priority:1"`
 	Device           MikrotikDevice  `gorm:"foreignKey:DeviceID;constraint:OnDelete:RESTRICT"`
 	PPPProfileID     *uint           `gorm:"index"` // non-null untuk pppoe
 	PPPProfile       *PPPProfile     `gorm:"foreignKey:PPPProfileID;constraint:OnDelete:RESTRICT"`
 	HotspotProfileID *uint           `gorm:"index"` // non-null untuk hotspot permanent
 	HotspotProfile   *HotspotProfile `gorm:"foreignKey:HotspotProfileID;constraint:OnDelete:RESTRICT"`
 
-	ServiceType      string `gorm:"size:10;not null;uniqueIndex:idx_sub_dev_type_user,priority:2"` // 'pppoe' | 'hotspot'
-	MikrotikUsername string `gorm:"size:100;not null;uniqueIndex:idx_sub_dev_type_user,priority:3"`
+	ServiceType      string `gorm:"size:10;not null;uniqueIndex:idx_sub_dev_type_user,where:deleted_at IS NULL,priority:2"` // 'pppoe' | 'hotspot'
+	MikrotikUsername string `gorm:"size:100;not null;uniqueIndex:idx_sub_dev_type_user,where:deleted_at IS NULL,priority:3"`
 	MikrotikPassword string `gorm:"type:text;not null"` // encrypted at rest
 
 	Status     string `gorm:"size:20;not null;default:pending_install;index"`

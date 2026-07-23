@@ -1,5 +1,6 @@
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { parseAPIError } from '@/lib/api/errors'
 import { useAuthStore } from '@/stores/auth-store'
 import {
   AlertDialog,
@@ -33,7 +34,7 @@ export function AdminUserDeleteDialog() {
         close()
       },
       onError: (err) => {
-        toast.error('Failed to delete user', { description: err.message })
+        toast.error('Failed to delete user', { description: parseAPIError(err) })
       },
     })
   }

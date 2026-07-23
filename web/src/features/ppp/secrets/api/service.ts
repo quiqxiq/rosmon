@@ -53,6 +53,17 @@ export async function removePPPSecret(
   await apiClient.delete(`${base(routerId)}/${encodeURIComponent(id)}`)
 }
 
+export async function batchRemovePPPSecrets(
+  routerId: number,
+  ids: string[],
+): Promise<number> {
+  const res = await apiClient.post<Envelope<{ deleted: number }>>(
+    `${base(routerId)}/batch-delete`,
+    { ids },
+  )
+  return unwrap(res.data).deleted
+}
+
 // GET /ppp/secrets/{id}/password — admin/operator only (backend gated).
 export async function revealPPPSecretPassword(
   routerId: number,

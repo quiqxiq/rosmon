@@ -38,3 +38,11 @@ export function useRemoveCustomer() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['customers'] }),
   })
 }
+
+export function useBatchRemoveCustomers() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (ids: number[]) => svc.batchRemoveCustomers(ids),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['customers'] }),
+  })
+}

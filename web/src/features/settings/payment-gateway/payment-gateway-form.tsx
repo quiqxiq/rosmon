@@ -297,7 +297,6 @@ export function PaymentGatewayForm() {
                   type='number'
                   min={300}
                   max={86400}
-                  className='w-40'
                   {...field}
                 />
               </FormControl>

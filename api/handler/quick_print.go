@@ -28,12 +28,18 @@ func NewQuickPrint(s store.QuickPrintStore, log *logrus.Logger) *QuickPrint {
 }
 
 func (h *QuickPrint) Register(dev *gin.RouterGroup) {
-	g := dev.Group("/quick-print")
-	g.GET("", h.List)
-	g.POST("", h.Create)
-	g.GET("/:name", h.Get)
-	g.PUT("/:name", h.Update)
-	g.DELETE("/:name", h.Delete)
+	h.RegisterSplit(dev, dev)
+}
+
+func (h *QuickPrint) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
+	r := readGroup.Group("/quick-print")
+	r.GET("", h.List)
+	r.GET("/:name", h.Get)
+
+	w := writeGroup.Group("/quick-print")
+	w.POST("", h.Create)
+	w.PUT("/:name", h.Update)
+	w.DELETE("/:name", h.Delete)
 }
 
 func (h *QuickPrint) List(c *gin.Context) {

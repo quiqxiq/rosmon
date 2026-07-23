@@ -432,12 +432,12 @@ function HsDbProfileForm({ mode, target, onClose }: HsDbProfileFormProps) {
           )}
 
           {/* Address Pool + Shared Users */}
-          <div className='grid grid-cols-2 gap-3'>
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0'>
             <FormField
               control={form.control}
               name='address_pool'
               render={({ field }) => (
-                <FormItem>
+                <FormItem className='min-w-0'>
                   <FormLabel>Address Pool</FormLabel>
                   <FormControl>
                     <InputCombobox
@@ -446,6 +446,7 @@ function HsDbProfileForm({ mode, target, onClose }: HsDbProfileFormProps) {
                       onValueChange={field.onChange}
                       placeholder='hs-pool'
                       isLoading={poolsLoading}
+                      className='w-full min-w-0'
                     />
                   </FormControl>
                   <FormMessage />
@@ -456,7 +457,7 @@ function HsDbProfileForm({ mode, target, onClose }: HsDbProfileFormProps) {
               control={form.control}
               name='shared_users'
               render={({ field }) => (
-                <FormItem>
+                <FormItem className='min-w-0'>
                   <FormLabel>Shared Users</FormLabel>
                   <FormControl>
                     <Input type='number' min='1' {...field} />
@@ -468,12 +469,12 @@ function HsDbProfileForm({ mode, target, onClose }: HsDbProfileFormProps) {
           </div>
 
           {/* Status Autorefresh + Parent Queue */}
-          <div className='grid grid-cols-2 gap-3'>
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0'>
             <FormField
               control={form.control}
               name='status_autorefresh'
               render={({ field }) => (
-                <FormItem>
+                <FormItem className='min-w-0'>
                   <FormLabel>Status Autorefresh</FormLabel>
                   <FormControl>
                     <Input placeholder='1m' {...field} />
@@ -486,7 +487,7 @@ function HsDbProfileForm({ mode, target, onClose }: HsDbProfileFormProps) {
               control={form.control}
               name='parent_queue'
               render={({ field }) => (
-                <FormItem>
+                <FormItem className='min-w-0'>
                   <FormLabel>Parent Queue</FormLabel>
                   <FormControl>
                     <Input placeholder='queue name' {...field} />

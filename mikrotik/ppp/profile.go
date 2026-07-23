@@ -45,7 +45,6 @@ type ProfileAddArgs struct {
 	ParentQueue    string
 	OnUp           string // script on-up; optional
 	OnDown         string // script on-down; optional
-	Disabled       *bool
 	Comment        string
 }
 
@@ -70,7 +69,7 @@ func (c *Client) ProfileAdd(ctx context.Context, a ProfileAddArgs) (string, erro
 	if a.IdleTimeout != "" {
 		pairs = append(pairs, roslib.NewPair("idle-timeout", a.IdleTimeout))
 	}
-	if a.ParentQueue != "" {
+	if a.ParentQueue != "" && a.ParentQueue != "none" {
 		pairs = append(pairs, roslib.NewPair("parent-queue", a.ParentQueue))
 	}
 	if a.OnUp != "" {
@@ -78,9 +77,6 @@ func (c *Client) ProfileAdd(ctx context.Context, a ProfileAddArgs) (string, erro
 	}
 	if a.OnDown != "" {
 		pairs = append(pairs, roslib.NewPair("on-down", a.OnDown))
-	}
-	if a.Disabled != nil {
-		pairs = append(pairs, roslib.NewPair("disabled", mikrotik.BoolWord(*a.Disabled)))
 	}
 	if a.Comment != "" {
 		pairs = append(pairs, roslib.NewPair("comment", a.Comment))
@@ -107,7 +103,6 @@ type ProfileSetArgs struct {
 	ParentQueue    *string
 	OnUp           *string
 	OnDown         *string
-	Disabled       *bool
 	Comment        *string
 }
 
@@ -135,7 +130,7 @@ func (c *Client) ProfileSet(ctx context.Context, a ProfileSetArgs) error {
 	if a.IdleTimeout != nil {
 		pairs = append(pairs, roslib.NewPair("idle-timeout", *a.IdleTimeout))
 	}
-	if a.ParentQueue != nil {
+	if a.ParentQueue != nil && *a.ParentQueue != "" && *a.ParentQueue != "none" {
 		pairs = append(pairs, roslib.NewPair("parent-queue", *a.ParentQueue))
 	}
 	if a.OnUp != nil {
@@ -143,9 +138,6 @@ func (c *Client) ProfileSet(ctx context.Context, a ProfileSetArgs) error {
 	}
 	if a.OnDown != nil {
 		pairs = append(pairs, roslib.NewPair("on-down", *a.OnDown))
-	}
-	if a.Disabled != nil {
-		pairs = append(pairs, roslib.NewPair("disabled", mikrotik.BoolWord(*a.Disabled)))
 	}
 	if a.Comment != nil {
 		pairs = append(pairs, roslib.NewPair("comment", *a.Comment))

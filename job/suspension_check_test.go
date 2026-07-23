@@ -73,6 +73,7 @@ func (f *fakeSubStore) UpdateNextInvoiceDate(_ context.Context, _ uint, _ time.T
 	return nil
 }
 func (f *fakeSubStore) Delete(_ context.Context, _ uint) error                       { return nil }
+func (f *fakeSubStore) BatchDelete(_ context.Context, _ []uint) (int64, error)             { return 0, nil }
 func (f *fakeSubStore) ChurnByMonth(_ context.Context, _ int) ([]store.ChurnEntry, error) {
 	return nil, nil
 }
@@ -156,6 +157,7 @@ func (f *fakeCustStore) List(_ context.Context, _ store.CustomerListFilter) ([]m
 func (f *fakeCustStore) Create(_ context.Context, _ *model.Customer) error { return nil }
 func (f *fakeCustStore) Update(_ context.Context, _ *model.Customer) error { return nil }
 func (f *fakeCustStore) Delete(_ context.Context, _ uint) error            { return nil }
+func (f *fakeCustStore) BatchDelete(_ context.Context, _ []uint) (int64, error) { return 0, nil }
 
 // fakeAuditStore menyimpan semua entry yang ditulis agar bisa di-assert.
 type fakeAuditStore struct {

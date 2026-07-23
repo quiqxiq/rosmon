@@ -7,10 +7,13 @@ import (
 
 // Migrate menjalankan AutoMigrate untuk semua tabel dan seed data default.
 func Migrate(db *gorm.DB) error {
-	// Buang legacy non-partial unique index pada users.email (dibuat oleh
-	// skema lama `uniqueIndex`). Diganti partial index `uq_users_email`
-	// (WHERE email <> '') via tag model. Idempoten & aman bila belum ada.
+	// Buang legacy non-partial unique index pada users.email dan profile unique indexes
+	// agar digantikan oleh partial index (WHERE deleted_at IS NULL). Idempoten.
 	db.Exec("DROP INDEX IF EXISTS idx_users_email")
+	db.Exec("DROP INDEX IF EXISTS idx_hp_dev_name")
+	db.Exec("DROP INDEX IF EXISTS idx_pp_dev_name")
+	db.Exec("DROP INDEX IF EXISTS idx_qpp_dev_name")
+	db.Exec("DROP INDEX IF EXISTS idx_sub_dev_type_user")
 
 	if err := db.AutoMigrate(
 		&model.User{},

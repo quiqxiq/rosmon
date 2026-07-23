@@ -23,11 +23,17 @@ func NewSettings(s store.SettingStore) *Settings {
 }
 
 func (h *Settings) Register(g *gin.RouterGroup) {
-	r := g.Group("/settings")
+	h.RegisterSplit(g, g)
+}
+
+func (h *Settings) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
+	r := readGroup.Group("/settings")
 	r.GET("", h.List)
-	r.PUT("/:key", h.Update)
-	// Test koneksi payment gateway — admin only.
-	r.POST("/payment-gateway/test", h.TestPaymentGateway)
+
+	w := writeGroup.Group("/settings")
+	w.PUT("/:key", h.Update)
+	// Test koneksi payment gateway — admin/operator only.
+	w.POST("/payment-gateway/test", h.TestPaymentGateway)
 }
 
 // maskSecret menggantikan isi value secret dengan "•••••••• (configured)"

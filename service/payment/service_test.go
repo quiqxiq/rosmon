@@ -129,6 +129,7 @@ func (s *stubCustomerStore) Create(_ context.Context, _ *model.Customer) error {
 func (s *stubCustomerStore) Update(_ context.Context, _ *model.Customer) error { return nil }
 
 func (s *stubCustomerStore) Delete(_ context.Context, _ uint) error { return nil }
+func (s *stubCustomerStore) BatchDelete(_ context.Context, _ []uint) (int64, error) { return 0, nil }
 
 // ── stub setting store ───────────────────────────────────────────────
 
@@ -219,6 +220,9 @@ func (s *stubSubscriptionStore) UpdateNextInvoiceDate(_ context.Context, _ uint,
 }
 func (s *stubSubscriptionStore) Delete(_ context.Context, _ uint) error {
 	return nil
+}
+func (s *stubSubscriptionStore) BatchDelete(_ context.Context, _ []uint) (int64, error) {
+	return 0, nil
 }
 func (s *stubSubscriptionStore) ChurnByMonth(_ context.Context, _ int) ([]store.ChurnEntry, error) {
 	return nil, nil

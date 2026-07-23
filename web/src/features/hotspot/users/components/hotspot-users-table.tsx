@@ -57,10 +57,16 @@ const ENABLED_OPTIONS = [
   { label: 'Disabled', value: 'disabled' },
 ]
 
+import { DataTableBulkActions } from '@/components/data-table'
+
 export function HotspotUsersTable({ data, onPrint }: HotspotUsersTableProps) {
   const openDialog = useUsersDialogStore((s) => s.open)
   const [rowSelection, setRowSelection] = useState({})
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
+    // Status is shown as a coloured dot on the Username cell; the column
+    // itself stays hidden and only powers the "Status" faceted filter.
+    enabledStatus: false,
+  })
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
   const [pagination, setPagination] = useState<PaginationState>({
@@ -136,6 +142,23 @@ export function HotspotUsersTable({ data, onPrint }: HotspotUsersTableProps) {
           },
         ]}
       />
+      <DataTableBulkActions table={table} entityName='user'>
+        <Button
+          variant='destructive'
+          size='sm'
+          className='gap-1.5'
+          onClick={() => {
+            const ids = table
+              .getFilteredSelectedRowModel()
+              .rows.map((r) => r.original.id)
+            openDialog('multi-delete', { ids })
+            table.resetRowSelection()
+          }}
+        >
+          <Trash2 className='size-4' />
+          Remove ({selectedCount})
+        </Button>
+      </DataTableBulkActions>
       <div className='flex items-center gap-2'>
         <Input
           placeholder='Filter by comment (e.g. G170...)'
@@ -250,17 +273,19 @@ export function HotspotUsersTable({ data, onPrint }: HotspotUsersTableProps) {
           table={table}
           renderPrimary={(row) => {
             const user = row.original
+            const enabled = user.enabledStatus === 'enabled'
             return (
-              <div className='flex min-w-0 items-start gap-2'>
+              <div className='flex min-w-0 items-center gap-2'>
+                <span
+                  className={cn(
+                    'inline-block size-2 shrink-0 rounded-full',
+                    enabled ? 'bg-emerald-500' : 'bg-red-500'
+                  )}
+                  title={enabled ? 'Enabled' : 'Disabled'}
+                />
                 <span className='min-w-0 flex-1 truncate font-semibold'>
                   {user.name}
                 </span>
-                <Badge
-                  variant={user.enabledStatus === 'enabled' ? 'online' : 'offline'}
-                  className='shrink-0 text-[10px] capitalize'
-                >
-                  {user.enabledStatus}
-                </Badge>
               </div>
             )
           }}

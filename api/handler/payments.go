@@ -54,14 +54,20 @@ func NewPayments(
 }
 
 func (h *Payments) Register(g *gin.RouterGroup) {
-	r := g.Group("/payments")
+	h.RegisterSplit(g, g)
+}
+
+func (h *Payments) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
+	r := readGroup.Group("/payments")
 	r.GET("", h.List)
 	r.GET("/stream", h.StreamPayments)
 	r.GET("/:id", h.Get)
-	r.POST("", h.Create)
-	r.POST("/collect", h.Collect)
-	r.POST("/:id/confirm", h.Confirm)
-	r.POST("/:id/reject", h.Reject)
+
+	w := writeGroup.Group("/payments")
+	w.POST("", h.Create)
+	w.POST("/collect", h.Collect)
+	w.POST("/:id/confirm", h.Confirm)
+	w.POST("/:id/reject", h.Reject)
 }
 
 func (h *Payments) List(c *gin.Context) {

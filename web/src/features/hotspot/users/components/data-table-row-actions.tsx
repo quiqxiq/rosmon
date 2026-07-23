@@ -30,6 +30,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const updateMutation = useUpdateHotspotUser(routerId)
   const resetMutation = useResetHotspotUserCounters(routerId)
   const role = useAuthStore((s) => s.auth.user?.role)
+  if (role === 'viewer') return null
   const canRevealPassword = role === 'admin' || role === 'operator'
 
   const handleCopyVoucher = () => {

@@ -26,7 +26,7 @@ type ProfileConfigResponse struct {
 // ProfileConfigUpsertRequest body untuk PUT /devices/{id}/hotspot/profile-configs/{name}.
 // ExpiryMode enum: 0 (none) | rem (remove) | ntf (notice) | remc (remove+record) | ntfc (notice+record).
 type ProfileConfigUpsertRequest struct {
-	ExpiryMode string `json:"expiry_mode" binding:"required,oneof=0 rem ntf remc ntfc"`
+	ExpiryMode string `json:"expiry_mode" binding:"required,oneof=0 none rem ntf remc ntfc"`
 	Validity   string `json:"validity" binding:"required"`
 	Price      int    `json:"price" binding:"gte=0"`
 	SellPrice  int    `json:"sell_price" binding:"gte=0"`

@@ -27,6 +27,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const routerId = useActiveRouterId() ?? 0
   const disabledMutation = useSetPPPSecretDisabled(routerId)
   const role = useAuthStore((s) => s.auth.user?.role)
+  if (role === 'viewer') return null
   const canRevealPassword = role === 'admin' || role === 'operator'
 
   const handleToggleEnabled = () => {

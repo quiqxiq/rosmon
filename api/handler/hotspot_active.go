@@ -18,15 +18,21 @@ func NewHotspotActive(hot *hotspot.Client, wf *workflows.Clients) *HotspotActive
 }
 
 func (h *HotspotActive) Register(g *gin.RouterGroup) {
+	h.RegisterSplit(g, g)
+}
+
+func (h *HotspotActive) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
 	mk := func(c *gin.Context) *HotspotActive {
 		cs := mustClients(c)
 		return NewHotspotActive(cs.Hot, cs.WF)
 	}
-	a := g.Group("/hotspot/active")
-	a.GET("", func(c *gin.Context) { mk(c).List(c) })
-	a.GET("/count", func(c *gin.Context) { mk(c).Count(c) })
-	a.GET("/:id", func(c *gin.Context) { mk(c).Get(c) })
-	a.DELETE("/:id", func(c *gin.Context) { mk(c).Kick(c) })
+	r := readGroup.Group("/hotspot/active")
+	r.GET("", func(c *gin.Context) { mk(c).List(c) })
+	r.GET("/count", func(c *gin.Context) { mk(c).Count(c) })
+	r.GET("/:id", func(c *gin.Context) { mk(c).Get(c) })
+
+	w := writeGroup.Group("/hotspot/active")
+	w.DELETE("/:id", func(c *gin.Context) { mk(c).Kick(c) })
 }
 
 func (h *HotspotActive) List(c *gin.Context) {

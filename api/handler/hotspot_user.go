@@ -21,24 +21,30 @@ func NewHotspotUser(hot *hotspot.Client, wf *workflows.Clients) *HotspotUser {
 }
 
 func (h *HotspotUser) Register(g *gin.RouterGroup) {
+	h.RegisterSplit(g, g)
+}
+
+func (h *HotspotUser) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
 	mk := func(c *gin.Context) *HotspotUser {
 		cs := mustClients(c)
 		return NewHotspotUser(cs.Hot, cs.WF)
 	}
-	users := g.Group("/hotspot/users")
-	users.GET("", func(c *gin.Context) { mk(c).List(c) })
-	users.GET("/count", func(c *gin.Context) { mk(c).Count(c) })
-	users.GET("/by-name/:name", func(c *gin.Context) { mk(c).GetByName(c) })
-	users.GET("/:id", func(c *gin.Context) { mk(c).Get(c) })
-	users.POST("", func(c *gin.Context) { mk(c).Create(c) })
-	users.PUT("/:id", func(c *gin.Context) { mk(c).Update(c) })
-	users.PATCH("/:id/disabled", func(c *gin.Context) { mk(c).SetDisabled(c) })
-	users.PATCH("/:id/expiry", func(c *gin.Context) { mk(c).SetExpiry(c) })
-	users.PATCH("/:id/mac", func(c *gin.Context) { mk(c).SetMAC(c) })
-	users.POST("/:id/reset-counters", func(c *gin.Context) { mk(c).ResetCounters(c) })
-	users.POST("/:id/reset-usage", func(c *gin.Context) { mk(c).ResetUsage(c) })
-	users.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
-	users.POST("/bulk-delete", func(c *gin.Context) { mk(c).BulkDelete(c) })
+	r := readGroup.Group("/hotspot/users")
+	r.GET("", func(c *gin.Context) { mk(c).List(c) })
+	r.GET("/count", func(c *gin.Context) { mk(c).Count(c) })
+	r.GET("/by-name/:name", func(c *gin.Context) { mk(c).GetByName(c) })
+	r.GET("/:id", func(c *gin.Context) { mk(c).Get(c) })
+
+	w := writeGroup.Group("/hotspot/users")
+	w.POST("", func(c *gin.Context) { mk(c).Create(c) })
+	w.PUT("/:id", func(c *gin.Context) { mk(c).Update(c) })
+	w.PATCH("/:id/disabled", func(c *gin.Context) { mk(c).SetDisabled(c) })
+	w.PATCH("/:id/expiry", func(c *gin.Context) { mk(c).SetExpiry(c) })
+	w.PATCH("/:id/mac", func(c *gin.Context) { mk(c).SetMAC(c) })
+	w.POST("/:id/reset-counters", func(c *gin.Context) { mk(c).ResetCounters(c) })
+	w.POST("/:id/reset-usage", func(c *gin.Context) { mk(c).ResetUsage(c) })
+	w.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
+	w.POST("/bulk-delete", func(c *gin.Context) { mk(c).BulkDelete(c) })
 }
 
 // RegisterAdmin memasang endpoint reveal password (admin+operator). Dipanggil

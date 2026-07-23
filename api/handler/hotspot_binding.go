@@ -17,17 +17,23 @@ func NewHotspotBinding(hot *hotspot.Client, wf *workflows.Clients) *HotspotBindi
 }
 
 func (h *HotspotBinding) Register(g *gin.RouterGroup) {
+	h.RegisterSplit(g, g)
+}
+
+func (h *HotspotBinding) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
 	mk := func(c *gin.Context) *HotspotBinding {
 		cs := mustClients(c)
 		return NewHotspotBinding(cs.Hot, cs.WF)
 	}
-	b := g.Group("/hotspot/bindings")
-	b.GET("", func(c *gin.Context) { mk(c).List(c) })
-	b.GET("/count", func(c *gin.Context) { mk(c).Count(c) })
-	b.GET("/:id", func(c *gin.Context) { mk(c).Get(c) })
-	b.PATCH("/:id/type", func(c *gin.Context) { mk(c).SetType(c) })
-	b.PATCH("/:id/disabled", func(c *gin.Context) { mk(c).SetDisabled(c) })
-	b.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
+	r := readGroup.Group("/hotspot/bindings")
+	r.GET("", func(c *gin.Context) { mk(c).List(c) })
+	r.GET("/count", func(c *gin.Context) { mk(c).Count(c) })
+	r.GET("/:id", func(c *gin.Context) { mk(c).Get(c) })
+
+	w := writeGroup.Group("/hotspot/bindings")
+	w.PATCH("/:id/type", func(c *gin.Context) { mk(c).SetType(c) })
+	w.PATCH("/:id/disabled", func(c *gin.Context) { mk(c).SetDisabled(c) })
+	w.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
 }
 
 func (h *HotspotBinding) List(c *gin.Context) {

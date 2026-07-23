@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { parseAPIError } from '@/lib/api/errors'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -97,12 +98,12 @@ function AdminUserForm({ mode, target, onClose }: FormProps) {
       toast.error('Username is required')
       return
     }
-    if (mode === 'add' && draft.password.length < 6) {
-      toast.error('Password must be at least 6 characters')
+    if (mode === 'add' && draft.password.length < 8) {
+      toast.error('Password must be at least 8 characters')
       return
     }
-    if (mode === 'edit' && draft.password.length > 0 && draft.password.length < 6) {
-      toast.error('New password must be at least 6 characters (or leave blank)')
+    if (mode === 'edit' && draft.password.length > 0 && draft.password.length < 8) {
+      toast.error('New password must be at least 8 characters (or leave blank)')
       return
     }
 
@@ -118,7 +119,7 @@ function AdminUserForm({ mode, target, onClose }: FormProps) {
           onClose()
         },
         onError: (err) => {
-          toast.error('Failed to create user', { description: err.message })
+          toast.error('Failed to create user', { description: parseAPIError(err) })
         },
       })
       return
@@ -146,7 +147,7 @@ function AdminUserForm({ mode, target, onClose }: FormProps) {
           onClose()
         },
         onError: (err) => {
-          toast.error('Failed to update user', { description: err.message })
+          toast.error('Failed to update user', { description: parseAPIError(err) })
         },
       },
     )
@@ -202,7 +203,7 @@ function AdminUserForm({ mode, target, onClose }: FormProps) {
               }
               disabled={isPending}
               placeholder={mode === 'edit' ? 'Leave blank to keep' : ''}
-              minLength={mode === 'add' ? 6 : 0}
+              minLength={mode === 'add' ? 8 : 0}
               maxLength={128}
             />
           </div>

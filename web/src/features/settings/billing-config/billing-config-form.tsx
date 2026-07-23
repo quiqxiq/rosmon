@@ -117,7 +117,7 @@ export function BillingConfigForm() {
             <FormItem>
               <FormLabel>Tanggal Tagihan Default</FormLabel>
               <FormControl>
-                <Input type='number' min={1} max={28} className='w-24' {...field} />
+                <Input type='number' min={1} max={28} {...field} />
               </FormControl>
               <FormDescription>
                 Tanggal setiap bulan (1–28) saat tagihan baru dibuat secara otomatis.
@@ -134,7 +134,7 @@ export function BillingConfigForm() {
             <FormItem>
               <FormLabel>Jatuh Tempo Invoice (hari)</FormLabel>
               <FormControl>
-                <Input type='number' min={1} className='w-24' {...field} />
+                <Input type='number' min={1} {...field} />
               </FormControl>
               <FormDescription>
                 Jumlah hari dari tanggal tagihan sampai invoice jatuh tempo.
@@ -151,7 +151,7 @@ export function BillingConfigForm() {
             <FormItem>
               <FormLabel>Isolir Setelah (hari)</FormLabel>
               <FormControl>
-                <Input type='number' min={0} className='w-24' {...field} />
+                <Input type='number' min={0} {...field} />
               </FormControl>
               <FormDescription>
                 Hari setelah jatuh tempo saat koneksi pelanggan di-isolir. 0 = isolir langsung.
@@ -168,7 +168,7 @@ export function BillingConfigForm() {
             <FormItem>
               <FormLabel>Suspend Penuh Setelah (hari)</FormLabel>
               <FormControl>
-                <Input type='number' min={1} className='w-24' {...field} />
+                <Input type='number' min={1} {...field} />
               </FormControl>
               <FormDescription>
                 Hari setelah jatuh tempo saat akun pelanggan di-disable sepenuhnya di router.

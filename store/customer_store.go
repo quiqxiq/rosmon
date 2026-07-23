@@ -30,6 +30,7 @@ type CustomerStore interface {
 	Create(ctx context.Context, c *model.Customer) error
 	Update(ctx context.Context, c *model.Customer) error
 	Delete(ctx context.Context, id uint) error
+	BatchDelete(ctx context.Context, ids []uint) (int64, error)
 }
 
 type gormCustomerStore struct{ db *gorm.DB }
@@ -158,6 +159,14 @@ func (s *gormCustomerStore) Delete(ctx context.Context, id uint) error {
 		return ErrCustomerNotFound
 	}
 	return nil
+}
+
+func (s *gormCustomerStore) BatchDelete(ctx context.Context, ids []uint) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	res := s.db.WithContext(ctx).Where("id IN ?", ids).Delete(&model.Customer{})
+	return res.RowsAffected, res.Error
 }
 
 // isUniqueViolation cek apakah error berasal dari unique constraint

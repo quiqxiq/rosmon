@@ -43,8 +43,8 @@ export function ProfileDropdown() {
             ) : user ? (
               <div className='flex flex-col gap-1.5'>
                 <p className='text-sm leading-none font-medium'>{user.username}</p>
-                <p className='text-xs leading-none text-muted-foreground'>
-                  {user.role}
+                <p className='text-xs leading-none text-muted-foreground capitalize'>
+                  Role: {user.role}
                 </p>
               </div>
             ) : (
@@ -57,23 +57,27 @@ export function ProfileDropdown() {
           <DropdownMenuGroup>
             <DropdownMenuItem asChild>
               <Link to='/settings'>
-                Profile
+                Profil Saya
                 <DropdownMenuShortcut>⇧⌘P</DropdownMenuShortcut>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link to='/settings'>
-                Billing
+              <Link to='/settings/billing'>
+                Billing Config
                 <DropdownMenuShortcut>⌘B</DropdownMenuShortcut>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link to='/settings'>
-                Settings
+              <Link to='/settings/general'>
+                Pengaturan Sistem
                 <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem>New Team</DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to='/settings/appearance'>
+                Tampilan
+              </Link>
+            </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant='destructive' onClick={() => setOpen(true)}>

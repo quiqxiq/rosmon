@@ -3,6 +3,7 @@ import { type Row } from '@tanstack/react-table'
 import { Pencil, Power, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useActiveRouterId } from '@/stores/active-router-store'
+import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -25,6 +26,8 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const openDialog = useProfilesDialogStore((s) => s.open)
   const routerId = useActiveRouterId() ?? 0
   const updateMutation = useUpdatePPPProfile(routerId)
+  const role = useAuthStore((s) => s.auth.user?.role)
+  if (role === 'viewer') return null
 
   const handleToggleEnabled = () => {
     const nextDisabled = !profile.disabled

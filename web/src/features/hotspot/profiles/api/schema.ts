@@ -10,6 +10,7 @@ export const ProfileWithMetaSchema = z
   .object({
     id: z.string(),
     name: z.string(),
+    role: z.string().optional(),
     address_pool: z.string().optional(),
     rate_limit: z.string().optional(),
     shared_users: z.string().optional(),
@@ -33,6 +34,7 @@ export type ProfileWithMeta = z.infer<typeof ProfileWithMetaSchema>
 // since the path already identifies the profile).
 export const HotspotProfileParamsSchema = z.object({
   name: z.string().min(1).max(64).optional(),
+  role: z.string().optional(),
   rate_limit: z.string().max(64).optional(),
   address_pool: z.string().max(64).optional(),
   shared_users: z.string().max(8).optional(),

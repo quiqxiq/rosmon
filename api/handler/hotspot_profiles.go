@@ -42,13 +42,19 @@ func NewHotspotProfiles(s store.HotspotProfileStore, devMgr *devmgr.Manager, goS
 }
 
 func (h *HotspotProfiles) Register(dev *gin.RouterGroup) {
-	g := dev.Group("/hotspot-profiles")
-	g.GET("", h.List)
-	g.POST("", h.Create)
-	g.POST("/sync", h.Sync)
-	g.GET("/:id", h.Get)
-	g.PUT("/:id", h.Update)
-	g.DELETE("/:id", h.Delete)
+	h.RegisterSplit(dev, dev)
+}
+
+func (h *HotspotProfiles) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
+	r := readGroup.Group("/hotspot-profiles")
+	r.GET("", h.List)
+	r.GET("/:id", h.Get)
+
+	w := writeGroup.Group("/hotspot-profiles")
+	w.POST("", h.Create)
+	w.POST("/sync", h.Sync)
+	w.PUT("/:id", h.Update)
+	w.DELETE("/:id", h.Delete)
 }
 
 func (h *HotspotProfiles) List(c *gin.Context) {
@@ -415,6 +421,9 @@ func (h *HotspotProfiles) Sync(c *gin.Context) {
 	dbProfiles, err := h.Store.ListByDevice(ctx, deviceID, store.HotspotProfileListFilter{Role: role})
 	if err == nil {
 		for _, dp := range dbProfiles {
+			if isSystemProfile(dp.Name) {
+				continue
+			}
 			if _, exists := routerNames[dp.Name]; !exists {
 				res.Orphan = append(res.Orphan, dp.Name)
 			}

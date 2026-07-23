@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Loader2, Plus, RefreshCw, ServerOff, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useActiveRouterId } from '@/stores/active-router-store'
+import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import { Main } from '@/components/layout/main'
 import {
@@ -18,6 +19,8 @@ export function HotspotProfiles() {
   const profilesQuery = useHotspotProfiles(routerId ?? 0)
   const syncMutation = useSyncHotspotProfiles(routerId ?? 0)
   const openDialog = useProfilesDialogStore((s) => s.open)
+  const role = useAuthStore((s) => s.auth.user?.role)
+  const isReadOnly = role === 'viewer'
 
   const viewModels = useMemo(
     () => (profilesQuery.data ?? []).map(toProfileViewModel),
@@ -35,8 +38,10 @@ export function HotspotProfiles() {
   const handleSync = () => {
     syncMutation.mutate(undefined, {
       onSuccess: (res) => {
+        const orphanDetail =
+          res.orphan.length > 0 ? ` · ${res.orphan.length} orphan (${res.orphan.join(', ')})` : ''
         toast.success('Profiles synced from RouterOS', {
-          description: `${res.synced.length} synced · ${res.created.length} created · ${res.orphan.length} orphans found`,
+          description: `${res.synced.length} synced · ${res.created.length} created${orphanDetail}`,
         })
       },
       onError: (err) => {
@@ -86,28 +91,32 @@ export function HotspotProfiles() {
             )}
             Refresh
           </Button>
-          <Button
-            variant='outline'
-            size='sm'
-            onClick={handleSync}
-            disabled={syncMutation.isPending}
-            className='gap-1.5'
-          >
-            {syncMutation.isPending ? (
-              <Loader2 className='size-4 animate-spin' />
-            ) : (
-              <Wand2 className='size-4' />
+            {!isReadOnly && (
+              <>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={handleSync}
+                  disabled={syncMutation.isPending}
+                  className='gap-1.5'
+                >
+                  {syncMutation.isPending ? (
+                    <Loader2 className='size-4 animate-spin' />
+                  ) : (
+                    <Wand2 className='size-4' />
+                  )}
+                  Sync from RouterOS
+                </Button>
+                <Button
+                  size='sm'
+                  className='gap-1.5'
+                  onClick={() => openDialog('add')}
+                >
+                  <Plus className='size-4' />
+                  Add Profile
+                </Button>
+              </>
             )}
-            Sync from RouterOS
-          </Button>
-          <Button
-            size='sm'
-            className='gap-1.5'
-            onClick={() => openDialog('add')}
-          >
-            <Plus className='size-4' />
-            Add Profile
-          </Button>
         </div>
       </div>
       {profilesQuery.isError ? (

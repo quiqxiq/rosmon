@@ -38,6 +38,11 @@ export async function removeCustomer(id: number): Promise<void> {
   await apiClient.delete(`${base}/${id}`)
 }
 
+export async function batchRemoveCustomers(ids: number[]): Promise<number> {
+  const res = await apiClient.post<Envelope<{ deleted: number }>>(`${base}/batch-delete`, { ids })
+  return unwrap(res.data).deleted
+}
+
 // revealPortalPassword & resetPortalPassword — admin/operator only (backend
 // gated). Mengembalikan password portal plaintext.
 export async function revealPortalPassword(id: number): Promise<string> {

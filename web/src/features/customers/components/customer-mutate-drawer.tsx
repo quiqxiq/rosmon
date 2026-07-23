@@ -405,7 +405,6 @@ function SubscriptionStep({ customer, onSkip, onDone }: SubscriptionStepProps) {
   )
   const hotspotProfiles = useHotspotDbProfiles(
     serviceType === 'hotspot' ? deviceId : 0,
-    { role: 'permanent' },
   )
 
   const profileOptions = useMemo(() => {

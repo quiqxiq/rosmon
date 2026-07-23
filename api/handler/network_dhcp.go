@@ -12,11 +12,17 @@ type NetworkDHCP struct{ Net *network.Client }
 func NewNetworkDHCP(net *network.Client) *NetworkDHCP { return &NetworkDHCP{Net: net} }
 
 func (h *NetworkDHCP) Register(g *gin.RouterGroup) {
+	h.RegisterSplit(g, g)
+}
+
+func (h *NetworkDHCP) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
 	mk := func(c *gin.Context) *NetworkDHCP { return NewNetworkDHCP(mustClients(c).Net) }
-	d := g.Group("/network/dhcp-leases")
-	d.GET("", func(c *gin.Context) { mk(c).List(c) })
-	d.GET("/count", func(c *gin.Context) { mk(c).Count(c) })
-	d.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
+	r := readGroup.Group("/network/dhcp-leases")
+	r.GET("", func(c *gin.Context) { mk(c).List(c) })
+	r.GET("/count", func(c *gin.Context) { mk(c).Count(c) })
+
+	w := writeGroup.Group("/network/dhcp-leases")
+	w.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
 }
 
 func (h *NetworkDHCP) List(c *gin.Context) {

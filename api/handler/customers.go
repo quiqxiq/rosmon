@@ -32,14 +32,15 @@ func NewCustomers(s store.CustomerStore) *Customers { return &Customers{Store: s
 func (h *Customers) Register(g *gin.RouterGroup) {
 	r := g.Group("/customers")
 	r.GET("", h.List)
-	r.POST("", h.Create)
 	r.GET("/:id", h.Get)
-	r.PUT("/:id", h.Update)
 }
 
-// RegisterMutate mount endpoint yang butuh admin/operator: DELETE /customers/:id.
+// RegisterMutate mount endpoint yang butuh admin/operator: POST, PUT, DELETE /customers.
 func (h *Customers) RegisterMutate(g *gin.RouterGroup) {
 	r := g.Group("/customers")
+	r.POST("", h.Create)
+	r.POST("/batch-delete", h.BatchDelete)
+	r.PUT("/:id", h.Update)
 	r.DELETE("/:id", h.Delete)
 }
 
@@ -293,6 +294,23 @@ func (h *Customers) Delete(c *gin.Context) {
 	audit.Log(c.Request.Context(), h.Audit, h.Log, actorFromCtx(c), "customer_deleted", "customer", id,
 		dto.FromModelCustomer(cust), nil)
 	WriteNoContent(c)
+}
+
+func (h *Customers) BatchDelete(c *gin.Context) {
+	var req dto.BatchDeleteUintRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		WriteValidationErr(c, err)
+		return
+	}
+	count, err := h.Store.BatchDelete(c.Request.Context(), req.IDs)
+	if err != nil {
+		WriteErr(c, err)
+		return
+	}
+	for _, id := range req.IDs {
+		audit.Log(c.Request.Context(), h.Audit, h.Log, actorFromCtx(c), "customer_batch_deleted", "customer", id, nil, nil)
+	}
+	WriteOK(c, dto.BatchDeleteResponse{Deleted: count})
 }
 
 func parseCustomerID(c *gin.Context) (uint, bool) {

@@ -48,6 +48,7 @@ export type SubscriptionUpdateInput = {
   ppp_profile_id?: number
   hotspot_profile_id?: number
   mikrotik_password?: string
+  billing_day?: number
   notes?: string
 }
 

@@ -112,6 +112,19 @@ func (f *fakeCustomerStore) Delete(ctx context.Context, id uint) error {
 	return nil
 }
 
+func (f *fakeCustomerStore) BatchDelete(ctx context.Context, ids []uint) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var n int64
+	for _, id := range ids {
+		if _, ok := f.rows[id]; ok {
+			delete(f.rows, id)
+			n++
+		}
+	}
+	return n, nil
+}
+
 var _ store.CustomerStore = (*fakeCustomerStore)(nil)
 
 func setupCustomerEngine(t *testing.T) (*gin.Engine, *fakeCustomerStore) {

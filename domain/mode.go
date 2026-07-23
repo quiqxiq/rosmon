@@ -23,7 +23,7 @@ const (
 // IsValid melaporkan apakah mode dikenal.
 func (m ExpiredMode) IsValid() bool {
 	switch m {
-	case ModeNone, ModeRemove, ModeNotice, ModeRemoveRecord, ModeNoticeRecord:
+	case ModeNone, "none", ModeRemove, ModeNotice, ModeRemoveRecord, ModeNoticeRecord:
 		return true
 	}
 	return false
@@ -36,10 +36,13 @@ func (m ExpiredMode) RecordsTransaction() bool {
 }
 
 // HasExpiry true jika mode mengaktifkan kalkulasi expiry (selain ModeNone).
-func (m ExpiredMode) HasExpiry() bool { return m != ModeNone }
+func (m ExpiredMode) HasExpiry() bool { return m != ModeNone && m != "none" && m != "" }
 
 // ParseExpiredMode mengkonversi string ke ExpiredMode dan validasi.
 func ParseExpiredMode(s string) (ExpiredMode, error) {
+	if s == "" || s == "none" || s == "0" {
+		return ModeNone, nil
+	}
 	m := ExpiredMode(s)
 	if !m.IsValid() {
 		return "", fmt.Errorf("domain: unknown expired mode %q", s)

@@ -58,14 +58,21 @@ func NewSubscriptions(
 }
 
 func (h *Subscriptions) Register(g *gin.RouterGroup) {
-	r := g.Group("/subscriptions")
+	h.RegisterSplit(g, g)
+}
+
+func (h *Subscriptions) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
+	r := readGroup.Group("/subscriptions")
 	r.GET("", h.List)
-	r.POST("", h.Create)
 	r.GET("/:id", h.Get)
-	r.PUT("/:id", h.Update)
-	r.PATCH("/:id/status", h.PatchStatus)
-	r.POST("/:id/reconcile", h.Reconcile)
-	r.DELETE("/:id", h.Delete)
+
+	w := writeGroup.Group("/subscriptions")
+	w.POST("", h.Create)
+	w.POST("/batch-delete", h.BatchDelete)
+	w.PUT("/:id", h.Update)
+	w.PATCH("/:id/status", h.PatchStatus)
+	w.POST("/:id/reconcile", h.Reconcile)
+	w.DELETE("/:id", h.Delete)
 }
 
 // RegisterAdmin memasang endpoint sensitif (admin+operator): reveal password
@@ -386,6 +393,9 @@ func (h *Subscriptions) Update(c *gin.Context) {
 	}
 	if req.MikrotikPassword != nil {
 		sub.MikrotikPassword = *req.MikrotikPassword
+	}
+	if req.BillingDay != nil {
+		sub.BillingDay = req.BillingDay
 	}
 	if req.Notes != nil {
 		sub.Notes = *req.Notes
@@ -865,4 +875,21 @@ func parseSubID(c *gin.Context) (uint, bool) {
 		return 0, false
 	}
 	return uint(n), true
+}
+
+func (h *Subscriptions) BatchDelete(c *gin.Context) {
+	var req dto.BatchDeleteUintRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		WriteValidationErr(c, err)
+		return
+	}
+	count, err := h.Store.BatchDelete(c.Request.Context(), req.IDs)
+	if err != nil {
+		WriteErr(c, err)
+		return
+	}
+	for _, id := range req.IDs {
+		audit.Log(c.Request.Context(), h.Audit, h.Log, actorFromCtx(c), "subscription_batch_deleted", "subscription", id, nil, nil)
+	}
+	WriteOK(c, dto.BatchDeleteResponse{Deleted: count})
 }

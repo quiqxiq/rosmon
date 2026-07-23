@@ -64,3 +64,13 @@ export function useDeleteAdminUser() {
     },
   })
 }
+
+export function useBatchDeleteAdminUsers() {
+  const qc = useQueryClient()
+  return useMutation<number, Error, number[]>({
+    mutationFn: (ids) => svc.batchDeleteAdminUsers(ids),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.adminUsers() })
+    },
+  })
+}

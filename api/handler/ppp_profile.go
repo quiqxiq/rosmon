@@ -11,13 +11,19 @@ type PPPProfile struct{ PPP *ppp.Client }
 func NewPPPProfile(pp *ppp.Client) *PPPProfile { return &PPPProfile{PPP: pp} }
 
 func (h *PPPProfile) Register(g *gin.RouterGroup) {
+	h.RegisterSplit(g, g)
+}
+
+func (h *PPPProfile) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
 	mk := func(c *gin.Context) *PPPProfile { return NewPPPProfile(mustClients(c).PPP) }
-	p := g.Group("/ppp/profiles")
-	p.GET("", func(c *gin.Context) { mk(c).List(c) })
-	p.GET("/by-name/:name", func(c *gin.Context) { mk(c).GetByName(c) })
-	p.POST("", func(c *gin.Context) { mk(c).Create(c) })
-	p.PUT("/:id", func(c *gin.Context) { mk(c).Update(c) })
-	p.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
+	r := readGroup.Group("/ppp/profiles")
+	r.GET("", func(c *gin.Context) { mk(c).List(c) })
+	r.GET("/by-name/:name", func(c *gin.Context) { mk(c).GetByName(c) })
+
+	w := writeGroup.Group("/ppp/profiles")
+	w.POST("", func(c *gin.Context) { mk(c).Create(c) })
+	w.PUT("/:id", func(c *gin.Context) { mk(c).Update(c) })
+	w.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
 }
 
 func (h *PPPProfile) List(c *gin.Context) {

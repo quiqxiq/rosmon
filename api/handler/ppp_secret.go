@@ -11,14 +11,22 @@ type PPPSecret struct{ PPP *ppp.Client }
 func NewPPPSecret(pp *ppp.Client) *PPPSecret { return &PPPSecret{PPP: pp} }
 
 func (h *PPPSecret) Register(g *gin.RouterGroup) {
+	h.RegisterSplit(g, g)
+}
+
+func (h *PPPSecret) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
 	mk := func(c *gin.Context) *PPPSecret { return NewPPPSecret(mustClients(c).PPP) }
-	s := g.Group("/ppp/secrets")
-	s.GET("", func(c *gin.Context) { mk(c).List(c) })
-	s.GET("/by-name/:name", func(c *gin.Context) { mk(c).GetByName(c) })
-	s.POST("", func(c *gin.Context) { mk(c).Create(c) })
-	s.PUT("/:id", func(c *gin.Context) { mk(c).Update(c) })
-	s.PATCH("/:id/disabled", func(c *gin.Context) { mk(c).SetDisabled(c) })
-	s.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
+	r := readGroup.Group("/ppp/secrets")
+	r.GET("", func(c *gin.Context) { mk(c).List(c) })
+	r.GET("/by-name/:name", func(c *gin.Context) { mk(c).GetByName(c) })
+
+	w := writeGroup.Group("/ppp/secrets")
+	w.POST("", func(c *gin.Context) { mk(c).Create(c) })
+	w.POST("/batch-delete", func(c *gin.Context) { mk(c).BatchDelete(c) })
+	w.POST("/bulk-delete", func(c *gin.Context) { mk(c).BatchDelete(c) })
+	w.PUT("/:id", func(c *gin.Context) { mk(c).Update(c) })
+	w.PATCH("/:id/disabled", func(c *gin.Context) { mk(c).SetDisabled(c) })
+	w.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
 }
 
 // RegisterAdmin memasang endpoint reveal password (admin+operator). Dipanggil
@@ -103,4 +111,19 @@ func (h *PPPSecret) Delete(c *gin.Context) {
 		return
 	}
 	WriteNoContent(c)
+}
+
+func (h *PPPSecret) BatchDelete(c *gin.Context) {
+	var req dto.BatchDeleteStringRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		WriteValidationErr(c, err)
+		return
+	}
+	var count int64
+	for _, id := range req.IDs {
+		if err := h.PPP.SecretRemove(c.Request.Context(), id); err == nil {
+			count++
+		}
+	}
+	WriteOK(c, dto.BatchDeleteResponse{Deleted: count})
 }

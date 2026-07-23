@@ -22,6 +22,7 @@ func (h *Users) Register(g *gin.RouterGroup) {
 	users := g.Group("/auth/users")
 	users.GET("", h.List)
 	users.POST("", h.Create)
+	users.POST("/batch-delete", h.BatchDelete)
 	users.GET("/:id", h.Get)
 	users.PUT("/:id", h.Update)
 	users.DELETE("/:id", h.Delete)
@@ -113,6 +114,21 @@ func (h *Users) Delete(c *gin.Context) {
 		return
 	}
 	WriteNoContent(c)
+}
+
+func (h *Users) BatchDelete(c *gin.Context) {
+	var req dto.BatchDeleteUintRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		WriteValidationErr(c, err)
+		return
+	}
+	var count int64
+	for _, id := range req.IDs {
+		if err := h.Svc.DeleteUser(c.Request.Context(), id); err == nil {
+			count++
+		}
+	}
+	WriteOK(c, dto.BatchDeleteResponse{Deleted: count})
 }
 
 func parseUserID(c *gin.Context) (uint, error) {

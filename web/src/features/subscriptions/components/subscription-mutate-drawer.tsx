@@ -199,7 +199,6 @@ function SubscriptionForm({ mode, target, onClose }: SubscriptionFormProps) {
   )
   const hotspotProfiles = useHotspotDbProfiles(
     serviceType === 'hotspot' ? deviceId : 0,
-    { role: 'permanent' },
   )
 
   const profileOptions = useMemo(() => {
@@ -255,6 +254,7 @@ function SubscriptionForm({ mode, target, onClose }: SubscriptionFormProps) {
         payload: {
           notes: values.notes.trim(),
           mikrotik_password: values.mikrotik_password.trim() || undefined,
+          billing_day: values.billing_day ? Number(values.billing_day) : undefined,
           ...(target.service_type === 'pppoe'
             ? { ppp_profile_id: profileId }
             : { hotspot_profile_id: profileId }),
@@ -526,33 +526,31 @@ function SubscriptionForm({ mode, target, onClose }: SubscriptionFormProps) {
             </div>
           )}
 
-          {/* Billing Day — hanya saat create */}
-          {!isEdit && (
-            <FormField
-              control={form.control}
-              name='billing_day'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Tanggal Tagih
-                    <span className='ml-1 text-muted-foreground text-xs'>
-                      (1–28, opsional)
-                    </span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      type='number'
-                      min={1}
-                      max={28}
-                      placeholder='Kosong = default global'
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
+          {/* Billing Day */}
+          <FormField
+            control={form.control}
+            name='billing_day'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  Tanggal Tagih
+                  <span className='ml-1 text-muted-foreground text-xs'>
+                    (1–28, opsional)
+                  </span>
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    type='number'
+                    min={1}
+                    max={28}
+                    placeholder='Kosong = default global'
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           {/* Notes */}
           <FormField

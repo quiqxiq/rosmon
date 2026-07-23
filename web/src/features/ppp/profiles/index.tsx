@@ -1,6 +1,7 @@
 import { Loader2, Plus, RefreshCw, ServerOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { useActiveRouterId } from '@/stores/active-router-store'
+import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import { Main } from '@/components/layout/main'
 import { usePPPProfiles } from './api/queries'
@@ -12,6 +13,8 @@ export function PPPProfiles() {
   const routerId = useActiveRouterId()
   const profilesQuery = usePPPProfiles(routerId ?? 0)
   const openDialog = useProfilesDialogStore((s) => s.open)
+  const role = useAuthStore((s) => s.auth.user?.role)
+  const isReadOnly = role === 'viewer'
 
   const profiles = profilesQuery.data ?? []
 
@@ -59,14 +62,16 @@ export function PPPProfiles() {
               )}
               Refresh
             </Button>
-            <Button
-              size='sm'
-              className='gap-1.5'
-              onClick={() => openDialog('add')}
-            >
-              <Plus className='size-4' />
-              Add Profile
-            </Button>
+            {!isReadOnly && (
+              <Button
+                size='sm'
+                className='gap-1.5'
+                onClick={() => openDialog('add')}
+              >
+                <Plus className='size-4' />
+                Add Profile
+              </Button>
+            )}
           </div>
         </div>
         {profilesQuery.isError ? (

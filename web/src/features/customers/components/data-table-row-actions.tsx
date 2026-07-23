@@ -21,6 +21,7 @@ type DataTableRowActionsProps = {
 export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const { setOpen, setCurrentRow } = useCustomers()
   const role = useAuthStore((s) => s.auth.user?.role)
+  if (role === 'viewer') return null
   const canRevealPassword = role === 'admin' || role === 'operator'
   return (
     <DropdownMenu modal={false}>

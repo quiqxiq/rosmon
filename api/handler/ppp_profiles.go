@@ -35,13 +35,19 @@ func NewPPPProfiles(s store.PPPProfileStore, devMgr *devmgr.Manager, log *logrus
 }
 
 func (h *PPPProfiles) Register(dev *gin.RouterGroup) {
-	g := dev.Group("/ppp-profiles")
-	g.GET("", h.List)
-	g.POST("", h.Create)
-	g.POST("/sync", h.Sync)
-	g.GET("/:id", h.Get)
-	g.PUT("/:id", h.Update)
-	g.DELETE("/:id", h.Delete)
+	h.RegisterSplit(dev, dev)
+}
+
+func (h *PPPProfiles) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
+	r := readGroup.Group("/ppp-profiles")
+	r.GET("", h.List)
+	r.GET("/:id", h.Get)
+
+	w := writeGroup.Group("/ppp-profiles")
+	w.POST("", h.Create)
+	w.POST("/sync", h.Sync)
+	w.PUT("/:id", h.Update)
+	w.DELETE("/:id", h.Delete)
 }
 
 func (h *PPPProfiles) List(c *gin.Context) {
@@ -321,6 +327,9 @@ func (h *PPPProfiles) Sync(c *gin.Context) {
 	dbProfiles, err := h.Store.ListByDevice(ctx, deviceID)
 	if err == nil {
 		for _, dp := range dbProfiles {
+			if isSystemProfile(dp.Name) {
+				continue
+			}
 			if _, exists := routerNames[dp.Name]; !exists {
 				res.Orphan = append(res.Orphan, dp.Name)
 			}

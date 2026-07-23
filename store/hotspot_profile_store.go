@@ -6,7 +6,6 @@ import (
 
 	"github.com/quiqxiq/rosmon/store/model"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 var (
@@ -82,6 +81,18 @@ func (s *gormHotspotProfileStore) GetByName(ctx context.Context, deviceID uint, 
 }
 
 func (s *gormHotspotProfileStore) Create(ctx context.Context, p *model.HotspotProfile) error {
+	var existing model.HotspotProfile
+	err := s.db.WithContext(ctx).Unscoped().
+		Where("device_id = ? AND name = ?", p.DeviceID, p.Name).
+		First(&existing).Error
+	if err == nil {
+		if existing.DeletedAt.Valid {
+			// Restore soft-deleted record with new values
+			p.ID = existing.ID
+			p.DeletedAt = gorm.DeletedAt{Valid: false}
+			return s.db.WithContext(ctx).Unscoped().Save(p).Error
+		}
+	}
 	return s.db.WithContext(ctx).Create(p).Error
 }
 
@@ -120,32 +131,30 @@ func (s *gormHotspotProfileStore) Delete(ctx context.Context, id uint) error {
 func (s *gormHotspotProfileStore) Upsert(ctx context.Context, p *model.HotspotProfile) (created bool, err error) {
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var existing model.HotspotProfile
-		lookupErr := tx.Where("device_id = ? AND name = ?", p.DeviceID, p.Name).First(&existing).Error
-		created = errors.Is(lookupErr, gorm.ErrRecordNotFound)
-		if lookupErr != nil && !created {
+		lookupErr := tx.Unscoped().Where("device_id = ? AND name = ?", p.DeviceID, p.Name).First(&existing).Error
+		created = errors.Is(lookupErr, gorm.ErrRecordNotFound) || existing.DeletedAt.Valid
+		if lookupErr != nil && !errors.Is(lookupErr, gorm.ErrRecordNotFound) {
 			return lookupErr
 		}
-		if !created {
+		if lookupErr == nil {
 			p.ID = existing.ID
 			p.CreatedAt = existing.CreatedAt
-			// Preserve role and operator-set fields.
-			p.Role = existing.Role
-			p.PriceMonthly = existing.PriceMonthly
-			p.ExpiryMode = existing.ExpiryMode
-			p.Validity = existing.Validity
-			p.Price = existing.Price
-			p.SellPrice = existing.SellPrice
-			p.LockMAC = existing.LockMAC
-			p.Description = existing.Description
-			p.IsPublic = existing.IsPublic
+			p.DeletedAt = gorm.DeletedAt{Valid: false}
+			if !existing.DeletedAt.Valid {
+				// Preserve role and operator-set fields on active record
+				p.Role = existing.Role
+				p.PriceMonthly = existing.PriceMonthly
+				p.ExpiryMode = existing.ExpiryMode
+				p.Validity = existing.Validity
+				p.Price = existing.Price
+				p.SellPrice = existing.SellPrice
+				p.LockMAC = existing.LockMAC
+				p.Description = existing.Description
+				p.IsPublic = existing.IsPublic
+			}
+			return tx.Unscoped().Save(p).Error
 		}
-		return tx.Clauses(clause.OnConflict{
-			Columns: []clause.Column{{Name: "device_id"}, {Name: "name"}},
-			DoUpdates: clause.AssignmentColumns([]string{
-				"rate_limit", "address_pool", "shared_users", "status_autorefresh",
-				"parent_queue", "active", "updated_at",
-			}),
-		}).Create(p).Error
+		return tx.Create(p).Error
 	})
 	return created, err
 }

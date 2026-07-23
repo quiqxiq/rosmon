@@ -103,50 +103,58 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 	handler.NewDevices(deps.DeviceStore, deps.DevMgr).RegisterSplit(devicesGroup, devicesAdminGroup)
 
 	// ── Semua endpoint RouterOS di bawah device scope ─────────────────────
-	dev := g.Group("/devices/:device_id")
+	devBase := g.Group("/devices/:device_id")
 	for _, mw := range authChain {
-		dev.Use(mw)
+		devBase.Use(mw)
 	}
+
+	// Group khusus admin+operator untuk mutasi (POST, PUT, PATCH, DELETE).
+	devAdminOpBase := devBase.Group("")
+	if deps.AuthSigner != nil {
+		devAdminOpBase.Use(middleware.RequireRole(roleAdmin, roleOperator))
+	}
+
+	dev := devBase.Group("")
 	dev.Use(middleware.DeviceMiddleware(deps.DevMgr))
+
+	devAdminOp := devAdminOpBase.Group("")
+	devAdminOp.Use(middleware.DeviceMiddleware(deps.DevMgr))
 
 	handler.NewSystemInfo(nil).Register(dev)
 	handler.NewSystemLogging(nil).Register(dev)
-	handler.NewSystemScript(nil).Register(dev)
-	handler.NewSystemScheduler(nil).Register(dev)
+	handler.NewSystemScript(nil).RegisterSplit(dev, devAdminOp)
+	handler.NewSystemScheduler(nil).RegisterSplit(dev, devAdminOp)
 	handler.NewLog(nil).Register(dev)
 	handler.NewPingCount(nil).Register(dev)
 
 	// System control (reboot/shutdown) — hanya admin
-	sysControlGroup := dev.Group("")
+	sysControlGroup := devBase.Group("")
 	if deps.AuthSigner != nil {
 		sysControlGroup.Use(middleware.RequireRole(roleAdmin))
 	}
+	sysControlGroup.Use(middleware.DeviceMiddleware(deps.DevMgr))
 	handler.NewSystemControl(nil).Register(sysControlGroup)
 
-	handler.NewHotspotUser(nil, nil).Register(dev)
-	handler.NewHotspotProfile(nil, nil).Register(dev)
+	handler.NewHotspotUser(nil, nil).RegisterSplit(dev, devAdminOp)
+	handler.NewHotspotProfile(nil, nil).RegisterSplit(dev, devAdminOp)
 	handler.NewHotspotServer(nil).Register(dev)
-	handler.NewHotspotActive(nil, nil).Register(dev)
+	handler.NewHotspotActive(nil, nil).RegisterSplit(dev, devAdminOp)
 	handler.NewHotspotHost(nil).Register(dev)
 	handler.NewHotspotCookie(nil).Register(dev)
-	handler.NewHotspotBinding(nil, nil).Register(dev)
-	handler.NewHotspotVoucher(nil).Register(dev)
+	handler.NewHotspotBinding(nil, nil).RegisterSplit(dev, devAdminOp)
+	handler.NewHotspotVoucher(nil).RegisterSplit(dev, devAdminOp)
 
 	handler.NewNetworkInterface(nil).Register(dev)
-	handler.NewNetworkPool(nil).Register(dev)
-	handler.NewNetworkARP(nil).Register(dev)
-	handler.NewNetworkDHCP(nil).Register(dev)
-	handler.NewNetworkQueue(nil).Register(dev)
+	handler.NewNetworkPool(nil).RegisterSplit(dev, devAdminOp)
+	handler.NewNetworkARP(nil).RegisterSplit(dev, devAdminOp)
+	handler.NewNetworkDHCP(nil).RegisterSplit(dev, devAdminOp)
+	handler.NewNetworkQueue(nil).RegisterSplit(dev, devAdminOp)
 
-	handler.NewPPPSecret(nil).Register(dev)
-	handler.NewPPPProfile(nil).Register(dev)
-	handler.NewPPPActive(nil).Register(dev)
+	handler.NewPPPSecret(nil).RegisterSplit(dev, devAdminOp)
+	handler.NewPPPProfile(nil).RegisterSplit(dev, devAdminOp)
+	handler.NewPPPActive(nil).RegisterSplit(dev, devAdminOp)
 
 	// Reveal password (PPP secret + hotspot user) = admin+operator saja.
-	devAdminOp := dev.Group("")
-	if deps.AuthSigner != nil {
-		devAdminOp.Use(middleware.RequireRole(roleAdmin, roleOperator))
-	}
 	handler.NewPPPSecret(nil).RegisterAdmin(devAdminOp)
 	handler.NewHotspotUser(nil, nil).RegisterAdmin(devAdminOp)
 
@@ -186,7 +194,11 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		for _, mw := range authChain {
 			configScope.Use(mw)
 		}
-		handler.NewProfileConfig(deps.ProfileStore, deps.DevMgr, deps.GoServiceURL, deps.Logger).Register(configScope)
+		configAdminOp := configScope.Group("")
+		if deps.AuthSigner != nil {
+			configAdminOp.Use(middleware.RequireRole(roleAdmin, roleOperator))
+		}
+		handler.NewProfileConfig(deps.ProfileStore, deps.DevMgr, deps.GoServiceURL, deps.Logger).RegisterSplit(configScope, configAdminOp)
 	}
 
 	// PPP profiles management (DB-backed).
@@ -195,7 +207,11 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		for _, mw := range authChain {
 			pppScope.Use(mw)
 		}
-		handler.NewPPPProfiles(deps.PPPProfileStore, deps.DevMgr, deps.Logger).Register(pppScope)
+		pppAdminOp := pppScope.Group("")
+		if deps.AuthSigner != nil {
+			pppAdminOp.Use(middleware.RequireRole(roleAdmin, roleOperator))
+		}
+		handler.NewPPPProfiles(deps.PPPProfileStore, deps.DevMgr, deps.Logger).RegisterSplit(pppScope, pppAdminOp)
 	}
 
 	// Hotspot profiles management (DB-backed, permanent + voucher).
@@ -204,7 +220,11 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		for _, mw := range authChain {
 			hsScope.Use(mw)
 		}
-		handler.NewHotspotProfiles(deps.HotspotStore, deps.DevMgr, deps.GoServiceURL, deps.Logger).Register(hsScope)
+		hsAdminOp := hsScope.Group("")
+		if deps.AuthSigner != nil {
+			hsAdminOp.Use(middleware.RequireRole(roleAdmin, roleOperator))
+		}
+		handler.NewHotspotProfiles(deps.HotspotStore, deps.DevMgr, deps.GoServiceURL, deps.Logger).RegisterSplit(hsScope, hsAdminOp)
 	}
 
 	// Quick Print presets (DB-backed per-device, tanpa DeviceMiddleware —
@@ -214,7 +234,11 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		for _, mw := range authChain {
 			qpScope.Use(mw)
 		}
-		handler.NewQuickPrint(deps.QuickPrintStore, deps.Logger).Register(qpScope)
+		qpAdminOp := qpScope.Group("")
+		if deps.AuthSigner != nil {
+			qpAdminOp.Use(middleware.RequireRole(roleAdmin, roleOperator))
+		}
+		handler.NewQuickPrint(deps.QuickPrintStore, deps.Logger).RegisterSplit(qpScope, qpAdminOp)
 	}
 
 	// Customer / Subscription API — business layer.
@@ -228,7 +252,7 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		ch.Audit = deps.AuditLogStore
 		ch.Log = deps.Logger
 		ch.Register(bizScope)
-		// set-portal-password + DELETE /customers/:id = admin+operator.
+		// set-portal-password + POST/PUT/DELETE /customers = admin+operator.
 		adminOp := g.Group("")
 		for _, mw := range authChain {
 			adminOp.Use(mw)
@@ -244,14 +268,6 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		for _, mw := range authChain {
 			subScope.Use(mw)
 		}
-		sh := handler.NewSubscriptions(
-			deps.SubscriptionStore, deps.CustomerStore,
-			deps.PPPProfileStore, deps.HotspotStore,
-			deps.SettingStore, deps.DevMgr, deps.Logger,
-		)
-		sh.Audit = deps.AuditLogStore
-		sh.Register(subScope)
-		// Reveal password MikroTik = admin+operator.
 		subAdminOp := g.Group("")
 		for _, mw := range authChain {
 			subAdminOp.Use(mw)
@@ -259,6 +275,14 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		if deps.AuthSigner != nil {
 			subAdminOp.Use(middleware.RequireRole(roleAdmin, roleOperator))
 		}
+		sh := handler.NewSubscriptions(
+			deps.SubscriptionStore, deps.CustomerStore,
+			deps.PPPProfileStore, deps.HotspotStore,
+			deps.SettingStore, deps.DevMgr, deps.Logger,
+		)
+		sh.Audit = deps.AuditLogStore
+		sh.RegisterSplit(subScope, subAdminOp)
+		// Reveal password MikroTik = admin+operator.
 		sh.RegisterAdmin(subAdminOp)
 		// Device-scoped subscription monitoring — enriched dengan live session dari router.
 		// Dipasang di bawah `dev` yang sudah punya DeviceMiddleware.
@@ -271,7 +295,14 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		for _, mw := range authChain {
 			bizAuth.Use(mw)
 		}
-		handler.NewSettings(deps.SettingStore).Register(bizAuth)
+		bizAdminOp := g.Group("")
+		for _, mw := range authChain {
+			bizAdminOp.Use(mw)
+		}
+		if deps.AuthSigner != nil {
+			bizAdminOp.Use(middleware.RequireRole(roleAdmin, roleOperator))
+		}
+		handler.NewSettings(deps.SettingStore).RegisterSplit(bizAuth, bizAdminOp)
 	}
 	if deps.InvoiceStore != nil && deps.SequenceStore != nil {
 		// GET /invoices, GET /invoices/:id — semua authenticated user.
@@ -299,9 +330,16 @@ func RegisterRoutes(g *gin.RouterGroup, deps *Deps) {
 		for _, mw := range authChain {
 			bizAuth.Use(mw)
 		}
+		bizAdminOp := g.Group("")
+		for _, mw := range authChain {
+			bizAdminOp.Use(mw)
+		}
+		if deps.AuthSigner != nil {
+			bizAdminOp.Use(middleware.RequireRole(roleAdmin, roleOperator))
+		}
 		handler.NewPayments(deps.PaymentStore, deps.InvoiceStore, deps.SubscriptionStore,
 			deps.CustomerStore, deps.NotificationService, deps.AuditLogStore, deps.SettingStore,
-			deps.XenditGateway, deps.Logger, deps.Hub).Register(bizAuth)
+			deps.XenditGateway, deps.Logger, deps.Hub).RegisterSplit(bizAuth, bizAdminOp)
 	}
 
 	// Audit logs, message templates, notification logs, WhatsApp setup,

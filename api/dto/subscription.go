@@ -51,6 +51,7 @@ type SubscriptionUpdateRequest struct {
 	PPPProfileID     *uint   `json:"ppp_profile_id"     binding:"omitempty,gt=0"`
 	HotspotProfileID *uint   `json:"hotspot_profile_id" binding:"omitempty,gt=0"`
 	MikrotikPassword *string `json:"mikrotik_password"  binding:"omitempty,min=1,max=200"`
+	BillingDay       *int    `json:"billing_day"        binding:"omitempty,gte=1,lte=28"`
 	Notes            *string `json:"notes"              binding:"omitempty,max=2000"`
 }
 

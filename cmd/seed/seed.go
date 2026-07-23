@@ -147,9 +147,9 @@ type pppProfileDef struct {
 
 func pppProfileDefs() []pppProfileDef {
 	return []pppProfileDef{
-		{"paket-bronze", "10M/5M", "pppoe-pool", "Paket Bronze 10Mbps down / 5Mbps up", 150000},
-		{"paket-silver", "20M/10M", "pppoe-pool", "Paket Silver 20Mbps down / 10Mbps up", 250000},
-		{"paket-gold", "50M/25M", "pppoe-pool", "Paket Gold 50Mbps down / 25Mbps up", 400000},
+		{"paket-bronze", "10M/5M", "", "Paket Bronze 10Mbps down / 5Mbps up", 150000},
+		{"paket-silver", "20M/10M", "", "Paket Silver 20Mbps down / 10Mbps up", 250000},
+		{"paket-gold", "50M/25M", "", "Paket Gold 50Mbps down / 25Mbps up", 400000},
 	}
 }
 
@@ -161,8 +161,8 @@ type hotspotProfileDef struct {
 
 func hotspotProfileDefs() []hotspotProfileDef {
 	return []hotspotProfileDef{
-		{Name: "hs-basic", Role: "permanent", RateLimit: "5M/5M", AddressPool: "hotspot-pool", PriceMonthly: 100000, Description: "Hotspot Basic 5Mbps (bulanan)"},
-		{Name: "hs-kantor", Role: "permanent", RateLimit: "20M/20M", AddressPool: "hotspot-pool", PriceMonthly: 250000, Description: "Hotspot Kantor 20Mbps (bulanan)"},
+		{Name: "hs-basic", Role: "permanent", RateLimit: "5M/5M", AddressPool: "", PriceMonthly: 100000, Description: "Hotspot Basic 5Mbps (bulanan)"},
+		{Name: "hs-kantor", Role: "permanent", RateLimit: "20M/20M", AddressPool: "", PriceMonthly: 250000, Description: "Hotspot Kantor 20Mbps (bulanan)"},
 		{Name: "hs-harian", Role: "voucher", RateLimit: "5M/5M", ExpiryMode: "rem", Validity: "1d", Price: 3000, SellPrice: 5000, Description: "Voucher Harian 5Mbps / 1 hari"},
 		{Name: "hs-mingguan", Role: "voucher", RateLimit: "10M/10M", ExpiryMode: "rem", Validity: "7d", Price: 10000, SellPrice: 15000, Description: "Voucher Mingguan 10Mbps / 7 hari"},
 	}
@@ -315,7 +315,7 @@ func (s *seeder) seedCustomersAndSubs(ctx context.Context) error {
 		}
 
 		if err := s.subStore.Create(ctx, sub); err != nil {
-			if store.IsUniqueViolation(err) {
+			if store.IsUniqueViolation(err) || errors.Is(err, store.ErrSubscriptionUsernameTaken) {
 				s.log.WithField("username", def.Username).Debug("subscription sudah ada, skip")
 				s.subSkipped++
 				continue

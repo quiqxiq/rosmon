@@ -12,13 +12,19 @@ type SystemScript struct{ Sys *system.Client }
 func NewSystemScript(sys *system.Client) *SystemScript { return &SystemScript{Sys: sys} }
 
 func (h *SystemScript) Register(g *gin.RouterGroup) {
+	h.RegisterSplit(g, g)
+}
+
+func (h *SystemScript) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
 	mk := func(c *gin.Context) *SystemScript { return NewSystemScript(mustClients(c).Sys) }
-	s := g.Group("/system/scripts")
-	s.GET("", func(c *gin.Context) { mk(c).List(c) })
-	s.GET("/:id", func(c *gin.Context) { mk(c).Get(c) })
-	s.POST("", func(c *gin.Context) { mk(c).Create(c) })
-	s.PUT("/:id", func(c *gin.Context) { mk(c).Update(c) })
-	s.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
+	r := readGroup.Group("/system/scripts")
+	r.GET("", func(c *gin.Context) { mk(c).List(c) })
+	r.GET("/:id", func(c *gin.Context) { mk(c).Get(c) })
+
+	w := writeGroup.Group("/system/scripts")
+	w.POST("", func(c *gin.Context) { mk(c).Create(c) })
+	w.PUT("/:id", func(c *gin.Context) { mk(c).Update(c) })
+	w.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
 }
 
 func (h *SystemScript) List(c *gin.Context) {

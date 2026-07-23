@@ -1,25 +1,16 @@
 import { type ColumnDef } from '@tanstack/react-table'
-import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 import { DataTableColumnHeader } from '@/components/data-table'
 import { type RouterPPPProfile } from '../api/schema'
 import { DataTableRowActions } from './data-table-row-actions'
 
 export const columns: ColumnDef<RouterPPPProfile>[] = [
   {
+    // Hidden filter-only column: feeds the "Status" faceted filter in the
+    // toolbar. The status itself is surfaced as a coloured dot on the Name
+    // cell below, so this column is never rendered.
     id: 'status',
     accessorFn: (row) => (row.disabled ? 'disabled' : 'enabled'),
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='Status' />
-    ),
-    cell: ({ row }) => {
-      const enabled = !row.original.disabled
-      return (
-        <Badge variant={enabled ? 'online' : 'offline'}>
-          <span className='text-[8px]'>●</span>
-          {enabled ? 'enabled' : 'disabled'}
-        </Badge>
-      )
-    },
     filterFn: (row, id, value) => value.includes(row.getValue(id)),
     enableSorting: false,
   },
@@ -28,9 +19,21 @@ export const columns: ColumnDef<RouterPPPProfile>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title='Name' />
     ),
-    cell: ({ row }) => (
-      <span className='font-semibold'>{row.original.name}</span>
-    ),
+    cell: ({ row }) => {
+      const enabled = !row.original.disabled
+      return (
+        <span className='inline-flex items-center gap-2 font-semibold'>
+          <span
+            className={cn(
+              'inline-block size-2 rounded-full',
+              enabled ? 'bg-emerald-500' : 'bg-red-500'
+            )}
+            title={enabled ? 'Enabled' : 'Disabled'}
+          />
+          {row.original.name}
+        </span>
+      )
+    },
     enableHiding: false,
   },
   {

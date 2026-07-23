@@ -60,7 +60,7 @@ func SyncProfiles(
 
 	// Step 3: insert new profiles, mark existing.
 	for _, rp := range routerProfiles {
-		if rp.Name == "" {
+		if rp.Name == "" || rp.Name == "default" || rp.Name == "default-encryption" {
 			continue
 		}
 		routerNames[rp.Name] = struct{}{}
@@ -84,6 +84,9 @@ func SyncProfiles(
 
 	// Step 4: detect orphan + inject on-login for non-zero expiry mode.
 	for _, p := range dbProfiles {
+		if p.Name == "default" || p.Name == "default-encryption" {
+			continue
+		}
 		if _, exists := routerNames[p.Name]; !exists {
 			result.Orphan = append(result.Orphan, p.Name)
 			continue

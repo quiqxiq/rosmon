@@ -23,7 +23,7 @@ export type AdminUser = z.infer<typeof AdminUserSchema>
 // POST /users body — password is required on create, can't be fetched back.
 export const CreateAdminUserRequestSchema = z.object({
   username: z.string().min(3).max(64),
-  password: z.string().min(6).max(128),
+  password: z.string().min(8).max(128),
   role: AdminUserRoleSchema,
 })
 export type CreateAdminUserRequest = z.infer<typeof CreateAdminUserRequestSchema>
@@ -33,7 +33,7 @@ export type CreateAdminUserRequest = z.infer<typeof CreateAdminUserRequestSchema
 // touch", not "clear".
 export const UpdateAdminUserRequestSchema = z.object({
   username: z.string().min(3).max(64).optional(),
-  password: z.string().min(6).max(128).optional(),
+  password: z.string().min(8).max(128).optional(),
   role: AdminUserRoleSchema.optional(),
   active: z.boolean().optional(),
 })

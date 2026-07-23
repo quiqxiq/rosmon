@@ -35,12 +35,18 @@ func NewProfileConfig(s store.HotspotProfileStore, devMgr *devmgr.Manager, goSer
 }
 
 func (h *ProfileConfig) Register(dev *gin.RouterGroup) {
-	g := dev.Group("/hotspot/profile-configs")
-	g.GET("", h.List)
-	g.POST("/sync", h.Sync)
-	g.GET("/:profile_name", h.Get)
-	g.PUT("/:profile_name", h.Upsert)
-	g.DELETE("/:profile_name", h.Delete)
+	h.RegisterSplit(dev, dev)
+}
+
+func (h *ProfileConfig) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
+	r := readGroup.Group("/hotspot/profile-configs")
+	r.GET("", h.List)
+	r.GET("/:profile_name", h.Get)
+
+	w := writeGroup.Group("/hotspot/profile-configs")
+	w.POST("/sync", h.Sync)
+	w.PUT("/:profile_name", h.Upsert)
+	w.DELETE("/:profile_name", h.Delete)
 }
 
 func (h *ProfileConfig) List(c *gin.Context) {

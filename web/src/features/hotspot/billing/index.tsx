@@ -25,8 +25,10 @@ export function HotspotBilling() {
     setSyncing(true)
     try {
       const res = await syncMutation.mutateAsync(undefined)
+      const orphanDetail =
+        res.orphan.length > 0 ? ` · ${res.orphan.length} orphan (${res.orphan.join(', ')})` : ''
       toast.success('Sync complete', {
-        description: `${res.synced.length} synced · ${res.created.length} created · ${res.orphan.length} orphan`,
+        description: `${res.synced.length} synced · ${res.created.length} created${orphanDetail}`,
       })
     } catch (err) {
       toast.error('Sync failed', { description: parseAPIError(err) })

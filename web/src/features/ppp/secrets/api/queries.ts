@@ -60,3 +60,13 @@ export function useRemovePPPSecret(routerId: number) {
     },
   })
 }
+
+export function useBatchRemovePPPSecrets(routerId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (ids: string[]) => svc.batchRemovePPPSecrets(routerId, ids),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: secretsPrefix(routerId) })
+    },
+  })
+}

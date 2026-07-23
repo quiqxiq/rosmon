@@ -12,10 +12,16 @@ type NetworkQueue struct{ Net *network.Client }
 func NewNetworkQueue(net *network.Client) *NetworkQueue { return &NetworkQueue{Net: net} }
 
 func (h *NetworkQueue) Register(g *gin.RouterGroup) {
+	h.RegisterSplit(g, g)
+}
+
+func (h *NetworkQueue) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
 	mk := func(c *gin.Context) *NetworkQueue { return NewNetworkQueue(mustClients(c).Net) }
-	q := g.Group("/network/queues")
-	q.GET("", func(c *gin.Context) { mk(c).List(c) })
-	q.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
+	r := readGroup.Group("/network/queues")
+	r.GET("", func(c *gin.Context) { mk(c).List(c) })
+
+	w := writeGroup.Group("/network/queues")
+	w.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
 }
 
 func (h *NetworkQueue) List(c *gin.Context) {

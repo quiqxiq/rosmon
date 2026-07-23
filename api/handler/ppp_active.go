@@ -11,10 +11,16 @@ type PPPActive struct{ PPP *ppp.Client }
 func NewPPPActive(pp *ppp.Client) *PPPActive { return &PPPActive{PPP: pp} }
 
 func (h *PPPActive) Register(g *gin.RouterGroup) {
+	h.RegisterSplit(g, g)
+}
+
+func (h *PPPActive) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
 	mk := func(c *gin.Context) *PPPActive { return NewPPPActive(mustClients(c).PPP) }
-	a := g.Group("/ppp/active")
-	a.GET("", func(c *gin.Context) { mk(c).List(c) })
-	a.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
+	r := readGroup.Group("/ppp/active")
+	r.GET("", func(c *gin.Context) { mk(c).List(c) })
+
+	w := writeGroup.Group("/ppp/active")
+	w.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
 }
 
 func (h *PPPActive) List(c *gin.Context) {

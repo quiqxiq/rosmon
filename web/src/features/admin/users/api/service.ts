@@ -51,3 +51,8 @@ export async function updateAdminUser(
 export async function deleteAdminUser(id: number): Promise<void> {
   await apiClient.delete<Envelope<MessageResult>>(`${base}/${id}`)
 }
+
+export async function batchDeleteAdminUsers(ids: number[]): Promise<number> {
+  const res = await apiClient.post<Envelope<{ deleted: number }>>(`${base}/batch-delete`, { ids })
+  return unwrap(res.data).deleted
+}

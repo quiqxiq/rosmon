@@ -38,7 +38,7 @@ type HotspotProfileCreateRequest struct {
 	StatusAutorefresh string `json:"status_autorefresh" binding:"max=16"`
 	ParentQueue       string `json:"parent_queue"       binding:"max=64"`
 	PriceMonthly      int64  `json:"price_monthly"      binding:"gte=0"`
-	ExpiryMode        string `json:"expiry_mode"   binding:"omitempty,oneof=0 rem ntf remc ntfc"`
+	ExpiryMode        string `json:"expiry_mode"   binding:"omitempty,oneof=0 none rem ntf remc ntfc"`
 	Validity          string `json:"validity"      binding:"max=16"`
 	Price             int    `json:"price"         binding:"gte=0"`
 	SellPrice         int    `json:"sell_price"    binding:"gte=0"`
@@ -56,7 +56,7 @@ type HotspotProfileUpdateRequest struct {
 	StatusAutorefresh *string `json:"status_autorefresh" binding:"omitempty,max=16"`
 	ParentQueue       *string `json:"parent_queue"       binding:"omitempty,max=64"`
 	PriceMonthly      *int64  `json:"price_monthly"      binding:"omitempty,gte=0"`
-	ExpiryMode        *string `json:"expiry_mode"   binding:"omitempty,oneof=0 rem ntf remc ntfc"`
+	ExpiryMode        *string `json:"expiry_mode"   binding:"omitempty,oneof=0 none rem ntf remc ntfc"`
 	Validity          *string `json:"validity"      binding:"omitempty,max=16"`
 	Price             *int    `json:"price"         binding:"omitempty,gte=0"`
 	SellPrice         *int    `json:"sell_price"    binding:"omitempty,gte=0"`

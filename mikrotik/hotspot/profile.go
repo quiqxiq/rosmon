@@ -80,7 +80,7 @@ func (c *Client) ProfileAdd(ctx context.Context, a ProfileAddArgs) (string, erro
 		return "", mikrotik.ErrInvalidArgument
 	}
 	pairs := []roslib.Pair{roslib.NewPair("name", a.Name)}
-	if a.AddressPool != "" {
+	if a.AddressPool != "" && a.AddressPool != "none" {
 		pairs = append(pairs, roslib.NewPair("address-pool", a.AddressPool))
 	}
 	if a.RateLimit != "" {
@@ -95,7 +95,7 @@ func (c *Client) ProfileAdd(ctx context.Context, a ProfileAddArgs) (string, erro
 	if a.OnLogin != "" {
 		pairs = append(pairs, roslib.NewPair("on-login", a.OnLogin))
 	}
-	if a.ParentQueue != "" {
+	if a.ParentQueue != "" && a.ParentQueue != "none" {
 		pairs = append(pairs, roslib.NewPair("parent-queue", a.ParentQueue))
 	}
 	if a.Comment != "" {
@@ -133,7 +133,7 @@ func (c *Client) ProfileSet(ctx context.Context, a ProfileSetArgs) error {
 	if a.Name != "" {
 		pairs = append(pairs, roslib.NewPair("name", a.Name))
 	}
-	if a.AddressPool != "" {
+	if a.AddressPool != "" && a.AddressPool != "none" {
 		pairs = append(pairs, roslib.NewPair("address-pool", a.AddressPool))
 	}
 	if a.RateLimit != "" {
@@ -148,7 +148,7 @@ func (c *Client) ProfileSet(ctx context.Context, a ProfileSetArgs) error {
 	if a.OnLogin != nil {
 		pairs = append(pairs, roslib.NewPair("on-login", *a.OnLogin))
 	}
-	if a.ParentQueue != "" {
+	if a.ParentQueue != "" && a.ParentQueue != "none" {
 		pairs = append(pairs, roslib.NewPair("parent-queue", a.ParentQueue))
 	}
 	if a.Comment != nil {

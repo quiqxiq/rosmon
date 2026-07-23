@@ -60,6 +60,16 @@ func (f *fakeCustomerStore) Delete(_ context.Context, id uint) error {
 	delete(f.rows, id)
 	return nil
 }
+func (f *fakeCustomerStore) BatchDelete(_ context.Context, ids []uint) (int64, error) {
+	var n int64
+	for _, id := range ids {
+		if _, ok := f.rows[id]; ok {
+			delete(f.rows, id)
+			n++
+		}
+	}
+	return n, nil
+}
 
 var _ store.CustomerStore = (*fakeCustomerStore)(nil)
 

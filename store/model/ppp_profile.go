@@ -11,9 +11,9 @@ import (
 // Unique compound: (device_id, name).
 type PPPProfile struct {
 	ID       uint           `gorm:"primaryKey"`
-	DeviceID uint           `gorm:"not null;uniqueIndex:idx_pp_dev_name,priority:1"`
+	DeviceID uint           `gorm:"not null;uniqueIndex:idx_pp_dev_name,where:deleted_at IS NULL,priority:1"`
 	Device   MikrotikDevice `gorm:"foreignKey:DeviceID;constraint:OnDelete:CASCADE"`
-	Name     string         `gorm:"size:100;not null;uniqueIndex:idx_pp_dev_name,priority:2"`
+	Name     string         `gorm:"size:100;not null;uniqueIndex:idx_pp_dev_name,where:deleted_at IS NULL,priority:2"`
 
 	RateLimit string `gorm:"size:64"`
 

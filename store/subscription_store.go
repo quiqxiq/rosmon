@@ -59,6 +59,7 @@ type SubscriptionStore interface {
 	// billing_cron untuk menghindari Save partial yang menimpa field lain.
 	UpdateNextInvoiceDate(ctx context.Context, id uint, next time.Time) error
 	Delete(ctx context.Context, id uint) error
+	BatchDelete(ctx context.Context, ids []uint) (int64, error)
 	// ChurnByMonth mengembalikan jumlah subscription terminated per bulan untuk tahun tertentu.
 	ChurnByMonth(ctx context.Context, year int) ([]ChurnEntry, error)
 	// StatusCounts mengembalikan jumlah subscription per status aktif.
@@ -133,6 +134,23 @@ func (s *gormSubscriptionStore) Create(ctx context.Context, sub *model.Subscript
 	if sub.Status == "" {
 		sub.Status = "pending_install"
 	}
+
+	var existing model.Subscription
+	lookupErr := s.db.WithContext(ctx).Unscoped().
+		Where("device_id = ? AND service_type = ? AND mikrotik_username = ?", sub.DeviceID, sub.ServiceType, sub.MikrotikUsername).
+		First(&existing).Error
+	if lookupErr == nil {
+		if existing.DeletedAt.Valid {
+			sub.ID = existing.ID
+			sub.DeletedAt = gorm.DeletedAt{Valid: false}
+			err = s.db.WithContext(ctx).Unscoped().Save(sub).Error
+			sub.MikrotikPassword = orig
+			return err
+		}
+		sub.MikrotikPassword = orig
+		return ErrSubscriptionUsernameTaken
+	}
+
 	if err := s.db.WithContext(ctx).Create(sub).Error; err != nil {
 		sub.MikrotikPassword = orig
 		if isSubscriptionUniqueErr(err) {
@@ -275,6 +293,14 @@ func (s *gormSubscriptionStore) Delete(ctx context.Context, id uint) error {
 		return ErrSubscriptionNotFound
 	}
 	return nil
+}
+
+func (s *gormSubscriptionStore) BatchDelete(ctx context.Context, ids []uint) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	res := s.db.WithContext(ctx).Where("id IN ?", ids).Delete(&model.Subscription{})
+	return res.RowsAffected, res.Error
 }
 
 func (s *gormSubscriptionStore) ChurnByMonth(ctx context.Context, year int) ([]ChurnEntry, error) {

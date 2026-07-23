@@ -10,6 +10,7 @@ import { hasExpiredMonitor } from '../../_shared/derive'
 export type HotspotProfileViewModel = {
   id: string
   name: string
+  role?: string
   rateLimit: string
   sharedUsers: string
   addressPool: string
@@ -29,6 +30,7 @@ export function toProfileViewModel(raw: ProfileWithMeta): HotspotProfileViewMode
   return {
     id: raw.id,
     name: raw.name,
+    role: raw.role,
     rateLimit: raw.rate_limit ?? '',
     sharedUsers: raw.shared_users ?? '',
     addressPool: raw.address_pool ?? '',

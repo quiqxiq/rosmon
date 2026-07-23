@@ -28,10 +28,11 @@ import {
   DataTableToolbar,
   type MobileCardDetail,
 } from '@/components/data-table'
-import { Badge } from '@/components/ui/badge'
 import { type PPPSecret } from '../api/schema'
 import { columns } from './columns'
 import { DataTableRowActions } from './data-table-row-actions'
+
+import { DataTableBulkActions } from './data-table-bulk-actions'
 
 type PPPSecretsTableProps = {
   data: PPPSecret[]
@@ -44,7 +45,11 @@ const STATUS_OPTIONS = [
 
 export function PPPSecretsTable({ data }: PPPSecretsTableProps) {
   const [rowSelection, setRowSelection] = useState({})
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
+    // Status is shown as a coloured dot on the Username cell; the column
+    // itself stays hidden and only powers the "Status" faceted filter.
+    status: false,
+  })
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
   const [pagination, setPagination] = useState<PaginationState>({
@@ -96,6 +101,7 @@ export function PPPSecretsTable({ data }: PPPSecretsTableProps) {
           { columnId: 'profile', title: 'Profile', options: profileOptions },
         ]}
       />
+      <DataTableBulkActions table={table} />
       <div className='hidden overflow-hidden rounded-md border md:block'>
         <Table>
           <TableHeader>
@@ -160,17 +166,19 @@ export function PPPSecretsTable({ data }: PPPSecretsTableProps) {
           table={table}
           renderPrimary={(row) => {
             const s = row.original
+            const enabled = !s.disabled
             return (
-              <div className='flex min-w-0 items-start gap-2'>
+              <div className='flex min-w-0 items-center gap-2'>
+                <span
+                  className={cn(
+                    'inline-block size-2 shrink-0 rounded-full',
+                    enabled ? 'bg-emerald-500' : 'bg-red-500'
+                  )}
+                  title={enabled ? 'Enabled' : 'Disabled'}
+                />
                 <span className='min-w-0 flex-1 truncate font-semibold'>
                   {s.name}
                 </span>
-                <Badge
-                  variant={s.disabled ? 'offline' : 'online'}
-                  className='shrink-0 text-[10px] capitalize'
-                >
-                  {s.disabled ? 'disabled' : 'enabled'}
-                </Badge>
               </div>
             )
           }}

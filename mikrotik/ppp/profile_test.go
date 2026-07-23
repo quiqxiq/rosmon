@@ -11,8 +11,6 @@ import (
 func TestProfileAdd_sendsAllNewArgs(t *testing.T) {
 	skipIfRace(t)
 	cli, srv := newPPPClientWithReplies(t, "/ppp/profile/add", tcpmock.DoneReply("=ret=*3"))
-	dis := false
-
 	id, err := cli.ProfileAdd(testCtx(t), ppp.ProfileAddArgs{
 		Name:           "vip",
 		LocalAddr:      "10.0.0.1",
@@ -23,7 +21,6 @@ func TestProfileAdd_sendsAllNewArgs(t *testing.T) {
 		ParentQueue:    "global",
 		OnUp:           ":log info up",
 		OnDown:         ":log info down",
-		Disabled:       &dis,
 		Comment:        "premium",
 	})
 	require.NoErrorf(t, err, "received=%v", srv.Received())
@@ -39,7 +36,6 @@ func TestProfileAdd_sendsAllNewArgs(t *testing.T) {
 	require.Contains(t, got, "=parent-queue=global")
 	require.Contains(t, got, "=on-up=:log info up")
 	require.Contains(t, got, "=on-down=:log info down")
-	require.Contains(t, got, "=disabled=no")
 	require.Contains(t, got, "=comment=premium")
 }
 
@@ -47,19 +43,16 @@ func TestProfileSet_sparseSendsOnlyProvided(t *testing.T) {
 	skipIfRace(t)
 	cli, srv := newPPPClientWithReplies(t, "/ppp/profile/set", tcpmock.DoneReply())
 	onUp := ":log info"
-	disabled := true
 
 	err := cli.ProfileSet(testCtx(t), ppp.ProfileSetArgs{
-		ID:       "*3",
-		OnUp:     &onUp,
-		Disabled: &disabled,
+		ID:   "*3",
+		OnUp: &onUp,
 	})
 	require.NoError(t, err)
 
 	got := srv.AssertReceived(t, tcpmock.MatchCommand("/ppp/profile/set"), "profile set sparse")
 	require.Contains(t, got, "=numbers=*3")
 	require.Contains(t, got, "=on-up=:log info")
-	require.Contains(t, got, "=disabled=yes")
 	require.NotContains(t, got, "=session-timeout=")
 	require.NotContains(t, got, "=idle-timeout=")
 	require.NotContains(t, got, "=parent-queue=")

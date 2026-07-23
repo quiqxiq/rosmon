@@ -55,11 +55,12 @@ export async function addHotspotProfile(
 ): Promise<AddResult> {
   const payload = {
     name: params.name,
-    role: "voucher",
+    role: params.role ?? "voucher",
     rate_limit: params.rate_limit,
     address_pool: params.address_pool,
     shared_users: params.shared_users === 'unlimited' ? 0 : params.shared_users ? Number(params.shared_users) : undefined,
     parent_queue: params.parent_queue,
+    price_monthly: params.price,
     price: params.price,
     sell_price: params.selling_price,
     validity: params.validity,
@@ -79,10 +80,12 @@ export async function updateHotspotProfile(
 ): Promise<void> {
   const payload = {
     name: params.name,
+    role: params.role,
     rate_limit: params.rate_limit,
     address_pool: params.address_pool,
     shared_users: params.shared_users === 'unlimited' ? 0 : params.shared_users ? Number(params.shared_users) : undefined,
     parent_queue: params.parent_queue,
+    price_monthly: params.price,
     price: params.price,
     sell_price: params.selling_price,
     validity: params.validity,

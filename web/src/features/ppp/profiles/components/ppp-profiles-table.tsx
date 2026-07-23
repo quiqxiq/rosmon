@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import {
   type SortingState,
+  type VisibilityState,
   type ColumnFiltersState,
   type PaginationState,
   flexRender,
@@ -27,7 +28,6 @@ import {
   DataTableToolbar,
   type MobileCardDetail,
 } from '@/components/data-table'
-import { Badge } from '@/components/ui/badge'
 import { type RouterPPPProfile } from '../api/schema'
 import { columns } from './columns'
 import { DataTableRowActions } from './data-table-row-actions'
@@ -43,6 +43,11 @@ const STATUS_OPTIONS = [
 
 export function PPPProfilesTable({ data }: PPPProfilesTableProps) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
+    // Status is shown as a coloured dot on the Name cell; the column itself
+    // stays hidden and only powers the "Status" faceted filter.
+    status: false,
+  })
   const [sorting, setSorting] = useState<SortingState>([])
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -57,10 +62,12 @@ export function PPPProfilesTable({ data }: PPPProfilesTableProps) {
       sorting,
       pagination,
       columnFilters,
+      columnVisibility,
     },
     onPaginationChange: setPagination,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
     getPaginationRowModel: getPaginationRowModel(),
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -139,17 +146,19 @@ export function PPPProfilesTable({ data }: PPPProfilesTableProps) {
           table={table}
           renderPrimary={(row) => {
             const p = row.original
+            const enabled = !p.disabled
             return (
-              <div className='flex min-w-0 items-start gap-2'>
+              <div className='flex min-w-0 items-center gap-2'>
+                <span
+                  className={cn(
+                    'inline-block size-2 shrink-0 rounded-full',
+                    enabled ? 'bg-emerald-500' : 'bg-red-500'
+                  )}
+                  title={enabled ? 'Enabled' : 'Disabled'}
+                />
                 <span className='min-w-0 flex-1 truncate font-semibold'>
                   {p.name}
                 </span>
-                <Badge
-                  variant={p.disabled ? 'offline' : 'online'}
-                  className='shrink-0 text-[10px] capitalize'
-                >
-                  {p.disabled ? 'disabled' : 'enabled'}
-                </Badge>
               </div>
             )
           }}

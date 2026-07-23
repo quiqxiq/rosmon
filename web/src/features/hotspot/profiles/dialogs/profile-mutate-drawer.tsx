@@ -49,6 +49,7 @@ const PARENT_QUEUE_OPTIONS = ['none', 'global', 'hs-parent']
 
 const hotspotProfileSchema = z.object({
   name: z.string(),
+  role: z.string(),
   rate_limit: z.string(),
   shared_users: z.string(),
   parent_queue: z.string(),
@@ -72,6 +73,7 @@ function defaultValues(
 ): HotspotProfileFormValues {
   return {
     name: target?.name ?? '',
+    role: target?.role ?? 'voucher',
     rate_limit: target?.rateLimit ?? '1M/1M',
     shared_users: target?.sharedUsers ?? '1',
     parent_queue: target?.parentQueue ?? 'none',
@@ -136,6 +138,7 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
   const onSubmit = (values: HotspotProfileFormValues) => {
     const payload: HotspotProfileParams = {
       name: values.name.trim(),
+      role: values.role,
       rate_limit: values.rate_limit || undefined,
       shared_users: values.shared_users || undefined,
       parent_queue: values.parent_queue || undefined,
@@ -193,33 +196,56 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
           className='flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5'
           onSubmit={form.handleSubmit(onSubmit)}
         >
-          {/* Name */}
-          <FormField
-            control={form.control}
-            name='name'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Name</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder='1jam-1k'
-                    autoComplete='off'
-                    disabled={isEdit}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* Name + Role */}
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0'>
+            <FormField
+              control={form.control}
+              name='name'
+              render={({ field }) => (
+                <FormItem className='min-w-0'>
+                  <FormLabel>Name</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder='1jam-1k'
+                      autoComplete='off'
+                      disabled={isEdit}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name='role'
+              render={({ field }) => (
+                <FormItem className='min-w-0'>
+                  <FormLabel>Role Profil</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger className='w-full min-w-0'>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value='voucher'>Voucher (Expiry)</SelectItem>
+                      <SelectItem value='permanent'>Permanent (Bulanan)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
           {/* Rate Limit + Validity */}
-          <div className='grid grid-cols-2 gap-3'>
+          <div className='grid grid-cols-2 gap-3 min-w-0'>
             <FormField
               control={form.control}
               name='rate_limit'
               render={({ field }) => (
-                <FormItem>
+                <FormItem className='min-w-0'>
                   <FormLabel>Rate Limit</FormLabel>
                   <FormControl>
                     <Input placeholder='1M/1M' {...field} />
@@ -232,7 +258,7 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
               control={form.control}
               name='validity'
               render={({ field }) => (
-                <FormItem>
+                <FormItem className='min-w-0'>
                   <FormLabel>Validity</FormLabel>
                   <FormControl>
                     <Input placeholder='1h, 1d, 7d, 30d' {...field} />
@@ -244,12 +270,12 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
           </div>
 
           {/* Price + Selling Price */}
-          <div className='grid grid-cols-2 gap-3'>
+          <div className='grid grid-cols-2 gap-3 min-w-0'>
             <FormField
               control={form.control}
               name='price'
               render={({ field }) => (
-                <FormItem>
+                <FormItem className='min-w-0'>
                   <FormLabel>Price</FormLabel>
                   <FormControl>
                     <Input type='number' min={0} {...field} />
@@ -262,7 +288,7 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
               control={form.control}
               name='selling_price'
               render={({ field }) => (
-                <FormItem>
+                <FormItem className='min-w-0'>
                   <FormLabel>Selling Price</FormLabel>
                   <FormControl>
                     <Input type='number' min={0} {...field} />
@@ -274,16 +300,16 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
           </div>
 
           {/* Shared Users + Exp Mode */}
-          <div className='grid grid-cols-2 gap-3'>
+          <div className='grid grid-cols-2 gap-3 min-w-0'>
             <FormField
               control={form.control}
               name='shared_users'
               render={({ field }) => (
-                <FormItem>
+                <FormItem className='min-w-0'>
                   <FormLabel>Shared Users</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className='w-full min-w-0'>
                         <SelectValue />
                       </SelectTrigger>
                     </FormControl>
@@ -303,11 +329,11 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
               control={form.control}
               name='expire_mode'
               render={({ field }) => (
-                <FormItem>
+                <FormItem className='min-w-0'>
                   <FormLabel>Exp Mode</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className='w-full min-w-0'>
                         <SelectValue />
                       </SelectTrigger>
                     </FormControl>
@@ -326,20 +352,21 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
           </div>
 
           {/* Address Pool + Parent Queue */}
-          <div className='grid grid-cols-2 gap-3'>
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0'>
             <FormField
               control={form.control}
               name='address_pool'
               render={({ field }) => (
-                <FormItem>
+                <FormItem className='min-w-0'>
                   <FormLabel>Address Pool</FormLabel>
                   <FormControl>
                     <InputCombobox
                       options={addressPoolOptions}
                       value={field.value}
                       onValueChange={field.onChange}
-                      placeholder='Pilih atau ketik pool'
+                      placeholder='Pilih/ketik pool'
                       isLoading={poolsLoading}
+                      className='w-full min-w-0'
                     />
                   </FormControl>
                   <FormMessage />
@@ -350,11 +377,11 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
               control={form.control}
               name='parent_queue'
               render={({ field }) => (
-                <FormItem>
+                <FormItem className='min-w-0'>
                   <FormLabel>Parent Queue</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className='w-full min-w-0'>
                         <SelectValue />
                       </SelectTrigger>
                     </FormControl>

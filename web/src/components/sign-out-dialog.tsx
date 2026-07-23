@@ -22,10 +22,11 @@ export function SignOutDialog({ open, onOpenChange }: SignOutDialogProps) {
     // Always clear local state and redirect immediately
     // (useLogout.onSettled also calls clearSession, but we navigate
     //  right away for instant UX — the mutation runs in background)
-    const currentPath = location.href
+    const currentPath = location.pathname || location.href
+    const safeRedirect = currentPath.includes('/admin') ? '/dashboard' : currentPath
     navigate({
       to: '/sign-in',
-      search: { redirect: currentPath },
+      search: { redirect: safeRedirect },
       replace: true,
     })
   }

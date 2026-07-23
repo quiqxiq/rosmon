@@ -12,13 +12,19 @@ type SystemScheduler struct{ Sys *system.Client }
 func NewSystemScheduler(sys *system.Client) *SystemScheduler { return &SystemScheduler{Sys: sys} }
 
 func (h *SystemScheduler) Register(g *gin.RouterGroup) {
+	h.RegisterSplit(g, g)
+}
+
+func (h *SystemScheduler) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
 	mk := func(c *gin.Context) *SystemScheduler { return NewSystemScheduler(mustClients(c).Sys) }
-	s := g.Group("/system/schedulers")
-	s.GET("", func(c *gin.Context) { mk(c).List(c) })
-	s.GET("/count", func(c *gin.Context) { mk(c).Count(c) })
-	s.POST("", func(c *gin.Context) { mk(c).Create(c) })
-	s.PUT("/:id", func(c *gin.Context) { mk(c).Update(c) })
-	s.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
+	r := readGroup.Group("/system/schedulers")
+	r.GET("", func(c *gin.Context) { mk(c).List(c) })
+	r.GET("/count", func(c *gin.Context) { mk(c).Count(c) })
+
+	w := writeGroup.Group("/system/schedulers")
+	w.POST("", func(c *gin.Context) { mk(c).Create(c) })
+	w.PUT("/:id", func(c *gin.Context) { mk(c).Update(c) })
+	w.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
 }
 
 func (h *SystemScheduler) List(c *gin.Context) {

@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Download, Loader2, RefreshCw, ServerOff, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useActiveRouterId } from '@/stores/active-router-store'
+import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import { Main } from '@/components/layout/main'
 import { exportHotspotUsersCSV } from './api/service'
@@ -25,6 +26,8 @@ import type { GeneratedVoucher } from '@/features/voucher/generate/data/schema'
 export function HotspotUsers() {
   const routerId = useActiveRouterId()
   const usersQuery = useHotspotUsers(routerId ?? 0)
+  const role = useAuthStore((s) => s.auth.user?.role)
+  const isReadOnly = role === 'viewer'
   // SSE drives the live indicator + auto-refresh. Connects only when a
   // router is selected; `useSSE` handles the parked state when the id
   // is null.
@@ -155,14 +158,16 @@ export function HotspotUsers() {
               <Download className='size-4' />
               Export
             </Button>
-            <Button
-              size='sm'
-              className='gap-1.5'
-              onClick={() => openDialog('add')}
-            >
-              <UserPlus className='size-4' />
-              Add User
-            </Button>
+            {!isReadOnly && (
+              <Button
+                size='sm'
+                className='gap-1.5'
+                onClick={() => openDialog('add')}
+              >
+                <UserPlus className='size-4' />
+                Add User
+              </Button>
+            )}
           </div>
         </div>
         {usersQuery.isError ? (

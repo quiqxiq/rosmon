@@ -14,13 +14,19 @@ type NetworkPool struct{ Net *network.Client }
 func NewNetworkPool(net *network.Client) *NetworkPool { return &NetworkPool{Net: net} }
 
 func (h *NetworkPool) Register(g *gin.RouterGroup) {
+	h.RegisterSplit(g, g)
+}
+
+func (h *NetworkPool) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
 	mk := func(c *gin.Context) *NetworkPool { return NewNetworkPool(mustClients(c).Net) }
-	p := g.Group("/network/pools")
-	p.GET("", func(c *gin.Context) { mk(c).List(c) })
-	p.GET("/by-name/:name", func(c *gin.Context) { mk(c).GetByName(c) })
-	p.POST("", func(c *gin.Context) { mk(c).Create(c) })
-	p.PUT("/:id", func(c *gin.Context) { mk(c).Update(c) })
-	p.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
+	r := readGroup.Group("/network/pools")
+	r.GET("", func(c *gin.Context) { mk(c).List(c) })
+	r.GET("/by-name/:name", func(c *gin.Context) { mk(c).GetByName(c) })
+
+	w := writeGroup.Group("/network/pools")
+	w.POST("", func(c *gin.Context) { mk(c).Create(c) })
+	w.PUT("/:id", func(c *gin.Context) { mk(c).Update(c) })
+	w.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
 }
 
 // List → §1.10.

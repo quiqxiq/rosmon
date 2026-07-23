@@ -22,11 +22,15 @@ func NewHotspotVoucher(wf *workflows.Clients) *HotspotVoucher {
 }
 
 func (h *HotspotVoucher) Register(g *gin.RouterGroup) {
+	h.RegisterSplit(g, g)
+}
+
+func (h *HotspotVoucher) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
 	mk := func(c *gin.Context) *HotspotVoucher {
 		cs := mustClients(c)
 		return NewHotspotVoucher(cs.WF)
 	}
-	g.POST("/hotspot/vouchers/generate", func(c *gin.Context) { mk(c).Generate(c) })
+	writeGroup.POST("/hotspot/vouchers/generate", func(c *gin.Context) { mk(c).Generate(c) })
 }
 
 // Generate POST /hotspot/vouchers/generate.

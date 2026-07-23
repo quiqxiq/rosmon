@@ -1,6 +1,7 @@
 import { Loader2, RefreshCw, ServerOff, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useActiveRouterId } from '@/stores/active-router-store'
+import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import { Main } from '@/components/layout/main'
 import { usePPPSecrets } from './api/queries'
@@ -12,6 +13,8 @@ export function PPPSecrets() {
   const routerId = useActiveRouterId()
   const secretsQuery = usePPPSecrets(routerId ?? 0)
   const openDialog = useSecretsDialogStore((s) => s.open)
+  const role = useAuthStore((s) => s.auth.user?.role)
+  const isReadOnly = role === 'viewer'
 
   const secrets = secretsQuery.data ?? []
   const totalCount = secrets.length
@@ -61,14 +64,16 @@ export function PPPSecrets() {
               )}
               Refresh
             </Button>
-            <Button
-              size='sm'
-              className='gap-1.5'
-              onClick={() => openDialog('add')}
-            >
-              <UserPlus className='size-4' />
-              Add Secret
-            </Button>
+            {!isReadOnly && (
+              <Button
+                size='sm'
+                className='gap-1.5'
+                onClick={() => openDialog('add')}
+              >
+                <UserPlus className='size-4' />
+                Add Secret
+              </Button>
+            )}
           </div>
         </div>
         {secretsQuery.isError ? (

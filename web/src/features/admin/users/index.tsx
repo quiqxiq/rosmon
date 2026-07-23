@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { Loader2, Plus, RefreshCw, ShieldCheck, UserCog } from 'lucide-react'
+import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Main } from '@/components/layout/main'
@@ -10,6 +11,8 @@ import { useAdminUsersDialogStore } from './store/admin-users-dialog-store'
 
 export function AdminUsers() {
   const openDialog = useAdminUsersDialogStore((s) => s.open)
+  const role = useAuthStore((s) => s.auth.user?.role)
+  const isAdmin = role === 'admin'
   const { data, isLoading, isError, error, isFetching, refetch } =
     useAdminUsers()
 
@@ -54,14 +57,16 @@ export function AdminUsers() {
               )}
               Refresh
             </Button>
-            <Button
-              size='sm'
-              className='gap-1.5'
-              onClick={() => openDialog('add')}
-            >
-              <Plus className='size-4' />
-              Add User
-            </Button>
+            {isAdmin && (
+              <Button
+                size='sm'
+                className='gap-1.5'
+                onClick={() => openDialog('add')}
+              >
+                <Plus className='size-4' />
+                Add User
+              </Button>
+            )}
           </div>
         </div>
 

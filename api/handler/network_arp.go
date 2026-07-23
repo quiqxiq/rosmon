@@ -12,10 +12,16 @@ type NetworkARP struct{ Net *network.Client }
 func NewNetworkARP(net *network.Client) *NetworkARP { return &NetworkARP{Net: net} }
 
 func (h *NetworkARP) Register(g *gin.RouterGroup) {
+	h.RegisterSplit(g, g)
+}
+
+func (h *NetworkARP) RegisterSplit(readGroup, writeGroup *gin.RouterGroup) {
 	mk := func(c *gin.Context) *NetworkARP { return NewNetworkARP(mustClients(c).Net) }
-	a := g.Group("/network/arp")
-	a.GET("", func(c *gin.Context) { mk(c).List(c) })
-	a.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
+	r := readGroup.Group("/network/arp")
+	r.GET("", func(c *gin.Context) { mk(c).List(c) })
+
+	w := writeGroup.Group("/network/arp")
+	w.DELETE("/:id", func(c *gin.Context) { mk(c).Delete(c) })
 }
 
 // List ?mac=<mac> wajib — RouterOS /ip/arp/print di mikrotik sub-client

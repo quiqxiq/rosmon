@@ -66,6 +66,11 @@ export async function removeSubscription(id: number): Promise<void> {
   await apiClient.delete(`${base}/${id}`)
 }
 
+export async function batchRemoveSubscriptions(ids: number[]): Promise<number> {
+  const res = await apiClient.post<Envelope<{ deleted: number }>>(`${base}/batch-delete`, { ids })
+  return unwrap(res.data).deleted
+}
+
 // revealSubscriptionPassword — admin/operator only (backend gated). Password
 // MikroTik (PPPoE/hotspot) plaintext, didekripsi dari DB.
 export async function revealSubscriptionPassword(id: number): Promise<string> {
