@@ -1,39 +1,51 @@
 # VPS Production Override
 # Digunakan di VPS bersama docker/docker-compose.yml:
 #
-#   docker compose -f docker/docker-compose.yml -f docker/docker-compose.vps.yml up -d
+#   docker compose -f docker/docker-compose.yml -f docker/docker-compose.vps.yml up -d --build
 #
-# Perbedaan dari docker-compose.yml standar:
-#   - frontend: port 8081:80 (bukan 80:80) karena Nginx host yang handle port 80
-#   - backend: bind ke 127.0.0.1:8088 (port host) → 8080 (port container)
-#   - CORS_ALLOWED_ORIGINS di-set ke domain production
-#   - GO_SERVICE_URL di-set ke domain production (untuk webhook MikroTik)
 
 services:
-  backend:
+  postgres:
+    profiles: ["donotstart"]
+  influxdb3:
+    profiles: ["donotstart"]
 
+  backend:
+    depends_on: []
+    ports:
+      - "127.0.0.1:8088:8080"
+    networks:
+      - default
+      - db-tools_default
     env_file:
       - ../.env
     environment:
-      # Override .env dengan nilai yang spesifik untuk VPS/Docker network
-      - DB_HOST=postgres
+      # Override .env dengan nilai spesifik untuk network docker VPS db-tools_default
+      - DB_HOST=postgres-db
       - DB_PORT=5432
       - DB_NAME=mikhmon
-      - DB_USER=mikhmon
-      - DB_PASSWORD=secret
+      - DB_USER=postgres
+      - DB_PASSWORD=JituPasswordPostgres123!
       - DB_SSLMODE=disable
-      - INFLUX_ENABLED=false
-      - INFLUX_HOST=http://influxdb3:8181
+      - INFLUX_ENABLED=true
+      - INFLUX_HOST=http://influxdb-db:8181
+      - INFLUX_TOKEN=apiv3_DYEDNDoSz2X9YPCt5IpB0v70n5giIQ4ZQmzW7ttaYSZXw4s8KjnO848p4bzrCaZymB44ShbtLPUD0lhWASRSGA
       - INFLUX_DATABASE=mikhmon
       - HTTP_BIND=0.0.0.0:8080
       - CORS_ALLOWED_ORIGINS=https://rosmon.ghaibnet.co.id
       - GO_SERVICE_URL=https://rosmon.ghaibnet.co.id
-      # JWT, DEVICE_PASSWORD_KEY, ADMIN_* dibaca dari .env via env_file di atas
 
   frontend:
+    ports:
+      - "127.0.0.1:8081:80"
     build:
       context: ../web
       dockerfile: Dockerfile
       args:
         - VITE_API_URL=
+
+networks:
+  db-tools_default:
+    external: true
+
 
