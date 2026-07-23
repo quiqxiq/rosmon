@@ -5,13 +5,8 @@
 #
 
 services:
-  postgres:
-    profiles: ["donotstart"]
-  influxdb3:
-    profiles: ["donotstart"]
-
   backend:
-    depends_on: []
+    depends_on: !reset []
     ports:
       - "127.0.0.1:8088:8080"
     networks:
