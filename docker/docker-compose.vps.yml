@@ -5,9 +5,14 @@
 #
 
 services:
+  postgres:
+    profiles: ["disabled"]
+  influxdb3:
+    profiles: ["disabled"]
+
   backend:
     depends_on: !reset []
-    ports:
+    ports: !reset
       - "127.0.0.1:8088:8080"
     networks:
       - default
@@ -31,7 +36,7 @@ services:
       - GO_SERVICE_URL=https://rosmon.ghaibnet.co.id
 
   frontend:
-    ports:
+    ports: !reset
       - "127.0.0.1:8081:80"
     build:
       context: ../web
@@ -42,5 +47,6 @@ services:
 networks:
   db-tools_default:
     external: true
+
 
 
