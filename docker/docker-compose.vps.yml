@@ -11,16 +11,13 @@ services:
     profiles: ["disabled"]
 
   backend:
-    depends_on: !reset []
-    ports: !reset
-      - "127.0.0.1:8088:8080"
+    depends_on: []
     networks:
       - default
       - db-tools_default
     env_file:
       - ../.env
     environment:
-      # Override .env dengan nilai spesifik untuk network docker VPS db-tools_default
       - DB_HOST=postgres-db
       - DB_PORT=5432
       - DB_NAME=mikhmon
@@ -36,8 +33,6 @@ services:
       - GO_SERVICE_URL=https://rosmon.ghaibnet.co.id
 
   frontend:
-    ports: !reset
-      - "127.0.0.1:8081:80"
     build:
       context: ../web
       dockerfile: Dockerfile
@@ -47,6 +42,3 @@ services:
 networks:
   db-tools_default:
     external: true
-
-
-
