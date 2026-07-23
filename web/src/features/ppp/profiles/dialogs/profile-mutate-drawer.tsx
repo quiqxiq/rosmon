@@ -113,11 +113,13 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
 
   // Build combobox options from pool list — value = pool name (what MikroTik expects).
   const addressPoolOptions = useMemo(
-    () =>
-      (pools ?? []).map((p) => ({
+    () => [
+      { label: '(Tanpa Pool / None)', value: '' },
+      ...(pools ?? []).map((p) => ({
         label: p.name,
         value: p.name,
       })),
+    ],
     [pools],
   )
 
@@ -130,8 +132,8 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
 
   const onSubmit = (values: ProfileFormValues) => {
     const common = {
-      local_address: values.local_address?.trim() || undefined,
-      remote_address: values.remote_address?.trim() || undefined,
+      local_address: values.local_address?.trim() ?? '',
+      remote_address: values.remote_address?.trim() ?? '',
       rate_limit: values.rate_limit?.trim() || undefined,
       session_timeout: values.session_timeout?.trim() || undefined,
       idle_timeout: values.idle_timeout?.trim() || undefined,
@@ -200,7 +202,7 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
             control={form.control}
             name='name'
             render={({ field }) => (
-              <FormItem>
+              <FormItem className='min-w-0'>
                 <FormLabel>Name</FormLabel>
                 <FormControl>
                   <Input
@@ -219,7 +221,7 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
             control={form.control}
             name='rate_limit'
             render={({ field }) => (
-              <FormItem>
+              <FormItem className='min-w-0'>
                 <FormLabel>Rate Limit</FormLabel>
                 <FormControl>
                   <Input placeholder='10M/10M' autoComplete='off' {...field} />
@@ -233,13 +235,13 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
           />
 
           {/* Address row */}
-          <div className='grid grid-cols-2 gap-3'>
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0'>
             {/* Local Address */}
             <FormField
               control={form.control}
               name='local_address'
               render={({ field }) => (
-                <FormItem>
+                <FormItem className='min-w-0'>
                   <FormLabel>Local Address</FormLabel>
                   <FormControl>
                     <InputCombobox
@@ -248,6 +250,7 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
                       onValueChange={field.onChange}
                       placeholder='IP atau pool...'
                       isLoading={poolsLoading}
+                      className='w-full min-w-0'
                     />
                   </FormControl>
                   <FormDescription className='text-xs'>
@@ -263,7 +266,7 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
               control={form.control}
               name='remote_address'
               render={({ field }) => (
-                <FormItem>
+                <FormItem className='min-w-0'>
                   <FormLabel>Remote Address</FormLabel>
                   <FormControl>
                     <InputCombobox
@@ -272,6 +275,7 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
                       onValueChange={field.onChange}
                       placeholder='IP atau pool...'
                       isLoading={poolsLoading}
+                      className='w-full min-w-0'
                     />
                   </FormControl>
                   <FormDescription className='text-xs'>

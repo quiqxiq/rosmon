@@ -120,7 +120,10 @@ function DbProfileForm({ mode, target, onClose }: DbProfileFormProps) {
 
   const { data: pools, isLoading: poolsLoading } = usePools(routerId)
   const addressPoolOptions = useMemo(
-    () => (pools ?? []).map((p) => ({ label: p.name, value: p.name })),
+    () => [
+      { label: '(Tanpa Pool / None)', value: '' },
+      ...(pools ?? []).map((p) => ({ label: p.name, value: p.name })),
+    ],
     [pools],
   )
 
@@ -212,7 +215,7 @@ function DbProfileForm({ mode, target, onClose }: DbProfileFormProps) {
             control={form.control}
             name='name'
             render={({ field }) => (
-              <FormItem>
+              <FormItem className='min-w-0'>
                 <FormLabel>Name</FormLabel>
                 <FormControl>
                   <Input
@@ -228,12 +231,12 @@ function DbProfileForm({ mode, target, onClose }: DbProfileFormProps) {
           />
 
           {/* Rate Limit + Price */}
-          <div className='grid grid-cols-2 gap-3'>
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0'>
             <FormField
               control={form.control}
               name='rate_limit'
               render={({ field }) => (
-                <FormItem>
+                <FormItem className='min-w-0'>
                   <FormLabel>Rate Limit (rx/tx)</FormLabel>
                   <FormControl>
                     <Input placeholder='10M/10M' {...field} />
@@ -246,7 +249,7 @@ function DbProfileForm({ mode, target, onClose }: DbProfileFormProps) {
               control={form.control}
               name='price_monthly'
               render={({ field }) => (
-                <FormItem>
+                <FormItem className='min-w-0'>
                   <FormLabel>Price / bulan (IDR)</FormLabel>
                   <FormControl>
                     <Input type='number' min='0' placeholder='150000' {...field} />
@@ -258,12 +261,12 @@ function DbProfileForm({ mode, target, onClose }: DbProfileFormProps) {
           </div>
 
           {/* Local + Remote Address */}
-          <div className='grid grid-cols-2 gap-3'>
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0'>
             <FormField
               control={form.control}
               name='local_address'
               render={({ field }) => (
-                <FormItem>
+                <FormItem className='min-w-0'>
                   <FormLabel>Local Address</FormLabel>
                   <FormControl>
                     <InputCombobox
@@ -272,6 +275,7 @@ function DbProfileForm({ mode, target, onClose }: DbProfileFormProps) {
                       onValueChange={field.onChange}
                       placeholder='10.0.0.1'
                       isLoading={poolsLoading}
+                      className='w-full min-w-0'
                     />
                   </FormControl>
                   <FormMessage />
@@ -282,7 +286,7 @@ function DbProfileForm({ mode, target, onClose }: DbProfileFormProps) {
               control={form.control}
               name='remote_address'
               render={({ field }) => (
-                <FormItem>
+                <FormItem className='min-w-0'>
                   <FormLabel>Remote Address</FormLabel>
                   <FormControl>
                     <InputCombobox
@@ -291,6 +295,7 @@ function DbProfileForm({ mode, target, onClose }: DbProfileFormProps) {
                       onValueChange={field.onChange}
                       placeholder='pool name / IP'
                       isLoading={poolsLoading}
+                      className='w-full min-w-0'
                     />
                   </FormControl>
                   <FormMessage />

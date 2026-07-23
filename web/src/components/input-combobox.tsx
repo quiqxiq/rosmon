@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { CheckIcon, ChevronsUpDownIcon, Loader2Icon } from 'lucide-react'
+import { CheckIcon, ChevronsUpDownIcon, Loader2Icon, XIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -40,35 +40,6 @@ type InputComboboxProps = {
   className?: string
 }
 
-/**
- * InputCombobox — free-text input with an optional suggestion dropdown.
- *
- * The user can type any arbitrary value directly; the dropdown is a
- * convenience list of known options fetched by the caller. The component
- * itself has no data-fetching logic — pass options and isLoading from
- * wherever the data comes from.
- *
- * Built on top of shadcn Popover + Command so it integrates seamlessly
- * with the existing design system.
- *
- * @example
- * // With react-hook-form + FormField:
- * <FormField control={form.control} name="remote_address" render={({ field }) => (
- *   <FormItem>
- *     <FormLabel>Remote Address</FormLabel>
- *     <FormControl>
- *       <InputCombobox
- *         options={poolOptions}
- *         value={field.value ?? ''}
- *         onValueChange={field.onChange}
- *         placeholder="Ketik IP atau pilih pool..."
- *         isLoading={poolsLoading}
- *       />
- *     </FormControl>
- *     <FormMessage />
- *   </FormItem>
- * )} />
- */
 export function InputCombobox({
   options,
   value,
@@ -114,6 +85,13 @@ export function InputCombobox({
     inputRef.current?.focus()
   }
 
+  const handleClear = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setInputValue('')
+    onValueChange('')
+    setOpen(false)
+  }
+
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
       setOpen(false)
@@ -137,12 +115,10 @@ export function InputCombobox({
         {/* Wrapper div acts as the visible "input + button" control. */}
         <div
           className={cn(
-            'flex h-9 w-full items-center rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50',
+            'flex h-9 w-full min-w-0 items-center rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50',
             disabled && 'cursor-not-allowed opacity-50',
             className,
           )}
-          // Prevent Popover from toggling on the wrapper click — we only
-          // want it to open via the input focus or the chevron button.
           onClick={(e) => e.preventDefault()}
         >
           <input
@@ -155,8 +131,21 @@ export function InputCombobox({
             placeholder={placeholder}
             disabled={disabled || isLoading}
             autoComplete='off'
-            className='h-full flex-1 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed'
+            className='h-full flex-1 min-w-0 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed'
           />
+          {inputValue && !disabled && !isLoading && (
+            <Button
+              type='button'
+              variant='ghost'
+              size='icon'
+              className='h-full w-7 shrink-0 px-1 text-muted-foreground hover:text-foreground'
+              onClick={handleClear}
+              tabIndex={-1}
+              aria-label='Clear value'
+            >
+              <XIcon className='size-3.5' />
+            </Button>
+          )}
           <Button
             type='button'
             variant='ghost'

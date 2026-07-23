@@ -142,7 +142,10 @@ function HsDbProfileForm({ mode, target, onClose }: HsDbProfileFormProps) {
 
   const { data: pools, isLoading: poolsLoading } = usePools(routerId)
   const addressPoolOptions = useMemo(
-    () => (pools ?? []).map((p) => ({ label: p.name, value: p.name })),
+    () => [
+      { label: '(Tanpa Pool / None)', value: '' },
+      ...(pools ?? []).map((p) => ({ label: p.name, value: p.name })),
+    ],
     [pools],
   )
 
@@ -245,7 +248,7 @@ function HsDbProfileForm({ mode, target, onClose }: HsDbProfileFormProps) {
             control={form.control}
             name='name'
             render={({ field }) => (
-              <FormItem>
+              <FormItem className='min-w-0'>
                 <FormLabel>Name</FormLabel>
                 <FormControl>
                   <Input
@@ -264,7 +267,7 @@ function HsDbProfileForm({ mode, target, onClose }: HsDbProfileFormProps) {
             control={form.control}
             name='role'
             render={({ field }) => (
-              <FormItem>
+              <FormItem className='min-w-0'>
                 <FormLabel>Role</FormLabel>
                 <Select
                   value={field.value}
@@ -272,7 +275,7 @@ function HsDbProfileForm({ mode, target, onClose }: HsDbProfileFormProps) {
                   disabled={isEdit}
                 >
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className='w-full min-w-0'>
                       <SelectValue />
                     </SelectTrigger>
                   </FormControl>
@@ -291,7 +294,7 @@ function HsDbProfileForm({ mode, target, onClose }: HsDbProfileFormProps) {
             control={form.control}
             name='rate_limit'
             render={({ field }) => (
-              <FormItem>
+              <FormItem className='min-w-0'>
                 <FormLabel>Rate Limit (rx/tx)</FormLabel>
                 <FormControl>
                   <Input placeholder='5M/5M' {...field} />
@@ -308,7 +311,7 @@ function HsDbProfileForm({ mode, target, onClose }: HsDbProfileFormProps) {
                 control={form.control}
                 name='price_monthly'
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className='min-w-0'>
                     <FormLabel>Price / bulan (IDR)</FormLabel>
                     <FormControl>
                       <Input type='number' min='0' placeholder='100000' {...field} />
@@ -321,7 +324,7 @@ function HsDbProfileForm({ mode, target, onClose }: HsDbProfileFormProps) {
                 control={form.control}
                 name='is_public'
                 render={({ field }) => (
-                  <FormItem className='flex items-center justify-between rounded-md border px-3 py-2'>
+                  <FormItem className='flex items-center justify-between rounded-md border px-3 py-2 min-w-0'>
                     <div>
                       <FormLabel className='text-sm font-medium'>
                         Public package
@@ -346,11 +349,11 @@ function HsDbProfileForm({ mode, target, onClose }: HsDbProfileFormProps) {
                 control={form.control}
                 name='expiry_mode'
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className='min-w-0'>
                     <FormLabel>Expiry Mode</FormLabel>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className='w-full min-w-0'>
                           <SelectValue />
                         </SelectTrigger>
                       </FormControl>
@@ -370,7 +373,7 @@ function HsDbProfileForm({ mode, target, onClose }: HsDbProfileFormProps) {
                 control={form.control}
                 name='validity'
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className='min-w-0'>
                     <FormLabel>Validity</FormLabel>
                     <FormControl>
                       <Input placeholder='1d' {...field} />
@@ -379,12 +382,12 @@ function HsDbProfileForm({ mode, target, onClose }: HsDbProfileFormProps) {
                   </FormItem>
                 )}
               />
-              <div className='grid grid-cols-2 gap-3'>
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0'>
                 <FormField
                   control={form.control}
                   name='price'
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className='min-w-0'>
                       <FormLabel>Cost (IDR)</FormLabel>
                       <FormControl>
                         <Input type='number' min='0' placeholder='3000' {...field} />
@@ -397,7 +400,7 @@ function HsDbProfileForm({ mode, target, onClose }: HsDbProfileFormProps) {
                   control={form.control}
                   name='sell_price'
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className='min-w-0'>
                       <FormLabel>Sell Price (IDR)</FormLabel>
                       <FormControl>
                         <Input type='number' min='0' placeholder='5000' {...field} />
@@ -411,11 +414,11 @@ function HsDbProfileForm({ mode, target, onClose }: HsDbProfileFormProps) {
                 control={form.control}
                 name='lock_mac'
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className='min-w-0'>
                     <FormLabel>Lock to MAC</FormLabel>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className='w-full min-w-0'>
                           <SelectValue />
                         </SelectTrigger>
                       </FormControl>
@@ -431,42 +434,42 @@ function HsDbProfileForm({ mode, target, onClose }: HsDbProfileFormProps) {
             </>
           )}
 
-          {/* Address Pool + Shared Users */}
-          <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0'>
-            <FormField
-              control={form.control}
-              name='address_pool'
-              render={({ field }) => (
-                <FormItem className='min-w-0'>
-                  <FormLabel>Address Pool</FormLabel>
-                  <FormControl>
-                    <InputCombobox
-                      options={addressPoolOptions}
-                      value={field.value}
-                      onValueChange={field.onChange}
-                      placeholder='hs-pool'
-                      isLoading={poolsLoading}
-                      className='w-full min-w-0'
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name='shared_users'
-              render={({ field }) => (
-                <FormItem className='min-w-0'>
-                  <FormLabel>Shared Users</FormLabel>
-                  <FormControl>
-                    <Input type='number' min='1' {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+          {/* Address Pool */}
+          <FormField
+            control={form.control}
+            name='address_pool'
+            render={({ field }) => (
+              <FormItem className='min-w-0'>
+                <FormLabel>Address Pool</FormLabel>
+                <FormControl>
+                  <InputCombobox
+                    options={addressPoolOptions}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    placeholder='hs-pool'
+                    isLoading={poolsLoading}
+                    className='w-full min-w-0'
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Shared Users */}
+          <FormField
+            control={form.control}
+            name='shared_users'
+            render={({ field }) => (
+              <FormItem className='min-w-0'>
+                <FormLabel>Shared Users</FormLabel>
+                <FormControl>
+                  <Input type='number' min='1' {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           {/* Status Autorefresh + Parent Queue */}
           <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0'>

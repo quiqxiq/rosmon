@@ -121,7 +121,10 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
 
   const { data: pools, isLoading: poolsLoading } = usePools(routerId)
   const addressPoolOptions = useMemo(
-    () => (pools ?? []).map((p) => ({ label: p.name, value: p.name })),
+    () => [
+      { label: '(Tanpa Pool / None)', value: '' },
+      ...(pools ?? []).map((p) => ({ label: p.name, value: p.name })),
+    ],
     [pools],
   )
 
@@ -142,7 +145,7 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
       rate_limit: values.rate_limit || undefined,
       shared_users: values.shared_users || undefined,
       parent_queue: values.parent_queue || undefined,
-      address_pool: values.address_pool || undefined,
+      address_pool: values.address_pool?.trim() ?? '',
       validity: values.validity || undefined,
       expire_mode: values.expire_mode || undefined,
       price: toNum(values.price),
@@ -351,53 +354,53 @@ function ProfileForm({ mode, target, onClose }: ProfileFormProps) {
             />
           </div>
 
-          {/* Address Pool + Parent Queue */}
-          <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0'>
-            <FormField
-              control={form.control}
-              name='address_pool'
-              render={({ field }) => (
-                <FormItem className='min-w-0'>
-                  <FormLabel>Address Pool</FormLabel>
+          {/* Address Pool */}
+          <FormField
+            control={form.control}
+            name='address_pool'
+            render={({ field }) => (
+              <FormItem className='min-w-0'>
+                <FormLabel>Address Pool</FormLabel>
+                <FormControl>
+                  <InputCombobox
+                    options={addressPoolOptions}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    placeholder='Pilih/ketik pool'
+                    isLoading={poolsLoading}
+                    className='w-full min-w-0'
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Parent Queue */}
+          <FormField
+            control={form.control}
+            name='parent_queue'
+            render={({ field }) => (
+              <FormItem className='min-w-0'>
+                <FormLabel>Parent Queue</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
                   <FormControl>
-                    <InputCombobox
-                      options={addressPoolOptions}
-                      value={field.value}
-                      onValueChange={field.onChange}
-                      placeholder='Pilih/ketik pool'
-                      isLoading={poolsLoading}
-                      className='w-full min-w-0'
-                    />
+                    <SelectTrigger className='w-full min-w-0'>
+                      <SelectValue />
+                    </SelectTrigger>
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name='parent_queue'
-              render={({ field }) => (
-                <FormItem className='min-w-0'>
-                  <FormLabel>Parent Queue</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger className='w-full min-w-0'>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {PARENT_QUEUE_OPTIONS.map((opt) => (
-                        <SelectItem key={opt} value={opt}>
-                          {opt}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+                  <SelectContent>
+                    {PARENT_QUEUE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt} value={opt}>
+                        {opt}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           {/* Lock User + Lock Server */}
           <div className='grid grid-cols-2 gap-3'>
