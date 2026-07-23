@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useSearch } from '@tanstack/react-router'
 import {
   Card,
@@ -10,6 +11,10 @@ import { AuthLayout } from '../auth-layout'
 import { UserAuthForm } from './components/user-auth-form'
 
 export function SignIn() {
+  useEffect(() => {
+    document.title = 'Rosmon Dashboard'
+  }, [])
+
   const { redirect } = useSearch({ from: '/(auth)/sign-in' })
 
   return (
@@ -18,7 +23,7 @@ export function SignIn() {
         <CardHeader className='flex flex-col items-center gap-2 text-center pb-2'>
           <Logo className='size-10 text-primary' />
           <CardTitle className='text-lg tracking-tight'>
-            Sign in to MIKHMON
+            Sign in to Rosmon
           </CardTitle>
         </CardHeader>
         <CardContent>

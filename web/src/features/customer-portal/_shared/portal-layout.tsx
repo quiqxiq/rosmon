@@ -1,7 +1,12 @@
+import { useEffect } from 'react'
 import { Outlet } from '@tanstack/react-router'
 import { BottomTabBar } from './bottom-tab-bar'
 
 export function PortalLayout() {
+  useEffect(() => {
+    document.title = 'Rosmon Portal'
+  }, [])
+
   return (
     // Phone-frame on desktop: content stays narrow & centered
     <div className='bg-muted/30 min-h-screen'>

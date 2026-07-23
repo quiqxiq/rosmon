@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Eye, EyeOff, Loader2, LogIn, Phone } from 'lucide-react'
 import { toast } from 'sonner'
@@ -9,6 +9,10 @@ import { usePortalAuthStore } from '@/stores/portal-auth-store'
 import { useCustomerLogin } from './api/queries'
 
 export function PortalLoginPage() {
+  useEffect(() => {
+    document.title = 'Rosmon Portal'
+  }, [])
+
   const navigate = useNavigate()
   const { setToken } = usePortalAuthStore()
   const loginMutation = useCustomerLogin()

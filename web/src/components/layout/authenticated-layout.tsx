@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Outlet } from '@tanstack/react-router'
 import { getCookie } from '@/lib/cookies'
 import { cn } from '@/lib/utils'
@@ -19,6 +20,10 @@ type AuthenticatedLayoutProps = {
 }
 
 export function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
+  useEffect(() => {
+    document.title = 'Rosmon Dashboard'
+  }, [])
+
   const defaultOpen = getCookie('sidebar_state') !== 'false'
   return (
     <SearchProvider>

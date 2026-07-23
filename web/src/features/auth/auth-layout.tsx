@@ -13,9 +13,9 @@ export function AuthLayout({ children }: AuthLayoutProps) {
             <Wifi className='size-7' />
           </div>
           <div className='text-center'>
-            <h1 className='text-xl font-extrabold tracking-tight'>MIKHMON</h1>
+            <h1 className='text-xl font-extrabold tracking-tight'>Rosmon</h1>
             <p className='text-xs text-muted-foreground'>
-              MikroTik Hotspot Monitor
+              RouterOS Monitoring &amp; Management
             </p>
           </div>
         </div>
