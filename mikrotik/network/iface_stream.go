@@ -19,11 +19,14 @@ func (c *Client) InterfaceTrafficStream(id, iface string, h func(*roslib.Sentenc
 // queueStatsProplist memperkecil payload queue stream.
 var queueStatsProplist = []string{"name", "target", "parent", "max-limit", "limit-at", "bytes", "packets", "rate", "total-rate", "queued-bytes", "queued-packets", "dropped", "disabled", "dynamic"}
 
+var interfaceStatsProplist = []string{"name", "type", "rx-byte", "tx-byte", "rx-packet", "tx-packet", "running", "disabled"}
+
 // InterfaceStatsStream → /interface/print stats interval=<d> (streaming, MikroTik
 // yang push tiap interval — BUKAN poll dari Go). Counter byte/packet per
 // interface kumulatif → caller hitung rate dari delta.
 func (c *Client) InterfaceStatsStream(id string, interval time.Duration, h func(*roslib.Sentence)) error {
 	return c.dev.Path("/interface").Print().Stats().
+		Proplist(interfaceStatsProplist...).
 		Interval(interval).Stream(id, h)
 }
 
