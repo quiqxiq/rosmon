@@ -515,7 +515,7 @@ func (h *HotspotProfiles) propagateSet(c *gin.Context, deviceID uint, p model.Ho
 	return mapHotspotProfileErr(cs.Hot.ProfileSet(ctx, hotspot.ProfileSetArgs{
 		ID:                rp.ID,
 		RateLimit:         p.RateLimit,
-		AddressPool:       p.AddressPool,
+		AddressPool:       &p.AddressPool,
 		SharedUsers:       &sharedUsersStr,
 		StatusAutorefresh: p.StatusAutorefresh,
 		ParentQueue:       p.ParentQueue,

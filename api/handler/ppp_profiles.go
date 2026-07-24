@@ -380,8 +380,8 @@ func (h *PPPProfiles) propagateSet(c *gin.Context, deviceID uint, p model.PPPPro
 	return mapPPPProfileErr(cs.PPP.ProfileSet(ctx, ppp.ProfileSetArgs{
 		ID:             rp.ID,
 		RateLimit:      p.RateLimit,
-		LocalAddr:      p.LocalAddress,
-		RemoteAddr:     p.RemoteAddress,
+		LocalAddr:      &p.LocalAddress,
+		RemoteAddr:     &p.RemoteAddress,
 		SessionTimeout: &sessionTimeout,
 		IdleTimeout:    &idleTimeout,
 		ParentQueue:    &parentQueue,

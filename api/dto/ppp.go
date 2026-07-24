@@ -143,10 +143,10 @@ func (r RouterPPPProfileCreateRequest) ToArgs() ppp.ProfileAddArgs {
 }
 
 type RouterPPPProfileUpdateRequest struct {
-	Name           string  `json:"name,omitempty"`
-	LocalAddr      string  `json:"local_address,omitempty"`
-	RemoteAddr     string  `json:"remote_address,omitempty"`
-	RateLimit      string  `json:"rate_limit,omitempty"`
+	Name           *string `json:"name,omitempty"`
+	LocalAddr      *string `json:"local_address,omitempty"`
+	RemoteAddr     *string `json:"remote_address,omitempty"`
+	RateLimit      *string `json:"rate_limit,omitempty"`
 	SessionTimeout *string `json:"session_timeout,omitempty"`
 	IdleTimeout    *string `json:"idle_timeout,omitempty"`
 	ParentQueue    *string `json:"parent_queue,omitempty"`
@@ -157,9 +157,17 @@ type RouterPPPProfileUpdateRequest struct {
 }
 
 func (r RouterPPPProfileUpdateRequest) ToArgs(id string) ppp.ProfileSetArgs {
+	nameVal := ""
+	if r.Name != nil {
+		nameVal = *r.Name
+	}
+	rateLimitVal := ""
+	if r.RateLimit != nil {
+		rateLimitVal = *r.RateLimit
+	}
 	return ppp.ProfileSetArgs{
-		ID: id, Name: r.Name, LocalAddr: r.LocalAddr, RemoteAddr: r.RemoteAddr,
-		RateLimit: r.RateLimit, SessionTimeout: r.SessionTimeout, IdleTimeout: r.IdleTimeout,
+		ID: id, Name: nameVal, LocalAddr: r.LocalAddr, RemoteAddr: r.RemoteAddr,
+		RateLimit: rateLimitVal, SessionTimeout: r.SessionTimeout, IdleTimeout: r.IdleTimeout,
 		ParentQueue: r.ParentQueue, OnUp: r.OnUp, OnDown: r.OnDown,
 		Comment: r.Comment,
 	}

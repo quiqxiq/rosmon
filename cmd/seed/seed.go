@@ -76,10 +76,19 @@ func (s *seeder) resolveDevice(ctx context.Context) error {
 		return fmt.Errorf("gagal list device: %w", err)
 	}
 	if len(devices) == 0 {
-		return fmt.Errorf(
-			"tidak ada MikrotikDevice terdaftar di database.\n" +
-				"  → Daftarkan router terlebih dahulu via web UI (menu Routers → Add Router),\n" +
-				"    lalu jalankan seeder kembali.")
+		s.log.Info("Tidak ada MikrotikDevice terdaftar. Membuat device default/dummy...")
+		dev := &model.MikrotikDevice{
+			DisplayName: "MikroTik Utama",
+			Host:        "10.10.10.1",
+			Port:        8728,
+			Username:    "admin",
+			Password:    "password",
+			Active:      true,
+		}
+		if err := s.deviceStore.Create(ctx, dev); err != nil {
+			return fmt.Errorf("gagal membuat device default: %w", err)
+		}
+		devices = append(devices, *dev)
 	}
 
 	// --device-id diberikan: cari device tersebut.
@@ -121,9 +130,34 @@ func (s *seeder) resolveDevice(ctx context.Context) error {
 
 // ─── Fase 1: DB ────────────────────────────────────────────────────────────
 
+func (s *seeder) clearDB(ctx context.Context) error {
+	s.log.Info("clearing existing seed data from DB...")
+	err := s.db.WithContext(ctx).Exec("TRUNCATE TABLE subscriptions, customers, hotspot_profiles, ppp_profiles, invoices, invoice_items, payments, audit_logs, notification_logs, customer_registrations, tickets, transactions RESTART IDENTITY CASCADE;").Error
+	if err != nil {
+		s.log.WithError(err).Warn("TRUNCATE failed, using Unscoped Delete fallback")
+		s.db.WithContext(ctx).Unscoped().Where("1 = 1").Delete(&model.Subscription{})
+		s.db.WithContext(ctx).Unscoped().Where("1 = 1").Delete(&model.Customer{})
+		s.db.WithContext(ctx).Unscoped().Where("1 = 1").Delete(&model.HotspotProfile{})
+		s.db.WithContext(ctx).Unscoped().Where("1 = 1").Delete(&model.PPPProfile{})
+		s.db.WithContext(ctx).Unscoped().Where("1 = 1").Delete(&model.Invoice{})
+		s.db.WithContext(ctx).Unscoped().Where("1 = 1").Delete(&model.InvoiceItem{})
+		s.db.WithContext(ctx).Unscoped().Where("1 = 1").Delete(&model.Payment{})
+		s.db.WithContext(ctx).Unscoped().Where("1 = 1").Delete(&model.AuditLog{})
+		s.db.WithContext(ctx).Unscoped().Where("1 = 1").Delete(&model.NotificationLog{})
+		s.db.WithContext(ctx).Unscoped().Where("1 = 1").Delete(&model.CustomerRegistration{})
+		s.db.WithContext(ctx).Unscoped().Where("1 = 1").Delete(&model.Ticket{})
+		s.db.WithContext(ctx).Unscoped().Where("1 = 1").Delete(&model.Transaction{})
+	}
+	return nil
+}
+
 func (s *seeder) seedDB(ctx context.Context) error {
 	if err := s.resolveDevice(ctx); err != nil {
 		return err
+	}
+
+	if err := s.clearDB(ctx); err != nil {
+		return fmt.Errorf("clear DB: %w", err)
 	}
 
 	if err := s.seedPPPProfiles(ctx); err != nil {
@@ -141,15 +175,15 @@ func (s *seeder) seedDB(ctx context.Context) error {
 // ─── Data definitions ──────────────────────────────────────────────────────
 
 type pppProfileDef struct {
-	Name, RateLimit, RemoteAddress, Description string
+	Name, RateLimit, LocalAddress, RemoteAddress, Description string
 	PriceMonthly                                int64
 }
 
 func pppProfileDefs() []pppProfileDef {
 	return []pppProfileDef{
-		{"paket-bronze", "10M/5M", "", "Paket Bronze 10Mbps down / 5Mbps up", 150000},
-		{"paket-silver", "20M/10M", "", "Paket Silver 20Mbps down / 10Mbps up", 250000},
-		{"paket-gold", "50M/25M", "", "Paket Gold 50Mbps down / 25Mbps up", 400000},
+		{Name: "paket-bronze", RateLimit: "10M/5M", LocalAddress: "", RemoteAddress: "", Description: "Paket Bronze 10Mbps down / 5Mbps up", PriceMonthly: 150000},
+		{Name: "paket-silver", RateLimit: "20M/10M", LocalAddress: "", RemoteAddress: "", Description: "Paket Silver 20Mbps down / 10Mbps up", PriceMonthly: 250000},
+		{Name: "paket-gold", RateLimit: "50M/25M", LocalAddress: "", RemoteAddress: "", Description: "Paket Gold 50Mbps down / 25Mbps up", PriceMonthly: 400000},
 	}
 }
 
@@ -161,10 +195,10 @@ type hotspotProfileDef struct {
 
 func hotspotProfileDefs() []hotspotProfileDef {
 	return []hotspotProfileDef{
-		{Name: "hs-basic", Role: "permanent", RateLimit: "5M/5M", AddressPool: "", PriceMonthly: 100000, Description: "Hotspot Basic 5Mbps (bulanan)"},
-		{Name: "hs-kantor", Role: "permanent", RateLimit: "20M/20M", AddressPool: "", PriceMonthly: 250000, Description: "Hotspot Kantor 20Mbps (bulanan)"},
-		{Name: "hs-harian", Role: "voucher", RateLimit: "5M/5M", ExpiryMode: "rem", Validity: "1d", Price: 3000, SellPrice: 5000, Description: "Voucher Harian 5Mbps / 1 hari"},
-		{Name: "hs-mingguan", Role: "voucher", RateLimit: "10M/10M", ExpiryMode: "rem", Validity: "7d", Price: 10000, SellPrice: 15000, Description: "Voucher Mingguan 10Mbps / 7 hari"},
+		{Name: "hs-basic", Role: "permanent", RateLimit: "5M/5M", AddressPool: "hs-pool", PriceMonthly: 100000, Description: "Hotspot Basic 5Mbps (bulanan)"},
+		{Name: "hs-kantor", Role: "permanent", RateLimit: "20M/20M", AddressPool: "hs-pool", PriceMonthly: 250000, Description: "Hotspot Kantor 20Mbps (bulanan)"},
+		{Name: "hs-harian", Role: "voucher", RateLimit: "5M/5M", AddressPool: "hs-pool", ExpiryMode: "rem", Validity: "1d", Price: 3000, SellPrice: 5000, Description: "Voucher Harian 5Mbps / 1 hari"},
+		{Name: "hs-mingguan", Role: "voucher", RateLimit: "10M/10M", AddressPool: "hs-pool", ExpiryMode: "rem", Validity: "7d", Price: 10000, SellPrice: 15000, Description: "Voucher Mingguan 10Mbps / 7 hari"},
 	}
 }
 

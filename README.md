@@ -54,46 +54,65 @@ Tiga zone route auth: **publik** (registrasi, landing page, paket), **staff JWT*
 
 Sistem ini mendukung setup lokal manual maupun full-stack menggunakan Docker secara cross-platform (Windows, macOS, Linux).
 
-### 1. Setup Awal & Dependensi
+### 1. Setup Lokal di Windows menggunakan Docker (Desktop)
+Anda dapat menjalankan seluruh stack secara lokal (PostgreSQL + InfluxDB + Go Backend + React Frontend) menggunakan Docker Desktop di Windows.
+
+* **Mode Production** (Frontend disajikan oleh Nginx di port `80`, API Backend di port `8080`):
+  ```bash
+  docker compose -f docker/docker-compose.yml up -d --build
+  ```
+  Akses web UI di [http://localhost](http://localhost) dan API di [http://localhost:8080](http://localhost:8080).
+
+* **Mode Development** (Frontend dijalankan via Vite dev server di port `5173` dengan Hot Module Replacement):
+  ```bash
+  docker compose -f docker/docker-compose-dev.yml up -d --build
+  ```
+  Akses web UI di [http://localhost:5173](http://localhost:5173) dan API di [http://localhost:8080](http://localhost:8080).
+
+* **Melakukan Seeding Database Lokal**:
+  Setelah container Postgres dan Backend menyala, Anda dapat melakukan seeding dummy data ke database lokal:
+  - Mode Production: `docker exec -it rosmon-backend go run ./cmd/seed/ --direct-sync=false`
+  - Mode Development: `docker exec -it rosmon-backend-dev go run ./cmd/seed/ --direct-sync=false`
+
+* **Menghentikan Container**:
+  - Mode Production: `docker compose -f docker/docker-compose.yml down`
+  - Mode Development: `docker compose -f docker/docker-compose-dev.yml down`
+
+### 2. Deploy ke VPS
+Aplikasi rosmon telah diintegrasikan agar terhubung ke database utama yang ada di VPS (`203.145.34.217`).
+
+* **Perintah Deploy / Jalankan di VPS**:
+  Buka terminal pada server VPS Anda, navigasikan ke direktori `/home/jitu/rosmon` dan jalankan:
+  ```bash
+  docker compose -f docker/docker-compose.yml -f docker/docker-compose.vps.yml up -d --build
+  ```
+  Hal ini akan mematikan database bawaan lokal dan menghubungkan backend rosmon secara langsung ke stack database utama di VPS (`postgres-db` & `influxdb-db`) pada internal network Docker `db-tools_default`.
+
+* **Memantau Log Backend di VPS**:
+  ```bash
+  docker logs -f rosmon-backend
+  ```
+
+* **Melakukan Seed Ulang Database VPS**:
+  Dari root project rosmon lokal Anda (yang sudah terhubung ke VPS database via `.env` atau target host VPS), jalankan:
+  ```bash
+  go run ./cmd/seed/ --direct-sync=false
+  ```
+  *Seeder akan mengosongkan (truncating) data operasional lama terlebih dahulu dan membuat data dummy baru di VPS secara aman.*
+
+### 3. Setup Awal & Dependensi Manual (Tanpa Docker)
 Jalankan perintah berikut untuk menyalin file konfigurasi `.env`, men-generate secret keys acak yang aman secara otomatis, serta menyiapkan paket-paket dependensi Go backend dan React frontend:
 ```bash
 make setup
 ```
 
-### 2. Docker Full-Stack (Direkomendasikan)
-Anda dapat langsung menjalankan seluruh aplikasi (PostgreSQL + InfluxDB + Go Backend + React Frontend) menggunakan Docker Compose:
-
-* **Mode Development** (Frontend dijalankan via Vite dev server dengan HMR):
-  ```bash
-  make up-dev
-  # Frontend: http://localhost:5173
-  # API Backend: http://localhost:8080
-  ```
-* **Mode Production** (Frontend disajikan sebagai static files via Nginx + backend binary):
-  ```bash
-  make up
-  # Frontend: http://localhost (Port 80)
-  # API Backend: http://localhost:8080
-  ```
-
-Untuk mematikan container, jalankan `make down` (atau `make down-dev`). Untuk melakukan kompilasi ulang bersih, jalankan `make rebuild` (atau `make rebuild-dev`).
-
-### 3. Setup Token InfluxDB 3 (Opsional)
-Jika Anda mengaktifkan metrics InfluxDB dan ingin menghindari error authentication di backend, jalankan perintah berikut setelah container Docker berhasil berjalan:
+Jalankan database PostgreSQL & InfluxDB 3 saja:
 ```bash
-make influx-token
-```
-Perintah ini akan secara otomatis membuat token admin baru di dalam container InfluxDB 3, menambahkannya ke file `.env` lokal Anda sebagai `INFLUX_TOKEN`, dan menyetel `INFLUX_ENABLED=true`.
-
----
-
-### 4. Menjalankan Server Lokal Manual (Tanpa Docker)
-Jika Anda ingin menjalankan server dan database secara terpisah tanpa Docker:
-```bash
-# Jalankan database PostgreSQL & InfluxDB 3 saja:
 docker compose -f docker/docker-compose.yml up -d postgres influxdb3
+```
 
-# Jalankan Go backend dan Vite dev server secara bersamaan:
+Jalankan Go backend dan Vite dev server secara bersamaan:
+```bash
 make dev
 # API Backend: http://localhost:8080
 # Frontend: http://localhost:5173

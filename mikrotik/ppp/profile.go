@@ -95,8 +95,8 @@ func (c *Client) ProfileAdd(ctx context.Context, a ProfileAddArgs) (string, erro
 type ProfileSetArgs struct {
 	ID             string // wajib
 	Name           string
-	LocalAddr      string
-	RemoteAddr     string
+	LocalAddr      *string
+	RemoteAddr     *string
 	RateLimit      string
 	SessionTimeout *string
 	IdleTimeout    *string
@@ -115,11 +115,25 @@ func (c *Client) ProfileSet(ctx context.Context, a ProfileSetArgs) error {
 	if a.Name != "" {
 		pairs = append(pairs, roslib.NewPair("name", a.Name))
 	}
-	if a.LocalAddr != "" {
-		pairs = append(pairs, roslib.NewPair("local-address", a.LocalAddr))
+	if a.LocalAddr != nil {
+		if *a.LocalAddr != "" {
+			pairs = append(pairs, roslib.NewPair("local-address", *a.LocalAddr))
+		} else {
+			_, err := c.dev.Path(profilePath).Run(ctx, "unset", roslib.NewPair("numbers", a.ID), roslib.NewPair("value-name", "local-address"))
+			if err != nil {
+				return err
+			}
+		}
 	}
-	if a.RemoteAddr != "" {
-		pairs = append(pairs, roslib.NewPair("remote-address", a.RemoteAddr))
+	if a.RemoteAddr != nil {
+		if *a.RemoteAddr != "" {
+			pairs = append(pairs, roslib.NewPair("remote-address", *a.RemoteAddr))
+		} else {
+			_, err := c.dev.Path(profilePath).Run(ctx, "unset", roslib.NewPair("numbers", a.ID), roslib.NewPair("value-name", "remote-address"))
+			if err != nil {
+				return err
+			}
+		}
 	}
 	if a.RateLimit != "" {
 		pairs = append(pairs, roslib.NewPair("rate-limit", a.RateLimit))

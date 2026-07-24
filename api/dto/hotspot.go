@@ -219,25 +219,41 @@ func (r RouterHotspotProfileCreateRequest) ToArgs() hotspot.ProfileAddArgs {
 }
 
 type RouterHotspotProfileUpdateRequest struct {
-	Name              string  `json:"name,omitempty"`
-	AddressPool       string      `json:"address_pool,omitempty"`
-	RateLimit         string      `json:"rate_limit,omitempty"`
+	Name              *string     `json:"name,omitempty"`
+	AddressPool       *string     `json:"address_pool,omitempty"`
+	RateLimit         *string     `json:"rate_limit,omitempty"`
 	SharedUsers       interface{} `json:"shared_users,omitempty"`
-	StatusAutorefresh string  `json:"status_autorefresh,omitempty"`
-	OnLogin           *string `json:"on_login,omitempty"`
-	ParentQueue       string  `json:"parent_queue,omitempty"`
+	StatusAutorefresh *string     `json:"status_autorefresh,omitempty"`
+	OnLogin           *string     `json:"on_login,omitempty"`
+	ParentQueue       *string     `json:"parent_queue,omitempty"`
 }
 
 func (r RouterHotspotProfileUpdateRequest) ToArgs(id string) hotspot.ProfileSetArgs {
+	nameVal := ""
+	if r.Name != nil {
+		nameVal = *r.Name
+	}
+	rateLimitVal := ""
+	if r.RateLimit != nil {
+		rateLimitVal = *r.RateLimit
+	}
+	statusAutorefreshVal := ""
+	if r.StatusAutorefresh != nil {
+		statusAutorefreshVal = *r.StatusAutorefresh
+	}
+	parentQueueVal := ""
+	if r.ParentQueue != nil {
+		parentQueueVal = *r.ParentQueue
+	}
 	return hotspot.ProfileSetArgs{
 		ID:                id,
-		Name:              r.Name,
+		Name:              nameVal,
 		AddressPool:       r.AddressPool,
-		RateLimit:         r.RateLimit,
+		RateLimit:         rateLimitVal,
 		SharedUsers:       parseSharedUsers(r.SharedUsers),
-		StatusAutorefresh: r.StatusAutorefresh,
+		StatusAutorefresh: statusAutorefreshVal,
 		OnLogin:           r.OnLogin,
-		ParentQueue:       r.ParentQueue,
+		ParentQueue:       parentQueueVal,
 	}
 }
 

@@ -115,7 +115,7 @@ func (c *Client) ProfileAdd(ctx context.Context, a ProfileAddArgs) (string, erro
 type ProfileSetArgs struct {
 	ID                string // wajib
 	Name              string
-	AddressPool       string
+	AddressPool       *string
 	RateLimit         string
 	SharedUsers       *string
 	StatusAutorefresh string
@@ -133,8 +133,12 @@ func (c *Client) ProfileSet(ctx context.Context, a ProfileSetArgs) error {
 	if a.Name != "" {
 		pairs = append(pairs, roslib.NewPair("name", a.Name))
 	}
-	if a.AddressPool != "" && a.AddressPool != "none" {
-		pairs = append(pairs, roslib.NewPair("address-pool", a.AddressPool))
+	if a.AddressPool != nil {
+		if *a.AddressPool != "" && *a.AddressPool != "none" {
+			pairs = append(pairs, roslib.NewPair("address-pool", *a.AddressPool))
+		} else {
+			pairs = append(pairs, roslib.NewPair("address-pool", "none"))
+		}
 	}
 	if a.RateLimit != "" {
 		pairs = append(pairs, roslib.NewPair("rate-limit", a.RateLimit))
